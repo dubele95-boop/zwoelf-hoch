@@ -1,0 +1,470 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zwölf hoch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a dark card table. Opponents along the top, shared piles in the middle, your own area at the bottom. Single deliberate dark look. */
+:root{
+  --table:#1c1a29; --table-2:#252236; --table-3:#2f2b44;
+  --line:rgba(236,228,255,.10); --line-2:rgba(236,228,255,.22);
+  --ink:#f1ece2; --muted:#a6a0bb; --accent:#f2b84b; --accent-ink:#2a1f05;
+  --card:#f6f0e4; --card-ink:#26233a;
+  --g1:#1d7d8f; --g2:#7650c2; --g3:#d4562c;
+  --jk:#2b2542; --danger:#ef6b5b; --ok:#57c29a;
+  --f-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cw:clamp(46px,6.2vw,86px); --cws:clamp(30px,2.9vw,44px);
+  --r:9px;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--table);background-image:radial-gradient(ellipse 90% 60% at 50% 45%,var(--table-2),var(--table) 70%);color:var(--ink);font:15px/1.5 var(--f-body)}
+#app{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:flex;flex-direction:column;gap:16px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand b{font:900 30px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.brand b i{font-style:normal;color:var(--accent)}
+.brand span{color:var(--muted);font-size:13px}
+.bar .actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line-2);background:var(--table-3);padding:8px 14px;border-radius:8px;font-weight:700;font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{border-color:rgba(239,107,91,.5);color:#ffb3a8}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.panel{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:16px}
+.muted{color:var(--muted)}
+input[type=text],select{background:var(--table);border:1px solid var(--line-2);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;min-width:0}
+body.busy{cursor:progress}
+
+/* Home */
+.home{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;align-items:start}
+.home .hero h1{font:900 clamp(40px,6vw,72px)/.92 var(--f-display);text-transform:uppercase;letter-spacing:.01em}
+.home .hero h1 em{font-style:normal;color:var(--accent)}
+.home .hero p{max-width:58ch;color:var(--muted);margin:10px 0 0}
+.fan{display:flex;margin:18px 0 6px;padding-left:10px}
+.fan .card{margin-left:-14px;transform:rotate(calc((var(--k) - 2.5) * 5deg)) translateY(calc(var(--d) * 1px))}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px}
+.glist{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.gitem{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.15)}
+.gitem .code{font:800 22px/1 var(--f-display);letter-spacing:.08em}
+.gitem .who{color:var(--muted);font-size:13px;min-width:0;overflow-wrap:anywhere}
+.pill{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:99px;border:1px solid var(--line-2);color:var(--muted)}
+.pill.live{color:var(--ok);border-color:rgba(87,194,154,.45)}
+.pill.wait{color:var(--accent);border-color:rgba(242,184,75,.45)}
+.rules ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:65ch}
+.empty{color:var(--muted);padding:14px;border:1px dashed var(--line-2);border-radius:10px;text-align:center}
+
+/* Lobby */
+.lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.bigcode{font:900 clamp(56px,9vw,96px)/1 var(--f-display);letter-spacing:.12em;color:var(--accent)}
+.plist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.18)}
+
+/* Cards */
+.card,.back,.slot{width:var(--cw);aspect-ratio:5/7;border-radius:var(--r);position:relative;flex:none;box-sizing:border-box}
+.card{background:var(--card);color:var(--c);border:1px solid rgba(0,0,0,.25);box-shadow:0 2px 0 rgba(0,0,0,.25),0 6px 14px rgba(0,0,0,.25);display:grid;place-items:center}
+.card::before{content:"";position:absolute;inset:4px;border:1.5px solid var(--c);border-radius:calc(var(--r) - 4px);opacity:.55}
+.card .n{font:900 calc(var(--cw) * .62)/1 var(--f-display);letter-spacing:-.02em}
+.card .c{position:absolute;font:800 calc(var(--cw) * .17)/1 var(--f-display)}
+.card .tl{top:8%;left:12%}.card .br{bottom:8%;right:12%;transform:rotate(180deg)}
+.card.g1{--c:var(--g1)}.card.g2{--c:var(--g2)}.card.g3{--c:var(--g3)}
+.card.j{--c:var(--accent);background:var(--jk);color:var(--accent)}
+.card.j .n{font-size:calc(var(--cw) * .5)}
+.card .as{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:800 12px/1 var(--f-body);padding:3px 6px;border-radius:99px;white-space:nowrap}
+.back{background:var(--table-3);border:1px solid var(--line-2);background-image:repeating-linear-gradient(45deg,rgba(242,184,75,.16) 0 3px,transparent 3px 9px),repeating-linear-gradient(-45deg,rgba(118,80,194,.28) 0 3px,transparent 3px 9px);box-shadow:0 2px 0 rgba(0,0,0,.3);display:grid;place-items:center}
+.back b{font:900 calc(var(--cw) * .3)/1 var(--f-display);background:var(--table);padding:2px 6px;border-radius:6px}
+.slot{border:1.5px dashed var(--line-2);display:grid;place-items:center;color:var(--muted);font:800 calc(var(--cw) * .32)/1 var(--f-display)}
+.sm{--cw:var(--cws);--r:6px}
+.sm .card .c{display:none}.sm .card::before{inset:2px}
+.sm .back b{font-size:calc(var(--cws) * .32)}
+
+.cbtn{background:none;border:0;padding:0;border-radius:var(--r);transition:transform .15s ease}
+.cbtn.sel{transform:translateY(-10px)}
+.cbtn.sel>.card{outline:3px solid var(--accent);outline-offset:2px}
+.tgt{outline:3px solid var(--accent);outline-offset:4px;border-radius:12px;animation:glow 1.2s ease-in-out infinite}
+.tgt.soft{outline-color:rgba(242,184,75,.45);animation:none}
+@keyframes glow{50%{outline-color:rgba(242,184,75,.35)}}
+.land{animation:land .28s ease-out}
+@keyframes land{from{transform:scale(1.15) translateY(-6px)}to{transform:none}}
+
+/* Game */
+.banner{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.banner.me{background:rgba(242,184,75,.12);border-color:rgba(242,184,75,.5)}
+.banner .msg{font-weight:700;font-size:16px}
+.banner .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.opps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:10px}
+.opp{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.16);display:flex;flex-direction:column;gap:8px;min-width:0}
+.opp.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.opp .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.opp .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.opp .rowc{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.mini{display:flex;flex-direction:column;align-items:center;gap:3px}
+.mini small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.discs{display:flex;gap:4px}
+.hcount{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-left:auto}
+.hcount .dots{display:flex}
+.hcount .dots i{width:9px;height:13px;border-radius:2px;background:var(--table-3);border:1px solid var(--line-2);margin-left:-3px}
+.mid{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(220px,300px);gap:20px;align-items:start;padding:18px;border-radius:16px;background:rgba(0,0,0,.18);border:1px solid var(--line)}
+.pilegrp{display:flex;flex-direction:column;gap:8px;align-items:center}
+.builds{display:flex;gap:clamp(10px,2vw,26px);flex-wrap:wrap;justify-content:center}
+.bpile{background:none;border:0;padding:4px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.bpile .need{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto;min-width:0}
+.log div:first-child{color:var(--ink)}
+.mine{display:flex;flex-wrap:wrap;gap:24px 36px;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.mine.turn{border-color:rgba(242,184,75,.55)}
+.mine .grp{display:flex;flex-direction:column;gap:8px}
+.mydiscs{display:flex;gap:10px}
+.dpile{background:none;border:0;padding:0;position:relative;width:var(--cw);border-radius:var(--r)}
+.dpile .stack{position:relative;width:var(--cw)}
+.dpile .stack>*{position:absolute;left:0}
+.hand{display:flex;gap:8px;padding-top:12px;flex-wrap:wrap;min-height:calc(var(--cw) * 1.4)}
+.stockwrap{display:flex;gap:10px;align-items:flex-end}
+.count{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.hint{font-size:13px;color:var(--accent)}
+.winner{text-align:center;padding:22px;border-radius:16px;background:rgba(242,184,75,.12);border:1px solid var(--accent);display:flex;flex-direction:column;gap:10px;align-items:center}
+.winner h2{font:900 clamp(34px,5vw,56px)/1 var(--f-display);text-transform:uppercase;color:var(--accent)}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--table);padding:10px 16px;border-radius:10px;font-weight:700;max-width:min(92vw,520px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:10}
+
+@media (max-width:900px){
+  .home,.lobby{grid-template-columns:minmax(0,1fr)}
+  .mid{grid-template-columns:minmax(0,1fr)}
+  .mid .pilegrp:first-child{flex-direction:row}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head><body>
+<div id="app">
+  <header class="bar">
+    <div class="brand"><b>Zwölf <i>hoch</i></b><span>Kartenspiel für 2 bis 8</span></div>
+    <div class="actions" id="baractions"></div>
+  </header>
+  <main id="view"><div class="panel muted">Verbinde mit dem Spieltisch …</div></main>
+</div>
+<div id="toast" hidden></div>
+<script>
+(function(){
+const view = document.getElementById('view');
+const barActions = document.getElementById('baractions');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v == null ? d : v; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+};
+const MAXP = 8;
+const hashCode = (location.hash || '').replace('#','').toUpperCase().slice(0,4);
+
+const S = { ws:null, token:LS.get('zh.token',null), me:null, game:null, sel:null, name:LS.get('zh.name',''),
+  connected:false, everConnected:false, view:null, confirmEnd:0, landed:null, prevBuild:null, retry:0 };
+
+/* ---------- Verbindung ---------- */
+function connect(){
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  S.ws = ws;
+  ws.onopen = () => { S.retry = 0; ws.send(JSON.stringify({t:'hello', token:S.token})); };
+  ws.onmessage = ev => {
+    let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+    if(m.t === 'welcome'){
+      S.token = m.token; S.me = m.id; LS.set('zh.token', m.token);
+      const first = !S.everConnected;
+      S.connected = true; S.everConnected = true; render();
+      if(first && hashCode.length === 4 && !S.game && S.name.trim()) send({t:'join', code:hashCode, name:S.name.trim()});
+    }
+    else if(m.t === 'state'){
+      const prev = S.game;
+      S.landed = null;
+      if(prev && prev.build && prev.status === 'playing') m.game.build.forEach((p,i) => { if(p.length && p.length !== prev.build[i].length) S.landed = i; });
+      S.game = m.game;
+      if(location.hash !== '#' + m.game.code) history.replaceState(null, '', '#' + m.game.code);
+      render();
+    }
+    else if(m.t === 'error'){ toast(m.msg); if(S.sel){ S.sel = null; render(); } }
+    else if(m.t === 'left' || m.t === 'ended'){
+      if(m.t === 'ended') toast('Das Spiel wurde beendet.');
+      S.game = null; S.sel = null; history.replaceState(null, '', location.pathname); document.title = 'Zwölf hoch'; render();
+    }
+  };
+  ws.onclose = () => {
+    S.connected = false; render();
+    S.retry++;
+    setTimeout(connect, Math.min(8000, 800 * S.retry));
+  };
+}
+function send(m){
+  if(!S.ws || S.ws.readyState !== 1){ toast('Keine Verbindung zum Server. Einen Moment …'); return false; }
+  S.ws.send(JSON.stringify(m)); return true;
+}
+
+let toastT;
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3800); }
+
+function myName(){
+  const el = document.getElementById('nameInput');
+  const n = ((el ? el.value : S.name) || '').trim().slice(0,18);
+  if(n){ S.name = n; LS.set('zh.name', n); }
+  return n;
+}
+const top = a => a && a.length ? a[a.length-1] : null;
+const fits = (v, pile) => v === 0 || v === pile.length + 1;
+const meP = () => S.game && S.game.players.find(p => p.id === S.me);
+function myTurn(){ const g = S.game; return !!(g && g.status === 'playing' && g.players[g.turn] && g.players[g.turn].id === S.me && g.hand); }
+function cardAt(sel){
+  const g = S.game, p = meP(); if(!p) return null;
+  if(sel.src === 'hand') return g.hand[sel.i];
+  if(sel.src === 'stock') return p.stockTop;
+  if(sel.src === 'disc') return top(p.discards[sel.i]);
+}
+
+/* ---------- Aktionen ---------- */
+const H = {
+  create(){ const name = myName(); if(!name) return toast('Gib zuerst deinen Namen ein.'); send({t:'create', name}); },
+  joinCode(){
+    const el = document.getElementById('codeInput');
+    const c = (el.value || '').trim().toUpperCase();
+    if(c.length !== 4) return toast('Der Code hat 4 Buchstaben.');
+    const name = myName(); if(!name) return toast('Gib zuerst deinen Namen ein.');
+    send({t:'join', code:c, name});
+  },
+  back(){ send({t:'leave'}); },
+  leave(){ send({t:'leave'}); },
+  start(){ send({t:'start'}); },
+  rematch(){ send({t:'start'}); },
+  skip(){ send({t:'skip'}); },
+  endTurn(){ send({t:'endTurn'}); },
+  copy(){
+    const link = location.origin + location.pathname + '#' + S.game.code;
+    const el = document.getElementById('invite');
+    const done = () => toast('Link kopiert. Schick ihn deinen Freunden.');
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, () => { el.select(); });
+    else el.select();
+  },
+  endgame(){
+    if(Date.now() - S.confirmEnd > 4000){ S.confirmEnd = Date.now(); render(); setTimeout(render, 4100); return; }
+    send({t:'endGame'});
+  },
+  hand(i){ selectCard({src:'hand', i}); },
+  stock(){ selectCard({src:'stock'}); },
+  disc(i){
+    if(S.sel && S.sel.src === 'hand'){ const s = S.sel; S.sel = null; send({t:'discard', i:s.i, v:s.v, to:i}); render(); return; }
+    selectCard({src:'disc', i});
+  },
+  build(i){
+    if(!S.sel) return toast('Wähle zuerst eine Karte.');
+    const pile = S.game.build[i];
+    if(!fits(S.sel.v, pile)) return toast('Passt nicht: Hier wird eine ' + (pile.length + 1) + ' gebraucht.');
+    const s = S.sel; S.sel = null;
+    send({t:'play', src:s.src, i:s.i, v:s.v, pile:i}); render();
+  }
+};
+function selectCard(sel){
+  if(!myTurn()) return toast('Du bist gerade nicht dran.');
+  const v = cardAt(sel); if(v == null) return;
+  if(S.sel && S.sel.src === sel.src && S.sel.i === sel.i) S.sel = null; else S.sel = {...sel, v};
+  render();
+}
+function bind(root){
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if(!b || b.disabled) return;
+    const f = H[b.dataset.act]; if(f) f(+b.dataset.i, b);
+  });
+}
+bind(view); bind(barActions);
+view.addEventListener('change', e => { if(e.target.id === 'stackSel') send({t:'setStack', n:+e.target.value}); });
+view.addEventListener('input', e => { if(e.target.id === 'nameInput'){ S.name = e.target.value; LS.set('zh.name', e.target.value.trim()); } });
+view.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  if(e.target.id === 'codeInput') H.joinCode();
+  if(e.target.id === 'nameInput'){ const c = document.getElementById('codeInput'); if(c && c.value.trim().length === 4) H.joinCode(); }
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && S.sel){ S.sel = null; render(); } });
+
+/* ---------- Darstellung ---------- */
+function cardHTML(v, extra, style){
+  if(v == null) return '';
+  const g = v === 0 ? 'j' : v <= 4 ? 'g1' : v <= 8 ? 'g2' : 'g3';
+  const t = v === 0 ? 'J' : v;
+  return '<div class="card ' + g + '"' + (style ? ' style="' + style + '"' : '') + '><span class="c tl">' + t + '</span><span class="n">' + (v === 0 ? '★' : v) + '</span><span class="c br">' + t + '</span>' + (extra||'') + '</div>';
+}
+
+function render(){
+  renderBar();
+  if(!S.everConnected){ S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
+  if(!S.game) return renderHome();
+  if(S.game.status === 'lobby') return renderLobby();
+  return renderGame();
+}
+function renderBar(){
+  let h = '';
+  if(S.everConnected && !S.connected) h += '<span class="pill wait">Verbindung getrennt, verbinde neu …</span>';
+  const g = S.game;
+  if(g) h += '<button class="btn small" data-act="back">' + (g.status === 'lobby' ? 'Tisch verlassen' : 'Zur Startseite') + '</button>';
+  if(g && g.host === S.me && g.status !== 'lobby'){
+    const cur = g.players[g.turn];
+    if(g.status === 'playing' && cur && cur.id !== S.me) h += '<button class="btn small" data-act="skip" title="Falls jemand nicht mehr reagiert">Zug überspringen</button>';
+    h += '<button class="btn small danger" data-act="endgame">' + (Date.now() - S.confirmEnd < 4000 ? 'Wirklich beenden?' : 'Spiel beenden') + '</button>';
+  }
+  barActions.innerHTML = h;
+}
+
+function renderHome(){
+  if(S.view === 'home') return;
+  S.view = 'home';
+  view.innerHTML =
+    '<section class="home">' +
+      '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' +
+        '<div class="panel hero">' +
+          '<div class="fan">' + [3,7,0,11,12].map((v,k) => cardHTML(v, '', '--k:' + k + ';--d:' + [6,1,0,1,6][k])).join('') + '</div>' +
+          '<h1>Von <em>1</em> bis <em>12</em>, wer zuerst leer ist, gewinnt</h1>' +
+          '<p>Spielt gemeinsam im Browser, ohne Anmeldung. Erstelle einen Tisch und schick deinen Freunden den Link oder den Code.</p>' +
+        '</div>' +
+        '<div class="panel rules"><div class="label">So geht\'s</div><ol>' +
+          '<li>Ziel: Spiele als Erste oder Erster deinen <b>Spielerstapel</b> leer.</li>' +
+          '<li>In der Mitte liegen 4 <b>Aufbaustapel</b>. Jeder wird aufsteigend von 1 bis 12 gelegt. Bei 12 wird er abgeräumt.</li>' +
+          '<li>Der <b>Joker ★</b> ersetzt jede Zahl.</li>' +
+          '<li>Zu Beginn deines Zuges wird deine Hand auf 5 Karten aufgefüllt.</li>' +
+          '<li>Leg so viele Karten in die Mitte, wie du kannst: aus der Hand, die oberste deines Spielerstapels und die oberste deiner Ablagestapel. Leere Hand? Du ziehst 5 neue.</li>' +
+          '<li>Dein Zug endet, wenn du eine Handkarte auf einen deiner 4 <b>Ablagestapel</b> legst.</li>' +
+          '<li>Bedienung: Karte anklicken, dann Ziel anklicken. Esc hebt die Auswahl auf.</li>' +
+        '</ol></div>' +
+      '</div>' +
+      '<div class="panel" style="display:flex;flex-direction:column;gap:14px;min-width:0">' +
+        '<div class="field"><label class="label" for="nameInput">Dein Name am Tisch</label><input type="text" id="nameInput" maxlength="18" placeholder="z. B. Saskia" value="' + esc(S.name) + '"></div>' +
+        '<div class="row"><button class="btn primary" data-act="create">Neues Spiel erstellen</button></div>' +
+        '<div class="field"><label class="label" for="codeInput">Mit Code beitreten</label><div class="row"><input type="text" id="codeInput" maxlength="4" placeholder="ABCD" value="' + esc(hashCode) + '" style="width:7em;text-transform:uppercase;letter-spacing:.15em"><button class="btn' + (hashCode ? ' primary' : '') + '" data-act="joinCode">Beitreten</button></div></div>' +
+        (hashCode ? '<p class="hint" style="margin:0">Du wurdest zu Tisch ' + esc(hashCode) + ' eingeladen. Name eintragen und beitreten.</p>' : '') +
+      '</div>' +
+    '</section>';
+}
+
+function renderLobby(){
+  S.view = 'lobby';
+  const g = S.game, isHost = g.host === S.me, n = g.players.length;
+  const opts = [5,10,15,20,25,30].map(k => '<option value="' + k + '"' + (k === g.stackSize ? ' selected' : '') + '>' + k + ' Karten</option>').join('');
+  const link = location.origin + location.pathname + '#' + g.code;
+  view.innerHTML =
+    '<section class="lobby">' +
+      '<div class="panel" style="display:flex;flex-direction:column;gap:10px;min-width:0">' +
+        '<div class="label">Tisch-Code</div><div class="bigcode">' + esc(g.code) + '</div>' +
+        '<div class="field"><label class="label" for="invite">Einladungslink</label><div class="row"><input type="text" id="invite" readonly value="' + esc(link) + '" style="flex:1"><button class="btn" data-act="copy">Kopieren</button></div></div>' +
+        '<div class="field" style="margin-top:6px"><label class="label" for="stackSel">Größe des Spielerstapels</label>' +
+          (isHost ? '<select id="stackSel" style="width:12em">' + opts + '</select>' : '<div class="count">' + g.stackSize + ' Karten</div>') +
+          '<small class="muted">Original: 30 Karten bei bis zu 4 Spielern, 20 ab 5 Spielern. Weniger Karten = kürzere Runde. Gespielt wird mit ' + (g.decks === 2 ? 'zwei Kartensätzen (324 Karten)' : 'einem Kartensatz (162 Karten)') + '.</small>' +
+        '</div>' +
+      '</div>' +
+      '<div class="panel" style="display:flex;flex-direction:column;gap:12px">' +
+        '<div class="label">Spieler (' + n + '/' + MAXP + ')</div>' +
+        '<ul class="plist">' + g.players.map(p => '<li><span>' + esc(p.name) + (p.id === S.me ? ' <span class="muted">(du)</span>' : '') + (p.online ? '' : ' <span class="muted">(offline)</span>') + '</span>' + (p.id === g.host ? '<span class="pill wait">Gastgeber</span>' : '') + '</li>').join('') + '</ul>' +
+        (isHost ? '<div class="row"><button class="btn primary" data-act="start"' + (n < 2 ? ' disabled' : '') + '>Spiel starten</button></div>' : '') +
+        (isHost && n < 2 ? '<p class="muted" style="margin:0">Warte auf mindestens eine weitere Person.</p>' : '') +
+        (!isHost ? '<p class="muted" style="margin:0">Warte, bis ' + esc((g.players.find(p => p.id === g.host) || {}).name || 'der Gastgeber') + ' das Spiel startet.</p>' : '') +
+      '</div>' +
+    '</section>';
+}
+
+function miniPile(cards, label){
+  const t = top(cards);
+  return '<div class="mini sm" title="' + esc(label + (cards.length ? ': ' + cards.map(v => v === 0 ? 'J' : v).join(', ') : ': leer')) + '">' +
+    (t == null ? '<div class="slot"></div>' : cardHTML(t)) + '<small>' + cards.length + '</small></div>';
+}
+function renderGame(){
+  S.view = 'game';
+  const g = S.game, meIdx = g.players.findIndex(p => p.id === S.me), isPlayer = meIdx >= 0 && !!g.hand;
+  const cur = g.players[g.turn];
+  const mine = myTurn();
+  if(!mine) S.sel = null;
+  else if(S.sel && cardAt(S.sel) !== S.sel.v) S.sel = null;
+  const sel = S.sel;
+  const pn = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+  document.title = (mine ? '● Du bist dran · ' : '') + 'Zwölf hoch';
+
+  let msg;
+  if(g.status === 'finished') msg = esc(pn(g.winner)) + ' hat gewonnen.';
+  else if(mine){
+    if(!sel) msg = 'Du bist dran. Wähle eine Karte aus Hand, Spielerstapel oder Ablage.';
+    else msg = 'Gewählt: ' + (sel.v === 0 ? 'Joker' : sel.v) + '. Klicke einen leuchtenden Stapel' + (sel.src === 'hand' ? ', oder einen deiner Ablagestapel, um den Zug zu beenden.' : '.');
+  } else msg = esc(cur ? cur.name : '?') + ' ist dran …' + (cur && !cur.online ? ' (offline)' : '');
+  const banner = '<div class="banner' + (mine ? ' me' : '') + '"><div class="msg">' + msg + '</div><div class="meta"><span>Tisch ' + esc(g.code) + '</span><span>Zug ' + (g.turnNo||0) + '</span><span>Nachziehstapel ' + g.drawCount + '</span><span>Abgeräumt ' + g.doneCount + '</span></div></div>';
+
+  const order = meIdx >= 0 ? g.players.slice(meIdx+1).concat(g.players.slice(0, meIdx)) : g.players;
+  const opps = order.map(p => {
+    const idx = g.players.indexOf(p);
+    const turn = g.status === 'playing' && idx === g.turn;
+    return '<div class="opp' + (turn ? ' turn' : '') + '">' +
+      '<div class="head"><span class="name">' + esc(p.name) + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + '</div>' +
+      '<div class="rowc">' +
+        '<div class="mini sm" title="Spielerstapel">' + (p.stockTop != null ? cardHTML(p.stockTop) : '<div class="slot"></div>') + '<small><b style="color:var(--ink)">' + p.stockCount + '</b> übrig</small></div>' +
+        '<div class="discs">' + p.discards.map((d,i) => miniPile(d, 'Ablage ' + (i+1))).join('') + '</div>' +
+        '<div class="hcount"><span class="dots">' + '<i></i>'.repeat(p.handCount) + '</span>' + p.handCount + ' Hand</div>' +
+      '</div></div>';
+  }).join('');
+
+  const builds = g.build.map((p,i) => {
+    const t = top(p), ok = sel && fits(sel.v, p);
+    const face = t == null ? '<div class="slot">1</div>' : cardHTML(t, t === 0 ? '<span class="as">= ' + p.length + '</span>' : '');
+    return '<button class="bpile" data-act="build" data-i="' + i + '" aria-label="Aufbaustapel ' + (i+1) + ', als nächstes ' + (p.length+1) + '"' + (mine ? '' : ' tabindex="-1"') + '>' +
+      '<div class="' + (ok ? 'tgt' : '') + (S.landed === i ? ' land' : '') + '" style="border-radius:var(--r)">' + face + '</div>' +
+      '<span class="need">nächste: ' + (p.length + 1) + '</span></button>';
+  }).join('');
+  S.landed = null;
+  const mid = '<div class="mid">' +
+    '<div class="pilegrp"><div class="label">Ziehen</div><div class="back"><b>' + g.drawCount + '</b></div></div>' +
+    '<div class="pilegrp"><div class="label">Aufbaustapel</div><div class="builds">' + builds + '</div></div>' +
+    '<div class="pilegrp" style="align-items:stretch;min-width:0"><div class="label">Verlauf</div><div class="log">' + g.log.map(l => '<div>' + esc(l) + '</div>').join('') + '</div></div>' +
+  '</div>';
+
+  let win = '';
+  if(g.status === 'finished'){
+    win = '<div class="winner"><div class="label">Runde vorbei</div><h2>' + esc(pn(g.winner)) + ' gewinnt</h2>' +
+      (g.host === S.me ? '<button class="btn primary" data-act="rematch">Neue Runde mit allen</button>' : '<p class="muted" style="margin:0">' + esc(pn(g.host)) + ' kann eine neue Runde starten.</p>') + '</div>';
+  }
+
+  let me = '';
+  if(isPlayer){
+    const p = g.players[meIdx], hand = g.hand, ds = p.discards, stTop = p.stockTop;
+    const stockSel = sel && sel.src === 'stock';
+    const stockFits = mine && stTop != null && g.build.some(b => fits(stTop, b));
+    const discs = ds.map((d,i) => {
+      const n = d.length, off = n > 1 ? Math.min(20, 110/(n-1)) : 0;
+      const h = 'calc(var(--cw) * 1.4 + ' + (off*(Math.max(n,1)-1)) + 'px)';
+      const isSel = sel && sel.src === 'disc' && sel.i === i, tgt = sel && sel.src === 'hand';
+      const cards = n ? d.map((v,k) => '<div style="top:' + (k*off) + 'px' + (isSel && k === n-1 ? ';transform:translateY(-10px)' : '') + '">' + cardHTML(v, '', isSel && k === n-1 ? 'outline:3px solid var(--accent);outline-offset:2px' : '') + '</div>').join('') : '<div style="top:0"><div class="slot"></div></div>';
+      return '<button class="dpile' + (tgt ? ' tgt' : '') + '" data-act="disc" data-i="' + i + '" aria-label="Ablagestapel ' + (i+1) + '"' + (mine ? '' : ' tabindex="-1"') + '><div class="stack" style="height:' + h + '">' + cards + '</div></button>';
+    }).join('');
+    const handH = hand.map((v,i) => '<button class="cbtn' + (sel && sel.src === 'hand' && sel.i === i ? ' sel' : '') + '" data-act="hand" data-i="' + i + '"' + (mine ? '' : ' tabindex="-1"') + ' aria-label="Handkarte ' + (v === 0 ? 'Joker' : v) + '">' + cardHTML(v) + '</button>').join('');
+    me = '<section class="mine' + (mine ? ' turn' : '') + '">' +
+      '<div class="grp"><div class="label">Dein Spielerstapel</div><div class="stockwrap">' +
+        (stTop == null ? '<div class="slot">—</div>' : '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + (stTop === 0 ? 'Joker' : stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button>') +
+        '<div><div class="count">' + p.stockCount + '</div><div class="muted" style="font-size:12px">übrig</div></div></div>' +
+        (stockFits && !stockSel ? '<div class="hint">Deine Stapelkarte passt!</div>' : '') +
+      '</div>' +
+      '<div class="grp"><div class="label">Deine Ablagestapel</div><div class="mydiscs">' + discs + '</div></div>' +
+      '<div class="grp" style="min-width:0;flex:1"><div class="label">Deine Hand</div><div class="hand">' + (handH || '<span class="muted">Keine Karten auf der Hand.</span>') + '</div>' +
+        (mine && !hand.length ? '<div><button class="btn" data-act="endTurn">Zug beenden</button></div>' : '') +
+      '</div>' +
+    '</section>';
+  } else {
+    me = '<div class="panel muted">Du schaust zu. Neue Mitspieler können in der nächsten Runde über einen neuen Tisch dazukommen.</div>';
+  }
+  view.innerHTML = banner + win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me;
+}
+
+render();
+connect();
+})();
+
+</script></body></html>

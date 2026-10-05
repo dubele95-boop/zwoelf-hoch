@@ -1,0 +1,17 @@
+{
+  "name": "zwoelf-hoch",
+  "version": "1.0.0",
+  "description": "Zwölf hoch – Online-Kartenspiel für 2 bis 8 Spieler",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}
