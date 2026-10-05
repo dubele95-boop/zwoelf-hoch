@@ -335,9 +335,9 @@ const valAt = (g, i) => g.bval ? g.bval[i] : g.build[i].length;
 const isDown = (g, i) => !!(g.bdir && g.bdir[i] === -1);
 const needAt = (g, i) => isDown(g, i) ? valAt(g, i) - 1 : valAt(g, i) + 1;
 const fitsNeed = (v, need) => !isGift(v) && !isRev(v) && !isSteal(v) && (v === 0 || (isSplit(v) ? splitOf(v).includes(need) : numOf(v) === need));
-const canRevAt = (g, i) => isDown(g, i) || valAt(g, i) >= 2;
+const canRevAt = (g, i) => isDown(g, i) ? valAt(g, i) <= 11 : valAt(g, i) >= 2;
 const playable = (g, v, i) => isRev(v) ? canRevAt(g, i) : fitsNeed(v, needAt(g, i));
-const failMsg = (g, v, i) => isRev(v) ? 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.' : 'Passt nicht: Hier wird eine ' + needAt(g, i) + ' gebraucht.';
+const failMsg = (g, v, i) => isRev(v) ? (isDown(g, i) ? 'Hier geht Rückwärts nicht: Der Stapel muss mindestens bei 11 sein.' : 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.') : 'Passt nicht: Hier wird eine ' + needAt(g, i) + ' gebraucht.';
 const cardName = v => isSteal(v) ? 'Diebstahl' : isRev(v) ? 'Rückwärts' : isGift(v) ? 'Geschenk' : v === 0 ? 'Joker' : isSplit(v) ? 'Entweder ' + splitOf(v).join(' oder ') : isSkip(v) ? numOf(v) + ' mit Aussetzen' : String(v);
 const cardShort = v => isSteal(v) ? 'D' : isRev(v) ? 'R' : isGift(v) ? 'G' : v === 0 ? 'J' : isSplit(v) ? splitOf(v).join('/') : isSkip(v) ? numOf(v) + '⊘' : String(v);
 const meP = () => S.game && S.game.players.find(p => p.id === S.me);
@@ -380,7 +380,11 @@ const Snd = {
       case 'select': this.tone(1200, t, .05, 'sine', .07*v); break;
       case 'place': { const h = Math.max(1, Math.min(12, arg || 1)); this.noise(t, .05, .5*v, 2600); this.tone(330 * Math.pow(2, STEP[h-1]/12), t + .01, .22, 'triangle', .22*v); break; }
       case 'joker': [1568,1976,2349,2637,3136].forEach((f,i) => this.tone(f, t + i*.045, .5 - i*.05, 'sine', .09*v)); this.tone(784, t, .45, 'triangle', .12*v); break;
-      case 'gift': [784,988,1175].forEach((f,i) => this.tone(f, t + i*.09, .35, 'sine', .12)); break;
+      case 'gift': [784,988,1175].forEach((f,i) => this.tone(f, t + i*.09, .35, 'sine', .12*v)); break;
+      case 'split': this.tone(587, t, .22, 'triangle', .14*v); this.tone(880, t + .16, .3, 'triangle', .14*v); break;
+      case 'skipcard': this.tone(660, t, .12, 'square', .05*v); this.tone(440, t + .12, .22, 'square', .05*v); break;
+      case 'rev': { const c = this.ctx, o = c.createOscillator(), gn = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(300, t + .25); o.frequency.exponentialRampToValueAtTime(900, t + .5); gn.gain.setValueAtTime(.0001, t); gn.gain.linearRampToValueAtTime(.14*v, t + .02); gn.gain.exponentialRampToValueAtTime(.0001, t + .55); o.connect(gn); gn.connect(this.master); o.start(t); o.stop(t + .6); break; }
+      case 'steal': this.noise(t, .18, .45*v, 1800); this.tone(1046, t + .05, .12, 'sine', .1*v); this.tone(698, t + .15, .2, 'sine', .1*v); break;
       case 'skip': this.tone(520, t, .16, 'square', .06); this.tone(330, t + .14, .28, 'square', .06); break;
       case 'discard': this.noise(t, .09, .55*v, 700); this.tone(150, t, .14, 'sine', .25*v); break;
       case 'turn': this.tone(660, t, .3, 'sine', .22); this.tone(990, t + .13, .45, 'sine', .2); break;
@@ -497,9 +501,13 @@ function onNewState(prev, g){
   const vol = fresh && mv.pid === S.me ? 1 : .6;
   if(fresh && mv.kind === 'play'){
     const pileEl = q('[data-act="build"][data-i="' + mv.pile + '"] .face');
+    // Töne nur für Sonderkarten – normale Zahlenkarten bleiben lautlos
     if(mv.v === 0) Snd.play('joker', 0, vol);
+    else if(isSplit(mv.v)) Snd.play('split', 0, vol);
+    else if(isSkip(mv.v)) Snd.play('skipcard', 0, vol);
+    else if(isRev(mv.v)) Snd.play('rev', 0, vol);
     fly(cardHTML(mv.v), fromRect, pileEl, { vanish: mv.cleared, done: () => {
-      if(mv.cleared){ Snd.play('clear', 0, vol); const r = rectOf(pileEl); if(r) FX.sparks(r.left + r.width/2, r.top + r.height/2); if(pileEl){ pileEl.classList.remove('cleared'); void pileEl.offsetWidth; pileEl.classList.add('cleared'); } }
+      if(mv.cleared){ const r = rectOf(pileEl); if(r) FX.sparks(r.left + r.width/2, r.top + r.height/2); if(pileEl){ pileEl.classList.remove('cleared'); void pileEl.offsetWidth; pileEl.classList.add('cleared'); } }
       if(mv.win){ Snd.play('win'); FX.confetti(); }
     }});
   } else if(fresh && mv.kind === 'discard'){
@@ -520,21 +528,23 @@ function onNewState(prev, g){
     toast(who + ' Stapel ' + (mv.pile + 1) + ' um: jetzt ' + (isDown(g, mv.pile) ? 'abwärts bis 1.' : 'wieder aufwärts.'));
   }
   if(fresh && mv.kind === 'steal'){
+    Snd.play('steal', 0, mv.pid === S.me || mv.target === S.me ? 1 : .6);
     const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
     if(mv.pid === S.me){
       const el = q('.hand [data-act="hand"][data-i="' + (g.hand.length - 1) + '"] .card');
       fly(cardHTML(mv.sv), stealFrom, el, { dur: 520 });
     } else {
       fly(cardHTML(mv.sv), stealFrom, q('.opp[data-pid="' + mv.pid + '"] [data-k="hand"]'), { dur: 520 });
-      if(mv.target === S.me){ toast(name(mv.pid) + ' hat dir ' + (mv.sv === 0 ? 'einen Joker' : 'eine ' + cardName(mv.sv)) + ' geklaut!'); Snd.play('skip'); }
+      if(mv.target === S.me) toast(name(mv.pid) + ' hat dir ' + (mv.sv === 0 ? 'einen Joker' : 'eine ' + cardName(mv.sv)) + ' geklaut!');
       else toast(name(mv.pid) + ' klaut ' + name(mv.target) + ' ' + (mv.sv === 0 ? 'einen Joker' : 'eine ' + cardName(mv.sv)) + '.');
     }
     if(mv.win){ Snd.play('win'); FX.confetti(); }
   }
   if(fresh && mv.kind === 'gift'){
+    Snd.play('gift', 0, mv.pid === S.me || mv.target === S.me ? 1 : .6);
     const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
     if(mv.target === S.me){
-      toast(name(mv.pid) + ' hat dir eine Karte geschenkt!'); Snd.play('gift');
+      toast(name(mv.pid) + ' hat dir eine Karte geschenkt!');
       const el = q('.hand [data-act="hand"][data-i="' + (g.hand.length - 1) + '"] .card');
       fly(cardHTML(g.hand[g.hand.length - 1]), giftFrom, el, { dur: 520 });
     } else {
@@ -646,7 +656,7 @@ const H = {
 function selectCard(sel){
   if(!myTurn()) return toast('Du bist gerade nicht dran.');
   const v = cardAt(sel); if(v == null) return;
-  if(S.sel && S.sel.src === sel.src && S.sel.i === sel.i) S.sel = null; else { S.sel = {...sel, v}; Snd.play('select'); }
+  if(S.sel && S.sel.src === sel.src && S.sel.i === sel.i) S.sel = null; else S.sel = {...sel, v};
   render();
 }
 function bind(root){
@@ -700,7 +710,6 @@ document.addEventListener('pointermove', e => {
     D.ghost = document.createElement('div'); D.ghost.className = 'dragghost';
     D.ghost.style.cssText = 'left:0;top:0;width:' + r.width + 'px;--cw:' + r.width + 'px';
     D.ghost.innerHTML = cardHTML(D.start.v); document.body.appendChild(D.ghost);
-    Snd.play('select');
   }
   e.preventDefault();
   D.ghost.style.left = (e.clientX - D.ox) + 'px'; D.ghost.style.top = (e.clientY - D.oy) + 'px';
@@ -755,7 +764,13 @@ document.addEventListener('pointercancel', e => endDrag(e, true));
 view.addEventListener('click', e => { if(D.justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
 
 bind(view); bind(barActions);
-view.addEventListener('change', e => { if(e.target.id === 'stackSel') send({t:'setStack', n:+e.target.value}); });
+view.addEventListener('change', e => {
+  if(e.target.id === 'stackSel') send({t:'setStack', n:+e.target.value});
+  if(e.target.id === 'pilesSel' || e.target.id === 'downSel'){
+    const n = +document.getElementById('pilesSel').value, d = Math.min(n, +document.getElementById('downSel').value);
+    send({t:'setPiles', piles:n, down:d});
+  }
+});
 view.addEventListener('input', e => { if(e.target.id === 'nameInput'){ S.name = e.target.value; LS.set('zh.name', e.target.value.trim()); } });
 view.addEventListener('keydown', e => {
   if(e.key !== 'Enter') return;
@@ -773,8 +788,16 @@ const SPECIAL_HELP = [
   ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
   ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
   ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
-  ['rev', 400, 'Rückwärts', ['Leg sie auf einen Aufbaustapel, auf dem mindestens eine 2 liegt.', 'Ab dann zählt der Stapel abwärts (z. B. 7, 6, 5 …) und wird bei 1 abgeräumt.', 'Solche Stapel haben einen roten Rand. Eine zweite Rückwärts-Karte dreht ihn wieder um.']]
+  ['rev', 400, 'Rückwärts', ['Dreht die Richtung eines Aufbaustapels um.', 'Aufwärts-Stapel (ab einer 2): zählt dann abwärts, z. B. 7, 6, 5 …, und wird bei 1 abgeräumt.', 'Rückwärts-Stapel (bis 11): zählt dann aufwärts und wird bei 12 abgeräumt.', 'Nach dem Abräumen startet der Stapel wieder in seiner ursprünglichen Richtung.']]
 ];
+function pilesRule(g){
+  const n = g.piles || g.build.length || 4, d = g.downPiles || 0;
+  const up = n - d;
+  let t = 'In der Mitte liegen <b>' + n + ' Aufbaustapel</b>. ';
+  if(up) t += (d ? up + ' davon laufen' : 'Sie laufen') + ' von 1 bis 12 und werden bei 12 abgeräumt. ';
+  if(d) t += (up ? d + (d === 1 ? ' läuft' : ' laufen') : 'Alle laufen') + ' <b>rückwärts</b> von 12 bis 1 (roter Rand) und ' + (d === 1 && up ? 'wird' : 'werden') + ' bei 1 abgeräumt.';
+  return t;
+}
 function openRules(){
   const g = S.game; if(!g) return;
   const active = SPECIAL_HELP.filter(([k]) => g.specials && g.specials[k]);
@@ -782,7 +805,7 @@ function openRules(){
   el.innerHTML = '<div class="panel modalbox rulesbox"><div class="ruleshead"><h2 id="rulesTitle">Regeln</h2><button type="button" class="btn small" data-close aria-label="Regeln schließen">Schließen</button></div>' +
     '<div class="label">Grundregeln</div><ul class="rulelist">' +
       '<li>Ziel: Spiele als Erste oder Erster deinen <b>Spielerstapel</b> leer.</li>' +
-      '<li>Die 4 <b>Aufbaustapel</b> in der Mitte laufen von 1 bis 12. Bei 12 werden sie abgeräumt.</li>' +
+      '<li>' + pilesRule(g) + '</li>' +
       '<li>Der <b>Joker ★</b> ersetzt jede Zahl. Liegt er auf einem Stapel, zeigt er die Zahl, für die er steht.</li>' +
       '<li>Spielen darfst du aus der Hand, die oberste Karte deines Spielerstapels und die oberste deiner Ablagestapel.</li>' +
       '<li>Leere Hand? Du ziehst sofort 5 neue Karten.</li>' +
@@ -872,7 +895,7 @@ function renderHome(){
         '</div>' +
         '<div class="panel rules"><div class="label">So geht\'s</div><ol>' +
           '<li>Ziel: Spiele als Erste oder Erster deinen <b>Spielerstapel</b> leer.</li>' +
-          '<li>In der Mitte liegen 4 <b>Aufbaustapel</b>. Jeder wird aufsteigend von 1 bis 12 gelegt. Bei 12 wird er abgeräumt.</li>' +
+          '<li>In der Mitte liegen <b>Aufbaustapel</b> (normal 4). Jeder wird aufsteigend von 1 bis 12 gelegt und bei 12 abgeräumt. Der Gastgeber kann 1 bis 6 Stapel wählen und einige davon rückwärts laufen lassen (12 bis 1).</li>' +
           '<li>Der <b>Joker ★</b> ersetzt jede Zahl.</li>' +
           '<li>Optional: Die <b>Entweder-oder-Karte</b> zählt als eine ihrer beiden Zahlen, z. B. 3 oder 4. Der Gastgeber schaltet sie in der Lobby ein.</li>' +
           '<li>Optional: Mit der <b>Diebstahl-Karte</b> klaust du die oberste Karte von einem Ablagestapel eines Mitspielers.</li>' +
@@ -909,7 +932,7 @@ function renderLobby(){
   const onList = Object.keys(NAMES).filter(k => g.specials && g.specials[k]).map(k => NAMES[k]);
   const confirm = S.confirmStart ? '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="confTitle"><div class="panel modalbox" style="max-width:480px">' +
       '<h2 id="confTitle">Passen die Einstellungen?</h2>' +
-      '<div class="confgrid"><span class="muted">Spieler</span><b>' + n + '</b><span class="muted">Spielerstapel</span><b>' + g.stackSize + ' Karten</b><span class="muted">Sonderkarten</span><b>' + (onList.length ? esc(onList.join(', ')) : 'keine') + '</b></div>' +
+      '<div class="confgrid"><span class="muted">Spieler</span><b>' + n + '</b><span class="muted">Spielerstapel</span><b>' + g.stackSize + ' Karten</b><span class="muted">Aufbaustapel</span><b>' + (g.piles || 4) + ((g.downPiles || 0) ? ', davon ' + g.downPiles + ' rückwärts (12 → 1)' : '') + '</b><span class="muted">Sonderkarten</span><b>' + (onList.length ? esc(onList.join(', ')) : 'keine') + '</b></div>' +
       '<div class="choose"><button type="button" class="btn primary" data-act="startConfirmed">Ja, Runde starten</button><button type="button" class="btn" data-act="startCancel">Noch ändern</button></div>' +
     '</div></div>' : '';
   view.innerHTML = notice +
@@ -921,6 +944,13 @@ function renderLobby(){
           (isHost ? '<select id="stackSel" style="width:12em">' + opts + '</select>' : '<div class="count">' + g.stackSize + ' Karten</div>') +
           '<small class="muted">Original: 30 Karten bei bis zu 4 Spielern, 20 ab 5 Spielern. Weniger Karten = kürzere Runde. Gespielt wird mit ' + (g.decks === 2 ? 'zwei Kartensätzen' : 'einem Kartensatz') + '.</small>' +
         '</div>' +
+        '<div class="row" style="gap:16px;align-items:flex-start;margin-top:6px">' +
+          '<div class="field"><label class="label" for="pilesSel">Aufbaustapel</label>' +
+            (isHost ? '<select id="pilesSel" style="width:9em">' + [1,2,3,4,5,6].map(k => '<option value="' + k + '"' + (k === (g.piles || 4) ? ' selected' : '') + '>' + k + ' Stapel</option>').join('') + '</select>' : '<div class="count">' + (g.piles || 4) + ' Stapel</div>') + '</div>' +
+          '<div class="field"><label class="label" for="downSel">Davon rückwärts (12 → 1)</label>' +
+            (isHost ? '<select id="downSel" style="width:9em">' + Array.from({length:(g.piles || 4) + 1}, (_, k) => '<option value="' + k + '"' + (k === (g.downPiles || 0) ? ' selected' : '') + '>' + (k === 0 ? 'keiner' : k + ' Stapel') + '</option>').join('') + '</select>' : '<div class="count">' + ((g.downPiles || 0) ? g.downPiles + ' Stapel' : 'keiner') + '</div>') + '</div>' +
+        '</div>' +
+        '<small class="muted">Rückwärts-Stapel fangen bei 12 an und werden bei 1 abgeräumt. Sie haben einen roten Rand.</small>' +
         '<div class="field" style="margin-top:6px"><span class="label">Sonderkarten</span>' + specialRow(g, isHost) + '</div>' +
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:12px">' +
@@ -938,7 +968,7 @@ function specialRow(g, isHost){
   const list = [
     ['split', 'Entweder-oder', 1000 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
     ['steal', 'Diebstahl', 500, n + ' Stück im Spiel. Zieh sie auf einen Ablagestapel eines Mitspielers und nimm dir dessen oberste Karte auf die Hand.'],
-    ['rev', 'Rückwärts', 400, (2 * (g.decks || 1)) + ' Stück im Spiel. Leg sie auf einen Aufbaustapel, auf dem mindestens eine 2 liegt: Ab dann zählt er abwärts und wird bei 1 abgeräumt.'],
+    ['rev', 'Rückwärts', 400, (2 * (g.decks || 1)) + ' Stück im Spiel. Dreht die Richtung eines Aufbaustapels um: Ein aufwärts laufender Stapel (ab 2) zählt dann abwärts bis 1, ein Rückwärts-Stapel (bis 11) wieder aufwärts bis 12.'],
     ['gift', 'Geschenk', 300, n + ' Stück im Spiel. Spiel sie auf einen Mitspieler und schenke ihm eine deiner Handkarten. Die Geschenk-Karte ist danach weg.'],
     ['skip', 'Aussetzen', 207, n + ' zufällige Zahlenkarten tragen das Aussetzen-Symbol. Wer so eine Karte auf einen Aufbaustapel legt, wählt einen Mitspieler, der seinen nächsten Zug aussetzt.']
   ];
@@ -1001,7 +1031,7 @@ function renderGame(){
     const t = top(p), ok = sel && playable(g, sel.v, i), down = isDown(g, i), need = needAt(g, i);
     const badge = isRev(t) ? '<span class="as">' + (down ? '↓ ' : '↑ ') + valAt(g, i) + '</span>' : '';
     // ein gelegter Joker zeigt die Zahl, für die er steht – in Joker-Farben
-    const face = t == null ? '<div class="slot">1</div>' : t === 0 ? jokerAs(valAt(g, i)) : isSplit(t) ? splitAs(t, valAt(g, i)) : cardHTML(t, badge);
+    const face = t == null ? '<div class="slot">' + need + '</div>' : t === 0 ? jokerAs(valAt(g, i)) : isSplit(t) ? splitAs(t, valAt(g, i)) : cardHTML(t, badge);
     return '<button class="bpile' + (down ? ' down' : '') + '" data-act="build" data-i="' + i + '" aria-label="Aufbaustapel ' + (i+1) + (down ? ', läuft abwärts' : '') + ', als nächstes ' + need + '"' + (mine ? '' : ' tabindex="-1"') + '>' +
       '<div class="face' + (ok ? ' tgt' : '') + '" style="border-radius:var(--r)">' + face + '</div>' +
       '<span class="need">' + (down ? '<b class="downtag">↓ abwärts</b> ' : '') + 'nächste: ' + need + '</span></button>';

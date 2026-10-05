@@ -50,7 +50,13 @@ const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 
 const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 }, gift: { perDeck: 4 }, rev: { perDeck: 2 }, steal: { perDeck: 4 } };
 // Jeder Aufbaustapel hat einen aktuellen Wert (bval) und eine Richtung (bdir: 1 aufwärts, -1 abwärts)
 const needOf = (g, i) => g.bdir[i] === 1 ? g.bval[i] + 1 : g.bval[i] - 1;
-const canReverse = (g, i) => g.bdir[i] === 1 ? g.bval[i] >= 2 : true;
+// aufwärts: erst ab einer 2 umdrehbar; abwärts: nur wenn danach noch eine Zahl bis 12 folgen kann
+const canReverse = (g, i) => g.bdir[i] === 1 ? g.bval[i] >= 2 : g.bval[i] <= 11;
+// Aufbaustapel einrichten: Anzahl und wie viele davon von 12 nach 1 laufen
+function pileCount(g) { return Math.min(6, Math.max(1, g.piles || 4)); }
+function downCount(g) { return Math.min(pileCount(g), Math.max(0, g.downPiles || 0)); }
+function resetPile(g, i) { const down = i >= pileCount(g) - downCount(g); g.build[i] = []; g.bval[i] = down ? 13 : 0; g.bdir[i] = down ? -1 : 1; }
+function setupPiles(g) { const n = pileCount(g); g.build = []; g.bval = []; g.bdir = []; for (let i = 0; i < n; i++) resetPile(g, i); }
 function fits(v, need) {
   if (v === GIFT || v === REV || v === STEAL) return false;
   if (v === 0) return true;
@@ -77,6 +83,14 @@ function decksFor(n, stack) { return (n * stack + n * 5) > 110 ? 2 : 1; }
 
 function drawOne(g) {
   if (!g.draw.length && g.done.length) { g.draw = shuffle(g.done); g.done = []; addLog(g, 'Der Nachziehstapel wird neu gemischt.'); }
+  if (!g.draw.length) {
+    // Notfall gegen ein festgefahrenes Spiel: Karten unter der obersten Karte der Aufbaustapel neu mischen (Stapelwert bleibt)
+    let pool = [];
+    for (const pile of g.build) if (pile.length > 1) pool.push(...pile.splice(0, pile.length - 1));
+    // reicht das nicht: auch die unteren Karten der Ablagestapel (oberste bleibt liegen)
+    if (!pool.length) for (const id in g.discards) for (const d of g.discards[id]) if (d.length > 1) pool.push(...d.splice(0, d.length - 1));
+    if (pool.length) { g.draw = shuffle(pool); addLog(g, 'Der Nachziehstapel war leer und wurde aus alten Karten neu gemischt.'); }
+  }
   return g.draw.length ? g.draw.pop() : null;
 }
 function refill(g, id) {
@@ -114,7 +128,7 @@ function startRound(g) {
   shuffle(deck);
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
-  g.draw = deck; g.build = [[], [], [], []]; g.bval = [0, 0, 0, 0]; g.bdir = [1, 1, 1, 1]; g.done = []; g.decks = decks;
+  g.draw = deck; setupPiles(g); g.done = []; g.decks = decks;
   g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = [];
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
@@ -143,7 +157,7 @@ function viewFor(g, me) {
   }));
   return {
     code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
-    players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], drawCount: g.draw.length, doneCount: g.done.length,
+    players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
     choose: g.choose || null, skips: g.skips || {}, slog: g.slog || [],
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
     me, hand: g.hands[me] || null
@@ -174,7 +188,7 @@ const handlers = {
     const name = cleanName(m.name); must(name, 'Gib zuerst deinen Namen ein.');
     const old = gameOf(ws.pid); if (old && old.status === 'lobby') removePlayer(old, ws.pid);
     const g = {
-      code: randCode(), status: 'lobby', host: ws.pid, stackSize: 20, specials: { split: false }, created: Date.now(), updated: Date.now(),
+      code: randCode(), status: 'lobby', host: ws.pid, stackSize: 20, piles: 4, downPiles: 0, specials: { split: false }, created: Date.now(), updated: Date.now(),
       players: [{ id: ws.pid, name }], watchers: new Set(),
       draw: [], build: [[], [], [], []], done: [], hands: {}, stocks: {}, discards: {}, turn: 0, turnNo: 0, winner: null, log: []
     };
@@ -206,6 +220,13 @@ const handlers = {
     must(Object.prototype.hasOwnProperty.call(SPECIALS, m.key), 'Unbekannte Sonderkarte.');
     g.specials = { ...(g.specials || {}), [m.key]: !!m.on }; broadcast(g);
   },
+  setPiles(ws, m, g) {
+    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    const n = Number(m.piles), d = Number(m.down);
+    must(Number.isInteger(n) && n >= 1 && n <= 6, 'Es sind 1 bis 6 Aufbaustapel möglich.');
+    must(Number.isInteger(d) && d >= 0 && d <= n, 'So viele Stapel gibt es nicht.');
+    g.piles = n; g.downPiles = d; broadcast(g);
+  },
   setStack(ws, m, g) {
     must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
     must(STACK_SIZES.includes(m.n), 'Ungültige Stapelgröße.');
@@ -217,7 +238,7 @@ const handlers = {
     must(g.players.some(p => p.id === ws.pid), 'Nur Mitspieler können eine neue Runde starten.');
     g.status = 'lobby'; g.round = (g.round || 1) + 1; g.rematchBy = ws.pid;
     g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
-    g.build = [[], [], [], []]; g.bval = [0, 0, 0, 0]; g.bdir = [1, 1, 1, 1];
+    setupPiles(g);
     g.skips = {}; g.choose = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
     broadcast(g);
   },
@@ -236,7 +257,7 @@ const handlers = {
     const name = pname(g, me);
     const mv = { kind: 'play', pid: me, src: m.src, i: m.i, pile: pi, v };
     if (v === REV) {
-      must(canReverse(g, pi), 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.');
+      must(canReverse(g, pi), g.bdir[pi] === 1 ? 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.' : 'Hier geht Rückwärts nicht: Der Stapel muss mindestens bei 11 sein.');
       removeAt(g, me, m.src, m.i); pile.push(v);
       g.bdir[pi] = -g.bdir[pi]; mv.reversed = true;
       addSLog(g, 'rev', name + ' dreht Stapel ' + (pi + 1) + (g.bdir[pi] === 1 ? ' wieder aufwärts' : ' um: jetzt abwärts'));
@@ -248,8 +269,8 @@ const handlers = {
       if (isSplit(v)) addSLog(g, 'split', name + ' spielt Entweder-oder ' + splitOf(v).join('/') + ' als ' + need);
       const end = g.bdir[pi] === 1 ? 12 : 1;
       if (need === end) {
-        if (g.bdir[pi] === -1) addSLog(g, 'rev', 'Stapel ' + (pi + 1) + ' ist rückwärts bei 1 angekommen und wird abgeräumt');
-        g.done.push(...pile); g.build[pi] = []; g.bval[pi] = 0; g.bdir[pi] = 1; mv.cleared = true;
+        if (g.bdir[pi] === -1 && pi < pileCount(g) - downCount(g)) addSLog(g, 'rev', 'Stapel ' + (pi + 1) + ' ist rückwärts bei 1 angekommen und wird abgeräumt');
+        g.done.push(...pile); resetPile(g, pi); mv.cleared = true;
         addLog(g, 'Stapel ' + (pi + 1) + ' ist bei ' + end + ' und wird abgeräumt.');
       }
     }
