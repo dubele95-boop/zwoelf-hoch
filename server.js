@@ -13,7 +13,8 @@ const MAXP = 8;
 const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 
 /* ---------------- HTTP ---------------- */
-const indexFile = path.join(__dirname, 'public', 'index.html');
+// index.html darf direkt neben server.js oder im Ordner public liegen
+const indexFile = [path.join(__dirname, 'index.html'), path.join(__dirname, 'public', 'index.html')].find(f => fs.existsSync(f));
 const server = http.createServer((req, res) => {
   if (req.url === '/healthz') { res.writeHead(200); return res.end('ok'); }
   if (req.url === '/' || req.url.startsWith('/?') || req.url.startsWith('/#')) {
@@ -42,6 +43,8 @@ const top = a => (a && a.length ? a[a.length - 1] : null);
 const fits = (v, pile) => v === 0 || v === pile.length + 1;
 const pname = (g, id) => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
 function addLog(g, text) { g.log.unshift(text); g.log = g.log.slice(0, 14); }
+let moveSeq = 0;
+function setMove(g, mv) { g.lastMove = { ...mv, seq: ++moveSeq }; }
 function decksFor(n, stack) { return (n * stack + n * 5) > 110 ? 2 : 1; }
 
 function drawOne(g) {
@@ -69,6 +72,7 @@ function startRound(g) {
   g.draw = deck; g.build = [[], [], [], []]; g.done = []; g.decks = decks;
   g.status = 'playing'; g.winner = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = [];
   refill(g, g.players[g.turn].id);
+  setMove(g, { kind: 'deal' });
   addLog(g, 'Neue Runde mit ' + g.stackSize + ' Karten pro Spielerstapel. ' + g.players[g.turn].name + ' beginnt.');
 }
 
@@ -95,7 +99,7 @@ function viewFor(g, me) {
   return {
     code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, drawCount: g.draw.length, doneCount: g.done.length,
-    turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log,
+    turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
     me, hand: g.hands[me] || null
   };
 }
@@ -170,11 +174,13 @@ const handlers = {
     must(fits(v, pile), 'Passt nicht: Hier wird eine ' + (pile.length + 1) + ' gebraucht.');
     removeAt(g, me, m.src, m.i); pile.push(v);
     const name = pname(g, me);
+    const mv = { kind: 'play', pid: me, src: m.src, i: m.i, pile: m.pile, v };
     if (m.src === 'stock') { const left = g.stocks[me].length; addLog(g, name + ' spielt vom Spielerstapel' + (left ? ' (noch ' + left + ')' : '') + '.'); }
-    if (pile.length === 12) { g.done.push(...pile); g.build[m.pile] = []; addLog(g, 'Stapel ' + (m.pile + 1) + ' ist bei 12 und wird abgeräumt.'); }
+    if (pile.length === 12) { g.done.push(...pile); g.build[m.pile] = []; addLog(g, 'Stapel ' + (m.pile + 1) + ' ist bei 12 und wird abgeräumt.'); mv.cleared = true; }
     if (m.src === 'stock' && !g.stocks[me].length) {
-      g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
-    } else if (!g.hands[me].length) { refill(g, me); addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
+      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+    } else if (!g.hands[me].length) { refill(g, me); mv.refill = true; addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
+    setMove(g, mv);
     broadcast(g);
   },
   discard(ws, m, g) {
@@ -183,6 +189,7 @@ const handlers = {
     must(v != null && v === m.v, 'Die Karte hat sich geändert. Wähle neu.');
     must(g.discards[me][m.to], 'Ungültiger Ablagestapel.');
     g.hands[me].splice(m.i, 1); g.discards[me][m.to].push(v);
+    setMove(g, { kind: 'discard', pid: me, src: 'hand', i: m.i, to: m.to, v });
     addLog(g, pname(g, me) + ' legt ab. ' + g.players[(g.turn + 1) % g.players.length].name + ' ist dran.');
     advance(g); broadcast(g);
   },
@@ -190,11 +197,13 @@ const handlers = {
     const me = ws.pid; myTurn(g, me);
     must(!g.hands[me].length, 'Lege zum Beenden eine Handkarte auf einen Ablagestapel.');
     addLog(g, pname(g, me) + ' beendet den Zug ohne Ablage.');
+    setMove(g, { kind: 'pass', pid: me });
     advance(g); broadcast(g);
   },
   skip(ws, m, g) {
     must(g.host === ws.pid && g.status === 'playing', 'Nur der Gastgeber kann überspringen.');
     addLog(g, g.players[g.turn].name + ' wurde übersprungen.');
+    setMove(g, { kind: 'pass', pid: g.players[g.turn].id });
     advance(g); broadcast(g);
   },
   endGame(ws, m, g) {
