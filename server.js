@@ -39,14 +39,20 @@ function randCode() {
   for (;;) { let s = ''; for (let i = 0; i < 4; i++) s += A[crypto.randomInt(A.length)]; if (!games.has(s)) return s; }
 }
 const top = a => (a && a.length ? a[a.length - 1] : null);
-// Kartenwerte: 1-12 Zahlen, 0 Joker, 100-199 Entweder-oder-Karte (100 + a*16 + b, a < b), 200-212 Aussetzen-Karte (200 + Zahl)
+// Kartenwerte: 1-12 Zahlen, 0 Joker, 100-199 Entweder-oder-Karte (100 + a*16 + b, a < b), 200-212 Aussetzen-Karte (200 + Zahl), 300 Geschenk, 400 Rückwärts, 500 Diebstahl
 const isSplit = v => v >= 100 && v < 200;
-const isSkip = v => v >= 200;
+const isSkip = v => v >= 200 && v < 300;
+const GIFT = 300; // Geschenk-Karte
+const REV = 400;  // Rückwärts-Karte
+const STEAL = 500; // Diebstahl-Karte
 const splitOf = v => [(v - 100) >> 4, (v - 100) & 15];
 const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 + crypto.randomInt(12); } while (b === a); return 100 + Math.min(a, b) * 16 + Math.max(a, b); };
-const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 } };
-function fits(v, pile) {
-  const need = pile.length + 1;
+const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 }, gift: { perDeck: 4 }, rev: { perDeck: 2 }, steal: { perDeck: 4 } };
+// Jeder Aufbaustapel hat einen aktuellen Wert (bval) und eine Richtung (bdir: 1 aufwärts, -1 abwärts)
+const needOf = (g, i) => g.bdir[i] === 1 ? g.bval[i] + 1 : g.bval[i] - 1;
+const canReverse = (g, i) => g.bdir[i] === 1 ? g.bval[i] >= 2 : true;
+function fits(v, need) {
+  if (v === GIFT || v === REV || v === STEAL) return false;
   if (v === 0) return true;
   if (isSplit(v)) return splitOf(v).includes(need);
   if (isSkip(v)) return v - 200 === need;
@@ -90,11 +96,14 @@ function startRound(g) {
       const idx = []; for (let i = start; i < deck.length; i++) if (deck[i] >= 1 && deck[i] <= 12) idx.push(i);
       shuffle(idx).slice(0, SPECIALS.skip.perDeck).forEach(i => { deck[i] = 200 + deck[i]; });
     }
+    if (g.specials && g.specials.steal) for (let k = 0; k < SPECIALS.steal.perDeck; k++) deck.push(STEAL);
+    if (g.specials && g.specials.rev) for (let k = 0; k < SPECIALS.rev.perDeck; k++) deck.push(REV);
+    if (g.specials && g.specials.gift) for (let k = 0; k < SPECIALS.gift.perDeck; k++) deck.push(GIFT);
   }
   shuffle(deck);
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
-  g.draw = deck; g.build = [[], [], [], []]; g.done = []; g.decks = decks;
+  g.draw = deck; g.build = [[], [], [], []]; g.bval = [0, 0, 0, 0]; g.bdir = [1, 1, 1, 1]; g.done = []; g.decks = decks;
   g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = [];
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
@@ -123,7 +132,7 @@ function viewFor(g, me) {
   }));
   return {
     code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
-    players, build: g.build, drawCount: g.draw.length, doneCount: g.done.length,
+    players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], drawCount: g.draw.length, doneCount: g.done.length,
     choose: g.choose || null, skips: g.skips || {},
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
     me, hand: g.hands[me] || null
@@ -201,13 +210,25 @@ const handlers = {
     const me = ws.pid; myTurn(g, me);
     const v = cardAt(g, me, m.src, m.i);
     must(v != null && v === m.v, 'Die Karte hat sich geändert. Wähle neu.');
-    const pile = g.build[m.pile]; must(pile, 'Ungültiger Stapel.');
-    must(fits(v, pile), 'Passt nicht: Hier wird eine ' + (pile.length + 1) + ' gebraucht.');
-    removeAt(g, me, m.src, m.i); pile.push(v);
+    const pi = m.pile, pile = g.build[pi]; must(pile, 'Ungültiger Stapel.');
     const name = pname(g, me);
-    const mv = { kind: 'play', pid: me, src: m.src, i: m.i, pile: m.pile, v };
+    const mv = { kind: 'play', pid: me, src: m.src, i: m.i, pile: pi, v };
+    if (v === REV) {
+      must(canReverse(g, pi), 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.');
+      removeAt(g, me, m.src, m.i); pile.push(v);
+      g.bdir[pi] = -g.bdir[pi]; mv.reversed = true;
+      addLog(g, name + ' dreht Stapel ' + (pi + 1) + ' um: jetzt ' + (g.bdir[pi] === 1 ? 'aufwärts' : 'abwärts') + '.');
+    } else {
+      const need = needOf(g, pi);
+      must(fits(v, need), 'Passt nicht: Hier wird eine ' + need + ' gebraucht.');
+      removeAt(g, me, m.src, m.i); pile.push(v); g.bval[pi] = need;
+      const end = g.bdir[pi] === 1 ? 12 : 1;
+      if (need === end) {
+        g.done.push(...pile); g.build[pi] = []; g.bval[pi] = 0; g.bdir[pi] = 1; mv.cleared = true;
+        addLog(g, 'Stapel ' + (pi + 1) + ' ist bei ' + end + ' und wird abgeräumt.');
+      }
+    }
     if (m.src === 'stock') { const left = g.stocks[me].length; addLog(g, name + ' spielt vom Spielerstapel' + (left ? ' (noch ' + left + ')' : '') + '.'); }
-    if (pile.length === 12) { g.done.push(...pile); g.build[m.pile] = []; addLog(g, 'Stapel ' + (m.pile + 1) + ' ist bei 12 und wird abgeräumt.'); mv.cleared = true; }
     if (m.src === 'stock' && !g.stocks[me].length) {
       mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
     } else {
@@ -237,6 +258,46 @@ const handlers = {
     addLog(g, pname(g, me) + ' beendet den Zug ohne Ablage.');
     setMove(g, { kind: 'pass', pid: me });
     advance(g); broadcast(g);
+  },
+  gift(ws, m, g) {
+    const me = ws.pid; myTurn(g, me);
+    const v = cardAt(g, me, m.src, m.i);
+    must(v === GIFT && m.v === GIFT, 'Die Karte hat sich geändert. Wähle neu.');
+    must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
+    const hand = g.hands[me];
+    must(Number.isInteger(m.give) && hand[m.give] != null && !(m.src === 'hand' && m.give === m.i), 'Wähle eine Handkarte zum Verschenken.');
+    must(hand[m.give] === m.gv, 'Die Karte hat sich geändert. Wähle neu.');
+    const gv = hand[m.give];
+    if (m.src === 'hand') { [m.i, m.give].sort((a, b) => b - a).forEach(i => hand.splice(i, 1)); }
+    else { removeAt(g, me, m.src, m.i); hand.splice(m.give, 1); }
+    g.done.push(GIFT);
+    g.hands[m.target].push(gv);
+    const name = pname(g, me);
+    addLog(g, name + ' schenkt ' + pname(g, m.target) + ' eine Karte.');
+    const mv = { kind: 'gift', pid: me, target: m.target, src: m.src, i: m.i, give: m.give };
+    if (m.src === 'stock' && !g.stocks[me].length) {
+      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+    } else if (!hand.length) { refill(g, me); mv.refill = true; }
+    setMove(g, mv);
+    broadcast(g);
+  },
+  steal(ws, m, g) {
+    const me = ws.pid; myTurn(g, me);
+    const v = cardAt(g, me, m.src, m.i);
+    must(v === STEAL && m.v === STEAL, 'Die Karte hat sich geändert. Wähle neu.');
+    must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
+    const pile = g.discards[m.target] && g.discards[m.target][m.pile];
+    must(pile && pile.length, 'Auf diesem Ablagestapel liegt nichts.');
+    removeAt(g, me, m.src, m.i); g.done.push(STEAL);
+    const sv = pile.pop(); g.hands[me].push(sv);
+    const name = pname(g, me);
+    addLog(g, name + ' klaut ' + pname(g, m.target) + ' eine Karte.');
+    const mv = { kind: 'steal', pid: me, target: m.target, pile: m.pile, src: m.src, i: m.i, sv };
+    if (m.src === 'stock' && !g.stocks[me].length) {
+      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+    }
+    setMove(g, mv);
+    broadcast(g);
   },
   chooseSkip(ws, m, g) {
     const me = ws.pid; myTurn(g, me, true);
