@@ -104,6 +104,10 @@ body,[data-back="gitter"]{--bk-base:#3a2f63;--bk-line:#f2b84b;--bk-img:repeating
 
 
 .cbtn{background:none;border:0;padding:0;border-radius:var(--r);transition:transform .15s ease}
+.mine.turn .cbtn,.mine.turn .dpile{cursor:grab;touch-action:none}
+body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
+.dragghost{position:fixed;z-index:35;pointer-events:none;transform:rotate(-4deg) scale(1.08);filter:drop-shadow(0 16px 24px rgba(0,0,0,.5))}
+.over{outline:3px solid #fff!important;outline-offset:5px;transform:scale(1.06);transition:transform .12s ease}
 .cbtn.sel{transform:translateY(-10px)}
 .cbtn.sel>.card{outline:3px solid var(--accent);outline-offset:2px}
 .tgt{outline:3px solid var(--accent);outline-offset:4px;border-radius:12px}
@@ -218,7 +222,7 @@ function connect(){
       if(location.hash !== '#' + m.game.code) history.replaceState(null, '', '#' + m.game.code);
       onNewState(S.game, m.game);
     }
-    else if(m.t === 'error'){ toast(m.msg); Snd.play('error'); if(S.sel){ S.sel = null; render(); } }
+    else if(m.t === 'error'){ toast(m.msg); Snd.play('error'); S.dragHide = null; S.dropRect = null; S.sel = null; render(); }
     else if(m.t === 'left' || m.t === 'ended'){
       if(m.t === 'ended') toast('Das Spiel wurde beendet.');
       S.game = null; S.sel = null; history.replaceState(null, '', location.pathname); document.title = 'Zwölf hoch'; render();
@@ -384,7 +388,9 @@ function onNewState(prev, g){
   const mv = g.lastMove;
   const same = prev && prev.code === g.code;
   const fresh = same && mv && (!prev.lastMove || prev.lastMove.seq !== mv.seq);
-  const fromRect = fresh && (mv.kind === 'play' || mv.kind === 'discard') ? rectOf(srcEl(mv)) : null;
+  let fromRect = fresh && (mv.kind === 'play' || mv.kind === 'discard') ? rectOf(srcEl(mv)) : null;
+  if(fresh && mv.pid === S.me && S.dropRect){ fromRect = S.dropRect; }
+  S.dropRect = null; S.dragHide = null;
   const drawRect = rectOf(q('[data-k="draw"] .back'));
   const oldHand = same && prev.hand ? prev.hand.length : 0;
   const wasMine = same && prev.status === 'playing' && prev.players[prev.turn] && prev.players[prev.turn].id === S.me;
@@ -479,6 +485,75 @@ function bind(root){
     const f = H[b.dataset.act]; if(f) f(+b.dataset.i, b);
   });
 }
+
+/* ---------- Ziehen & Ablegen (Maus und Touch) ---------- */
+const D = { start:null, active:false, ghost:null, sel:null, over:null, ox:0, oy:0, justDragged:false };
+function dragSource(t){
+  const b = t.closest && t.closest('.mine [data-act="hand"], .mine [data-act="stock"], .mine [data-act="disc"]');
+  if(!b) return null;
+  const act = b.dataset.act;
+  return { src: act, i: act === 'stock' ? undefined : +b.dataset.i };
+}
+function dropTarget(x, y){
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest('[data-act="build"], .mine [data-act="disc"]');
+}
+view.addEventListener('pointerdown', e => {
+  if(e.button !== 0 || !myTurn()) return;
+  const src = dragSource(e.target); if(!src) return;
+  const v = cardAt(src); if(v == null) return;
+  D.start = { x:e.clientX, y:e.clientY, src, v, id:e.pointerId };
+});
+document.addEventListener('pointermove', e => {
+  if(!D.start || e.pointerId !== D.start.id) return;
+  if(!D.active){
+    if(Math.hypot(e.clientX - D.start.x, e.clientY - D.start.y) < 6) return;
+    const srcCard = srcEl({pid:S.me, src:D.start.src.src, i:D.start.src.i});
+    const r = rectOf(srcCard); if(!r) { D.start = null; return; }
+    D.active = true; document.body.classList.add('dragging');
+    D.ox = D.start.x - r.left; D.oy = D.start.y - r.top;
+    S.sel = { ...D.start.src, v: D.start.v }; S.dragHide = D.start.src;
+    render();
+    D.ghost = document.createElement('div'); D.ghost.className = 'dragghost';
+    D.ghost.style.cssText = 'left:0;top:0;width:' + r.width + 'px;--cw:' + r.width + 'px';
+    D.ghost.innerHTML = cardHTML(D.start.v); document.body.appendChild(D.ghost);
+    Snd.play('select');
+  }
+  e.preventDefault();
+  D.ghost.style.left = (e.clientX - D.ox) + 'px'; D.ghost.style.top = (e.clientY - D.oy) + 'px';
+  const t = dropTarget(e.clientX, e.clientY);
+  const ok = t && (t.dataset.act === 'build' ? fits(D.start.v, S.game.build[+t.dataset.i]) : D.start.src.src === 'hand');
+  const ov = ok ? (t.querySelector('.face') || t) : null;
+  if(ov !== D.over){ if(D.over) D.over.classList.remove('over'); D.over = ov; if(ov) ov.classList.add('over'); }
+}, {passive:false});
+function endDrag(e, cancel){
+  if(!D.start || (e && e.pointerId !== D.start.id)) return;
+  const st = D.start; D.start = null;
+  if(!D.active) return;
+  D.active = false; D.justDragged = true; setTimeout(() => D.justDragged = false, 50);
+  document.body.classList.remove('dragging');
+  if(D.over) D.over.classList.remove('over');
+  const t = !cancel && e ? dropTarget(e.clientX, e.clientY) : null;
+  const gRect = D.ghost.getBoundingClientRect();
+  let sent = false;
+  if(t && myTurn()){
+    const i = +t.dataset.i;
+    if(t.dataset.act === 'build' && fits(st.v, S.game.build[i])){ sent = send({t:'play', src:st.src.src, i:st.src.i, v:st.v, pile:i}); }
+    else if(t.dataset.act === 'disc' && st.src.src === 'hand'){ sent = send({t:'discard', i:st.src.i, v:st.v, to:i}); }
+    else if(t.dataset.act === 'build'){ Snd.play('error'); toast('Passt nicht: Hier wird eine ' + (S.game.build[i].length + 1) + ' gebraucht.'); }
+  }
+  S.sel = null;
+  if(sent){ S.dropRect = gRect; D.ghost.remove(); D.ghost = null; render(); return; }
+  // zurückfliegen
+  S.dragHide = null; render();
+  const back = srcEl({pid:S.me, src:st.src.src, i:st.src.i});
+  const g = D.ghost; D.ghost = null; g.remove();
+  if(back) fly(cardHTML(st.v), gRect, back, {dur:260});
+}
+document.addEventListener('pointerup', e => endDrag(e, false));
+document.addEventListener('pointercancel', e => endDrag(e, true));
+view.addEventListener('click', e => { if(D.justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
+
 bind(view); bind(barActions);
 view.addEventListener('change', e => { if(e.target.id === 'stackSel') send({t:'setStack', n:+e.target.value}); });
 view.addEventListener('input', e => { if(e.target.id === 'nameInput'){ S.name = e.target.value; LS.set('zh.name', e.target.value.trim()); } });
@@ -541,7 +616,7 @@ function renderHome(){
           '<li>Zu Beginn deines Zuges wird deine Hand auf 5 Karten aufgefüllt.</li>' +
           '<li>Leg so viele Karten in die Mitte, wie du kannst: aus der Hand, die oberste deines Spielerstapels und die oberste deiner Ablagestapel. Leere Hand? Du ziehst 5 neue.</li>' +
           '<li>Dein Zug endet, wenn du eine Handkarte auf einen deiner 4 <b>Ablagestapel</b> legst.</li>' +
-          '<li>Bedienung: Karte anklicken, dann Ziel anklicken. Esc hebt die Auswahl auf.</li>' +
+          '<li>Bedienung: Karte auf das Ziel ziehen. Oder Karte anklicken und dann das Ziel anklicken.</li>' +
         '</ol></div>' +
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:14px;min-width:0">' +
@@ -665,6 +740,7 @@ function renderGame(){
   const who = g.status === 'playing' ? (mine ? '<b>Du bist dran</b>' : esc(cur ? cur.name : '?') + ' ist dran' + (cur && !cur.online ? ' (offline)' : '')) : '';
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';
   view.innerHTML = win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me + turnline;
+  if(S.dragHide){ const el = srcEl({pid:S.me, src:S.dragHide.src, i:S.dragHide.i}); if(el) el.style.visibility = 'hidden'; }
 }
 
 render();
