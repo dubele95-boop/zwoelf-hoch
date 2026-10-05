@@ -222,6 +222,14 @@ function connect(){
       if(location.hash !== '#' + m.game.code) history.replaceState(null, '', '#' + m.game.code);
       onNewState(S.game, m.game);
     }
+    else if(m.t === 'nogame'){
+      if(S.game){
+        S.game = null; S.sel = null; S.dragHide = null; history.replaceState(null, '', location.pathname); document.title = 'Zwölf hoch';
+        S.view = null; render();
+        toast('Der Server wurde neu gestartet, dabei ging der Tisch verloren. Bitte erstelle einen neuen Tisch.');
+      }
+    }
+    else if(m.t === 'pong'){}
     else if(m.t === 'error'){ toast(m.msg); Snd.play('error'); S.dragHide = null; S.dropRect = null; S.sel = null; render(); }
     else if(m.t === 'left' || m.t === 'ended'){
       if(m.t === 'ended') toast('Das Spiel wurde beendet.');
@@ -745,6 +753,8 @@ function renderGame(){
 
 render();
 connect();
+// regelmäßiges Lebenszeichen, damit der kostenlose Server nicht einschläft, solange jemand die Seite offen hat
+setInterval(() => { if(S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify({t:'ping'})); }, 30000);
 })();
 
 </script></body></html>

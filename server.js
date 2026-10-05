@@ -30,7 +30,6 @@ const server = http.createServer((req, res) => {
 
 /* ---------------- Spielzustand ---------------- */
 const games = new Map();      // code -> game
-const tokens = new Map();     // geheimer Token -> öffentliche Spieler-ID
 const sockets = new Map();    // Spieler-ID -> Set<ws>
 
 const rid = (n = 9) => crypto.randomBytes(n).toString('base64url');
@@ -233,16 +232,19 @@ wss.on('connection', ws => {
     try {
       if (m.t === 'hello') {
         let token = typeof m.token === 'string' && m.token.length >= 16 && m.token.length <= 64 ? m.token : null;
-        if (!token || !tokens.has(token)) { if (!token) token = rid(18); tokens.set(token, rid()); }
-        ws.pid = tokens.get(token);
+        if (!token) token = rid(18);
+        // Spieler-ID wird aus dem Token berechnet: bleibt auch nach einem Server-Neustart gleich
+        ws.pid = crypto.createHash('sha256').update('zh:' + token).digest('base64url').slice(0, 16);
         if (!sockets.has(ws.pid)) sockets.set(ws.pid, new Set());
         sockets.get(ws.pid).add(ws);
         send(ws, { t: 'welcome', token, id: ws.pid });
         const g = gameOf(ws.pid);
         if (g) { ws.gameCode = g.code; broadcast(g); }
+        else send(ws, { t: 'nogame' });
         return;
       }
       if (!ws.pid) return;
+      if (m.t === 'ping') return send(ws, { t: 'pong' });
       const h = handlers[m.t]; if (!h) return;
       if (['create', 'join', 'leave'].includes(m.t)) return h(ws, m);
       const g = games.get(ws.gameCode); must(g, 'Dieses Spiel gibt es nicht mehr.');
