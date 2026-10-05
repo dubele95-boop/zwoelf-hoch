@@ -39,14 +39,14 @@ function randCode() {
   for (;;) { let s = ''; for (let i = 0; i < 4; i++) s += A[crypto.randomInt(A.length)]; if (!games.has(s)) return s; }
 }
 const top = a => (a && a.length ? a[a.length - 1] : null);
-// Kartenwerte: 1-12 Zahlen, 0 Joker, 100-199 Entweder-oder-Karte (100 + a*16 + b, a < b), 200-212 Aussetzen-Karte (200 + Zahl), 300 Geschenk, 400 Rückwärts, 500 Diebstahl
-const isSplit = v => v >= 100 && v < 200;
+// Kartenwerte: 1-12 Zahlen, 0 Joker, 1017-1204 Entweder-oder-Karte (1000 + a*16 + b, a < b), 200-212 Aussetzen-Karte (200 + Zahl), 300 Geschenk, 400 Rückwärts, 500 Diebstahl
+const isSplit = v => v >= 1000 && v < 1300;
 const isSkip = v => v >= 200 && v < 300;
 const GIFT = 300; // Geschenk-Karte
 const REV = 400;  // Rückwärts-Karte
 const STEAL = 500; // Diebstahl-Karte
-const splitOf = v => [(v - 100) >> 4, (v - 100) & 15];
-const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 + crypto.randomInt(12); } while (b === a); return 100 + Math.min(a, b) * 16 + Math.max(a, b); };
+const splitOf = v => [(v - 1000) >> 4, (v - 1000) & 15];
+const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 + crypto.randomInt(12); } while (b === a); return 1000 + Math.min(a, b) * 16 + Math.max(a, b); };
 const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 }, gift: { perDeck: 4 }, rev: { perDeck: 2 }, steal: { perDeck: 4 } };
 // Jeder Aufbaustapel hat einen aktuellen Wert (bval) und eine Richtung (bdir: 1 aufwärts, -1 abwärts)
 const needOf = (g, i) => g.bdir[i] === 1 ? g.bval[i] + 1 : g.bval[i] - 1;

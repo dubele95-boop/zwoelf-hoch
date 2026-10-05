@@ -302,14 +302,14 @@ function myName(){
   return n;
 }
 const top = a => a && a.length ? a[a.length-1] : null;
-const isSplit = v => v >= 100 && v < 200;
+const isSplit = v => v >= 1000 && v < 1300;
 const isSkip = v => v >= 200 && v < 300;
 const isGift = v => v === 300;
 const isRev = v => v === 400;
 const isSteal = v => v === 500;
 const targetsOpp = v => isGift(v) || isSteal(v);
 const numOf = v => isSkip(v) ? v - 200 : v;
-const splitOf = v => [(v - 100) >> 4, (v - 100) & 15];
+const splitOf = v => [(v - 1000) >> 4, (v - 1000) & 15];
 // Aufbaustapel: aktueller Wert (bval) und Richtung (bdir: 1 aufwärts, -1 abwärts)
 const valAt = (g, i) => g.bval ? g.bval[i] : g.build[i].length;
 const isDown = (g, i) => !!(g.bdir && g.bdir[i] === -1);
@@ -852,7 +852,7 @@ function renderLobby(){
 function specialRow(g, isHost){
   const n = 4 * (g.decks || 1);
   const list = [
-    ['split', 'Entweder-oder', 100 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
+    ['split', 'Entweder-oder', 1000 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
     ['steal', 'Diebstahl', 500, n + ' Stück im Spiel. Zieh sie auf einen Ablagestapel eines Mitspielers und nimm dir dessen oberste Karte auf die Hand.'],
     ['rev', 'Rückwärts', 400, (2 * (g.decks || 1)) + ' Stück im Spiel. Leg sie auf einen Aufbaustapel, auf dem mindestens eine 2 liegt: Ab dann zählt er abwärts und wird bei 1 abgeräumt.'],
     ['gift', 'Geschenk', 300, n + ' Stück im Spiel. Spiel sie auf einen Mitspieler und schenke ihm eine deiner Handkarten. Die Geschenk-Karte ist danach weg.'],
