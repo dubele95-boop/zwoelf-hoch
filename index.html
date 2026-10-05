@@ -297,6 +297,7 @@ const Snd = {
     switch(name){
       case 'select': this.tone(1200, t, .05, 'sine', .07*v); break;
       case 'place': { const h = Math.max(1, Math.min(12, arg || 1)); this.noise(t, .05, .5*v, 2600); this.tone(330 * Math.pow(2, STEP[h-1]/12), t + .01, .22, 'triangle', .22*v); break; }
+      case 'joker': [1568,1976,2349,2637,3136].forEach((f,i) => this.tone(f, t + i*.045, .5 - i*.05, 'sine', .09*v)); this.tone(784, t, .45, 'triangle', .12*v); break;
       case 'discard': this.noise(t, .09, .55*v, 700); this.tone(150, t, .14, 'sine', .25*v); break;
       case 'turn': this.tone(660, t, .3, 'sine', .22); this.tone(990, t + .13, .45, 'sine', .2); break;
       case 'clear': [523,659,784,1047,1319].forEach((f,i) => this.tone(f, t + .1 + i*.07, .3, 'triangle', .18*v)); break;
@@ -409,7 +410,7 @@ function onNewState(prev, g){
   if(fresh && mv.kind === 'play'){
     const pileEl = q('[data-act="build"][data-i="' + mv.pile + '"] .face');
     const h = mv.cleared ? 12 : g.build[mv.pile].length;
-    Snd.play('place', h, vol);
+    if(mv.v === 0) Snd.play('joker', 0, vol);
     fly(cardHTML(mv.v), fromRect, pileEl, { vanish: mv.cleared, done: () => {
       if(mv.cleared){ Snd.play('clear', 0, vol); const r = rectOf(pileEl); if(r) FX.sparks(r.left + r.width/2, r.top + r.height/2); if(pileEl){ pileEl.classList.remove('cleared'); void pileEl.offsetWidth; pileEl.classList.add('cleared'); } }
       if(mv.win){ Snd.play('win'); FX.confetti(); }
