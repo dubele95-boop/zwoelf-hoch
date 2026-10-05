@@ -13,7 +13,7 @@ const MAXP = 8;
 const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 
 /* ---------------- HTTP ---------------- */
-const indexFile = path.join(__dirname, 'index.html');
+const indexFile = path.join(__dirname, 'public', 'index.html');
 const server = http.createServer((req, res) => {
   if (req.url === '/healthz') { res.writeHead(200); return res.end('ok'); }
   if (req.url === '/' || req.url.startsWith('/?') || req.url.startsWith('/#')) {
