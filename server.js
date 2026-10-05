@@ -59,6 +59,17 @@ function fits(v, need) {
   return v === need;
 }
 const pname = (g, id) => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+// Verlauf nur für Sonderkarten (wird im Spiel angezeigt)
+function addSLog(g, kind, text) { g.slog = g.slog || []; g.slog.unshift({ k: kind, t: text, n: g.turnNo }); g.slog = g.slog.slice(0, 40); }
+function cardLabel(v) {
+  if (v === 0) return 'einen Joker';
+  if (isSplit(v)) return 'eine ' + splitOf(v).join('/');
+  if (isSkip(v)) return 'eine ' + (v - 200);
+  if (v === GIFT) return 'eine Geschenk-Karte';
+  if (v === REV) return 'eine Rückwärts-Karte';
+  if (v === STEAL) return 'eine Diebstahl-Karte';
+  return 'eine ' + v;
+}
 function addLog(g, text) { g.log.unshift(text); g.log = g.log.slice(0, 14); }
 let moveSeq = 0;
 function setMove(g, mv) { g.lastMove = { ...mv, seq: ++moveSeq }; }
@@ -78,7 +89,7 @@ function advance(g) {
   for (let k = 0; k <= g.players.length; k++) {
     g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
     const p = g.players[g.turn];
-    if (g.skips[p.id] > 0) { g.skips[p.id]--; addLog(g, p.name + ' setzt aus.'); continue; }
+    if (g.skips[p.id] > 0) { g.skips[p.id]--; addLog(g, p.name + ' setzt aus.'); addSLog(g, 'skipped', p.name + ' setzt aus'); continue; }
     break;
   }
   refill(g, g.players[g.turn].id);
@@ -104,7 +115,7 @@ function startRound(g) {
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
   g.draw = deck; g.build = [[], [], [], []]; g.bval = [0, 0, 0, 0]; g.bdir = [1, 1, 1, 1]; g.done = []; g.decks = decks;
-  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = [];
+  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = [];
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
   addLog(g, 'Neue Runde mit ' + g.stackSize + ' Karten pro Spielerstapel. ' + g.players[g.turn].name + ' beginnt.');
@@ -133,7 +144,7 @@ function viewFor(g, me) {
   return {
     code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], drawCount: g.draw.length, doneCount: g.done.length,
-    choose: g.choose || null, skips: g.skips || {},
+    choose: g.choose || null, skips: g.skips || {}, slog: g.slog || [],
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
     me, hand: g.hands[me] || null
   };
@@ -217,13 +228,16 @@ const handlers = {
       must(canReverse(g, pi), 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.');
       removeAt(g, me, m.src, m.i); pile.push(v);
       g.bdir[pi] = -g.bdir[pi]; mv.reversed = true;
+      addSLog(g, 'rev', name + ' dreht Stapel ' + (pi + 1) + (g.bdir[pi] === 1 ? ' wieder aufwärts' : ' um: jetzt abwärts'));
       addLog(g, name + ' dreht Stapel ' + (pi + 1) + ' um: jetzt ' + (g.bdir[pi] === 1 ? 'aufwärts' : 'abwärts') + '.');
     } else {
       const need = needOf(g, pi);
       must(fits(v, need), 'Passt nicht: Hier wird eine ' + need + ' gebraucht.');
       removeAt(g, me, m.src, m.i); pile.push(v); g.bval[pi] = need;
+      if (isSplit(v)) addSLog(g, 'split', name + ' spielt Entweder-oder ' + splitOf(v).join('/') + ' als ' + need);
       const end = g.bdir[pi] === 1 ? 12 : 1;
       if (need === end) {
+        if (g.bdir[pi] === -1) addSLog(g, 'rev', 'Stapel ' + (pi + 1) + ' ist rückwärts bei 1 angekommen und wird abgeräumt');
         g.done.push(...pile); g.build[pi] = []; g.bval[pi] = 0; g.bdir[pi] = 1; mv.cleared = true;
         addLog(g, 'Stapel ' + (pi + 1) + ' ist bei ' + end + ' und wird abgeräumt.');
       }
@@ -274,6 +288,7 @@ const handlers = {
     g.hands[m.target].push(gv);
     const name = pname(g, me);
     addLog(g, name + ' schenkt ' + pname(g, m.target) + ' eine Karte.');
+    addSLog(g, 'gift', name + ' schenkt ' + pname(g, m.target) + ' eine Karte');
     const mv = { kind: 'gift', pid: me, target: m.target, src: m.src, i: m.i, give: m.give };
     if (m.src === 'stock' && !g.stocks[me].length) {
       mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
@@ -292,6 +307,7 @@ const handlers = {
     const sv = pile.pop(); g.hands[me].push(sv);
     const name = pname(g, me);
     addLog(g, name + ' klaut ' + pname(g, m.target) + ' eine Karte.');
+    addSLog(g, 'steal', name + ' klaut ' + pname(g, m.target) + ' ' + cardLabel(sv));
     const mv = { kind: 'steal', pid: me, target: m.target, pile: m.pile, src: m.src, i: m.i, sv };
     if (m.src === 'stock' && !g.stocks[me].length) {
       mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
@@ -328,6 +344,7 @@ function applySkip(g, by, target) {
   g.skips = g.skips || {};
   g.skips[target] = (g.skips[target] || 0) + 1;
   addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
+  addSLog(g, 'skip', pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen');
 }
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);

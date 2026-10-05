@@ -98,6 +98,12 @@ body.busy{cursor:progress}
 .sm .card .skb{top:4%;right:5%;width:calc(var(--cws) * .32);height:calc(var(--cws) * .32)}
 .pill.skip{display:inline-flex;align-items:center;gap:5px;color:#ffb3a8;border-color:rgba(239,107,91,.5)}
 .pill.skip svg{width:12px;height:12px}
+.modalbox.rulesbox{max-width:640px;max-height:min(86vh,820px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
+.ruleshead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.rulelist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.rulecards{display:flex;flex-direction:column;gap:10px}
+.rulecard{display:flex;gap:14px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.15)}
+.rulecardimg{--cw:58px;flex:none}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
 .modalbox{background:var(--table-2);max-width:440px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .modalbox h2{font:900 32px/1 var(--f-display);text-transform:uppercase}
@@ -125,6 +131,8 @@ body.busy{cursor:progress}
 .sm .card.gf .gicon{width:70%}
 .opp.tgt{cursor:pointer}
 .giftcards .cbtn{--cw:72px}
+.card.sp.spa .c{font-size:calc(var(--cw) * .13)}
+.card.j.ja .n{font-size:calc(var(--cw) * .62)}
 .card.j{--c:var(--accent);background:var(--jk);color:var(--accent)}
 .card.j .n{font-size:calc(var(--cw) * .5)}
 .card .as{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:800 12px/1 var(--f-body);padding:3px 6px;border-radius:99px;white-space:nowrap}
@@ -195,6 +203,13 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .bpile{background:none;border:0;padding:4px;display:flex;flex-direction:column;align-items:center;gap:14px}
 .bpile .need{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .midspacer{width:var(--cw)}
+.slogwrap{align-items:stretch;width:270px;min-width:0}
+.slog{height:170px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;font-size:13px}
+.slogitem{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.18);color:var(--muted);line-height:1.35}
+.slogitem.newest{color:var(--ink);background:rgba(242,184,75,.10)}
+.slogicon{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--accent)}
+.slogicon svg{width:18px;height:18px}
+.k-gift .slogicon{color:var(--ok)}.k-steal .slogicon{color:#8fb4ff}.k-skip .slogicon,.k-skipped .slogicon{color:var(--danger)}.k-rev .slogicon{color:#ff8f9c}
 .log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto;min-width:0}
 .log div:first-child{color:var(--ink)}
 .mine{display:flex;flex-wrap:wrap;gap:24px 36px;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
@@ -220,6 +235,8 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
   .mid{grid-template-columns:minmax(0,1fr)}
   .mid .pilegrp:first-child{flex-direction:row}
   .midspacer{display:none}
+  .slogwrap{width:auto}
+  .slog{height:120px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
@@ -234,6 +251,7 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
   <main id="view"><div class="panel muted">Verbinde mit dem Spieltisch …</div></main>
 </div>
 <div id="toast" hidden></div>
+<div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div>
 <script>
 (function(){
 const view = document.getElementById('view');
@@ -574,6 +592,7 @@ const H = {
     document.querySelectorAll('#backpick button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.k === k)));
     Snd.play('select');
   },
+  rules(){ openRules(); },
   sound(){ Snd.on = !Snd.on; LS.set('zh.sound', Snd.on ? '1' : '0'); Snd.unlock(); renderBar(); if(Snd.on) Snd.play('select'); },
   opp(_, b){
     if(!S.sel || !targetsOpp(S.sel.v) || !myTurn()) return;
@@ -735,7 +754,42 @@ view.addEventListener('keydown', e => {
   if(e.target.id === 'codeInput') H.joinCode();
   if(e.target.id === 'nameInput'){ const c = document.getElementById('codeInput'); if(c && c.value.trim().length === 4) H.joinCode(); }
 });
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && S.sel){ S.sel = null; render(); } });
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!document.getElementById('rules').hidden){ closeRules(); return; }
+  if(S.sel){ S.sel = null; render(); }
+});
+/* ---------- Regel-Übersicht während des Spiels ---------- */
+const SPECIAL_HELP = [
+  ['split', 1000 + 3*16 + 4, 'Entweder-oder', ['Zählt als eine ihrer beiden Zahlen, z. B. 3 <b>oder</b> 4.', 'Passt auf einen Aufbaustapel, wenn eine der beiden Zahlen gebraucht wird.', 'Darf auch auf deine Ablagestapel.']],
+  ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
+  ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
+  ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
+  ['rev', 400, 'Rückwärts', ['Leg sie auf einen Aufbaustapel, auf dem mindestens eine 2 liegt.', 'Ab dann zählt der Stapel abwärts (z. B. 7, 6, 5 …) und wird bei 1 abgeräumt.', 'Solche Stapel haben einen roten Rand. Eine zweite Rückwärts-Karte dreht ihn wieder um.']]
+];
+function openRules(){
+  const g = S.game; if(!g) return;
+  const active = SPECIAL_HELP.filter(([k]) => g.specials && g.specials[k]);
+  const el = document.getElementById('rules');
+  el.innerHTML = '<div class="panel modalbox rulesbox"><div class="ruleshead"><h2 id="rulesTitle">Regeln</h2><button type="button" class="btn small" data-close aria-label="Regeln schließen">Schließen</button></div>' +
+    '<div class="label">Grundregeln</div><ul class="rulelist">' +
+      '<li>Ziel: Spiele als Erste oder Erster deinen <b>Spielerstapel</b> leer.</li>' +
+      '<li>Die 4 <b>Aufbaustapel</b> in der Mitte laufen von 1 bis 12. Bei 12 werden sie abgeräumt.</li>' +
+      '<li>Der <b>Joker ★</b> ersetzt jede Zahl. Liegt er auf einem Stapel, zeigt er die Zahl, für die er steht.</li>' +
+      '<li>Spielen darfst du aus der Hand, die oberste Karte deines Spielerstapels und die oberste deiner Ablagestapel.</li>' +
+      '<li>Leere Hand? Du ziehst sofort 5 neue Karten.</li>' +
+      '<li>Dein Zug endet, wenn du eine Handkarte auf einen deiner 4 <b>Ablagestapel</b> legst.</li>' +
+    '</ul>' +
+    '<div class="label">Sonderkarten in dieser Runde</div>' +
+    (active.length ? '<div class="rulecards">' + active.map(([k, sample, name, lines]) =>
+      '<div class="rulecard"><div class="rulecardimg">' + cardHTML(sample) + '</div><div style="min-width:0"><b>' + name + '</b><ul class="rulelist">' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul></div></div>').join('') + '</div>'
+      : '<p class="muted" style="margin:0">In dieser Runde sind keine Sonderkarten dabei.</p>') +
+    '</div>';
+  el.hidden = false;
+  const btn = el.querySelector('[data-close]'); if(btn) btn.focus();
+}
+function closeRules(){ const el = document.getElementById('rules'); el.hidden = true; el.innerHTML = ''; }
+document.getElementById('rules').addEventListener('click', e => { if(e.target.id === 'rules' || e.target.closest('[data-close]')) closeRules(); });
 
 /* ---------- Darstellung ---------- */
 const BACKS = [['gitter','Gitter'],['sonne','Sonne'],['welle','Welle']];
@@ -746,6 +800,14 @@ const SKIP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" c
 const REV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v14M3.5 13.5L7 17l3.5-3.5"/><path d="M17 21V7M13.5 10.5L17 7l3.5 3.5"/></svg>';
 const STEAL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 9.5C2 8 3.2 7 4.8 7.3c2.3.4 4.6 1.2 7.2 1.2s4.9-.8 7.2-1.2C20.8 7 22 8 22 9.5c0 3.4-2 6-4.8 6-2 0-3.3-1.4-5.2-1.4s-3.2 1.4-5.2 1.4C4 15.5 2 12.9 2 9.5zm4.3-.2c-1.2 0-2 .7-2 1.4s1 1.2 2.2 1.2 2.2-.4 2.2-1.1-1.2-1.5-2.4-1.5zm11.4 0c-1.2 0-2.4.8-2.4 1.5s1 1.1 2.2 1.1 2.2-.5 2.2-1.2-.8-1.4-2-1.4z"/></svg>';
 const GIFT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="9" width="17" height="11.5" rx="1.5"/><path d="M2.5 9h19v-3h-19z"/><path d="M12 6v14.5"/><path d="M12 6c-1.5-3-5.5-3.6-5.5-1.3S10 6 12 6zM12 6c1.5-3 5.5-3.6 5.5-1.3S14 6 12 6z"/></svg>';
+// gelegte Entweder-oder-Karte: die gewählte Zahl groß in der Mitte, beide Zahlen klein in den Ecken
+function splitAs(v, n){
+  const [a, b] = splitOf(v);
+  return '<div class="card sp spa" style="color:' + grp(n) + '"><span class="c tl">' + a + '/' + b + '</span><span class="n">' + n + '</span><span class="c br">' + a + '/' + b + '</span></div>';
+}
+function jokerAs(n){
+  return '<div class="card j ja"><span class="c tl">★</span><span class="n">' + n + '</span><span class="c br">★</span></div>';
+}
 function cardHTML(v, extra, style){
   if(v == null) return '';
   if(isSteal(v)) return '<div class="card st"' + (style ? ' style="' + style + '"' : '') + '><span class="ricon">' + STEAL_ICON + '</span><span class="glabel">Diebstahl</span>' + (extra||'') + '</div>';
@@ -765,6 +827,7 @@ function cardHTML(v, extra, style){
 }
 
 function render(){
+  if((!S.game || S.game.status === 'lobby') && !document.getElementById('rules').hidden) closeRules();
   renderBar();
   if(!S.everConnected){ S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
   if(!S.game) return renderHome();
@@ -778,6 +841,7 @@ function renderBar(){
   let h = '<button class="btn small sndbtn" data-act="sound" aria-pressed="' + Snd.on + '">' + ico + (Snd.on ? 'Ton an' : 'Ton aus') + '</button>';
   if(S.everConnected && !S.connected) h += '<span class="pill wait">Verbindung getrennt, verbinde neu …</span>';
   const g = S.game;
+  if(g && g.status !== 'lobby') h += '<button class="btn small" data-act="rules" aria-haspopup="dialog">Regeln</button>';
   if(g) h += '<button class="btn small" data-act="back">' + (g.status === 'lobby' ? 'Tisch verlassen' : 'Zur Startseite') + '</button>';
   if(g && g.host === S.me && g.status !== 'lobby'){
     const cur = g.players[g.turn];
@@ -867,6 +931,15 @@ function specialRow(g, isHost){
     '</div>';
   }).join('') + '</div>';
 }
+const anySpecial = g => !!(g.specials && Object.values(g.specials).some(Boolean));
+const SLOG_ICON = { gift: () => GIFT_ICON, steal: () => STEAL_ICON, skip: () => SKIP_ICON, skipped: () => SKIP_ICON, rev: () => REV_ICON, split: () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M6.5 20L17.5 4"/></svg>' };
+function specialLogHTML(g){
+  const list = g.slog || [];
+  return '<div class="pilegrp slogwrap"><div class="label">Sonderkarten-Verlauf</div><div class="slog" aria-live="polite">' +
+    (list.length ? list.map((e, idx) => '<div class="slogitem k-' + esc(e.k) + (idx === 0 ? ' newest' : '') + '"><span class="slogicon">' + (SLOG_ICON[e.k] ? SLOG_ICON[e.k]() : '') + '</span><span>' + esc(e.t) + '</span></div>').join('')
+      : '<div class="muted" style="font-size:13px">Noch keine Sonderkarte gespielt.</div>') +
+  '</div></div>';
+}
 function miniPile(cards, label, i){
   const t = top(cards);
   return '<div class="mini sm" data-k="disc" data-act="oppDisc" data-i="' + i + '" title="' + esc(label + (cards.length ? ': ' + cards.map(cardShort).join(', ') : ': leer')) + '">' +
@@ -906,8 +979,9 @@ function renderGame(){
 
   const builds = g.build.map((p,i) => {
     const t = top(p), ok = sel && playable(g, sel.v, i), down = isDown(g, i), need = needAt(g, i);
-    const badge = (t === 0 || isSplit(t)) ? '<span class="as">= ' + valAt(g, i) + '</span>' : isRev(t) ? '<span class="as">' + (down ? '↓ ' : '↑ ') + valAt(g, i) + '</span>' : '';
-    const face = t == null ? '<div class="slot">1</div>' : cardHTML(t, badge);
+    const badge = isRev(t) ? '<span class="as">' + (down ? '↓ ' : '↑ ') + valAt(g, i) + '</span>' : '';
+    // ein gelegter Joker zeigt die Zahl, für die er steht – in Joker-Farben
+    const face = t == null ? '<div class="slot">1</div>' : t === 0 ? jokerAs(valAt(g, i)) : isSplit(t) ? splitAs(t, valAt(g, i)) : cardHTML(t, badge);
     return '<button class="bpile' + (down ? ' down' : '') + '" data-act="build" data-i="' + i + '" aria-label="Aufbaustapel ' + (i+1) + (down ? ', läuft abwärts' : '') + ', als nächstes ' + need + '"' + (mine ? '' : ' tabindex="-1"') + '>' +
       '<div class="face' + (ok ? ' tgt' : '') + '" style="border-radius:var(--r)">' + face + '</div>' +
       '<span class="need">' + (down ? '<b class="downtag">↓ abwärts</b> ' : '') + 'nächste: ' + need + '</span></button>';
@@ -915,7 +989,7 @@ function renderGame(){
   const mid = '<div class="mid">' +
     '<div class="pilegrp"><div class="label">Ziehen</div><div class="drawn" data-k="draw">' + backHTML() + '<small>' + g.drawCount + ' Karten</small></div></div>' +
     '<div class="pilegrp"><div class="label">Aufbaustapel</div><div class="builds">' + builds + '</div></div>' +
-    '<div class="midspacer" aria-hidden="true"></div>' +
+    (anySpecial(g) ? specialLogHTML(g) : '<div class="midspacer" aria-hidden="true"></div>') +
   '</div>';
 
   let win = '';
@@ -977,7 +1051,9 @@ function renderGame(){
       '</div></div></div>';
   }
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';
+  const slogEl = q('.slog'), slogTop = slogEl ? slogEl.scrollTop : 0;
   view.innerHTML = win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me + turnline + dialog;
+  if(slogTop){ const n = q('.slog'); if(n) n.scrollTop = slogTop; }
   if(S.dragHide){ const el = srcEl({pid:S.me, src:S.dragHide.src, i:S.dragHide.i}); if(el) el.style.visibility = 'hidden'; }
 }
 
