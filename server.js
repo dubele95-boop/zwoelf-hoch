@@ -39,7 +39,19 @@ function randCode() {
   for (;;) { let s = ''; for (let i = 0; i < 4; i++) s += A[crypto.randomInt(A.length)]; if (!games.has(s)) return s; }
 }
 const top = a => (a && a.length ? a[a.length - 1] : null);
-const fits = (v, pile) => v === 0 || v === pile.length + 1;
+// Kartenwerte: 1-12 Zahlen, 0 Joker, 100-199 Entweder-oder-Karte (100 + a*16 + b, a < b), 200-212 Aussetzen-Karte (200 + Zahl)
+const isSplit = v => v >= 100 && v < 200;
+const isSkip = v => v >= 200;
+const splitOf = v => [(v - 100) >> 4, (v - 100) & 15];
+const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 + crypto.randomInt(12); } while (b === a); return 100 + Math.min(a, b) * 16 + Math.max(a, b); };
+const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 } };
+function fits(v, pile) {
+  const need = pile.length + 1;
+  if (v === 0) return true;
+  if (isSplit(v)) return splitOf(v).includes(need);
+  if (isSkip(v)) return v - 200 === need;
+  return v === need;
+}
 const pname = (g, id) => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
 function addLog(g, text) { g.log.unshift(text); g.log = g.log.slice(0, 14); }
 let moveSeq = 0;
@@ -55,7 +67,14 @@ function refill(g, id) {
   while (h.length < 5) { const c = drawOne(g); if (c == null) break; h.push(c); }
 }
 function advance(g) {
-  g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
+  g.choose = null;
+  g.skips = g.skips || {};
+  for (let k = 0; k <= g.players.length; k++) {
+    g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
+    const p = g.players[g.turn];
+    if (g.skips[p.id] > 0) { g.skips[p.id]--; addLog(g, p.name + ' setzt aus.'); continue; }
+    break;
+  }
   refill(g, g.players[g.turn].id);
 }
 function startRound(g) {
@@ -64,12 +83,19 @@ function startRound(g) {
   for (let d = 0; d < decks; d++) {
     for (let v = 1; v <= 12; v++) for (let k = 0; k < 12; k++) deck.push(v);
     for (let k = 0; k < 18; k++) deck.push(0); // Joker
+    if (g.specials && g.specials.split) for (let k = 0; k < SPECIALS.split.perDeck; k++) deck.push(makeSplit());
+    if (g.specials && g.specials.skip) {
+      // 4 zufällige Zahlenkarten dieses Kartensatzes bekommen das Aussetzen-Symbol
+      const start = d === 0 ? 0 : deck.length - (144 + 18 + (g.specials.split ? SPECIALS.split.perDeck : 0));
+      const idx = []; for (let i = start; i < deck.length; i++) if (deck[i] >= 1 && deck[i] <= 12) idx.push(i);
+      shuffle(idx).slice(0, SPECIALS.skip.perDeck).forEach(i => { deck[i] = 200 + deck[i]; });
+    }
   }
   shuffle(deck);
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
   g.draw = deck; g.build = [[], [], [], []]; g.done = []; g.decks = decks;
-  g.status = 'playing'; g.winner = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = [];
+  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = [];
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
   addLog(g, 'Neue Runde mit ' + g.stackSize + ' Karten pro Spielerstapel. ' + g.players[g.turn].name + ' beginnt.');
@@ -96,8 +122,9 @@ function viewFor(g, me) {
     discards: g.discards[p.id] || [[], [], [], []]
   }));
   return {
-    code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, decks: decksFor(g.players.length, g.stackSize),
+    code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, drawCount: g.draw.length, doneCount: g.done.length,
+    choose: g.choose || null, skips: g.skips || {},
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
     me, hand: g.hands[me] || null
   };
@@ -127,7 +154,7 @@ const handlers = {
     const name = cleanName(m.name); must(name, 'Gib zuerst deinen Namen ein.');
     const old = gameOf(ws.pid); if (old && old.status === 'lobby') removePlayer(old, ws.pid);
     const g = {
-      code: randCode(), status: 'lobby', host: ws.pid, stackSize: 20, created: Date.now(), updated: Date.now(),
+      code: randCode(), status: 'lobby', host: ws.pid, stackSize: 20, specials: { split: false }, created: Date.now(), updated: Date.now(),
       players: [{ id: ws.pid, name }], watchers: new Set(),
       draw: [], build: [[], [], [], []], done: [], hands: {}, stocks: {}, discards: {}, turn: 0, turnNo: 0, winner: null, log: []
     };
@@ -154,6 +181,11 @@ const handlers = {
     g.watchers.delete(ws.pid);
     if (g.status === 'lobby') removePlayer(g, ws.pid);
   },
+  setSpecial(ws, m, g) {
+    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    must(Object.prototype.hasOwnProperty.call(SPECIALS, m.key), 'Unbekannte Sonderkarte.');
+    g.specials = { ...(g.specials || {}), [m.key]: !!m.on }; broadcast(g);
+  },
   setStack(ws, m, g) {
     must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
     must(STACK_SIZES.includes(m.n), 'Ungültige Stapelgröße.');
@@ -178,7 +210,14 @@ const handlers = {
     if (pile.length === 12) { g.done.push(...pile); g.build[m.pile] = []; addLog(g, 'Stapel ' + (m.pile + 1) + ' ist bei 12 und wird abgeräumt.'); mv.cleared = true; }
     if (m.src === 'stock' && !g.stocks[me].length) {
       mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
-    } else if (!g.hands[me].length) { refill(g, me); mv.refill = true; addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
+    } else {
+      if (!g.hands[me].length) { refill(g, me); mv.refill = true; addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
+      if (isSkip(v) && g.players.length > 1) {
+        const others = g.players.filter(p => p.id !== me);
+        if (others.length === 1) { applySkip(g, me, others[0].id); mv.skipTarget = others[0].id; }
+        else g.choose = { pid: me, kind: 'skip' };
+      }
+    }
     setMove(g, mv);
     broadcast(g);
   },
@@ -199,6 +238,14 @@ const handlers = {
     setMove(g, { kind: 'pass', pid: me });
     advance(g); broadcast(g);
   },
+  chooseSkip(ws, m, g) {
+    const me = ws.pid; myTurn(g, me, true);
+    must(g.choose && g.choose.pid === me, 'Gerade gibt es nichts auszuwählen.');
+    must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
+    g.choose = null; applySkip(g, me, m.target);
+    setMove(g, { kind: 'skipped', pid: me, target: m.target });
+    broadcast(g);
+  },
   skip(ws, m, g) {
     must(g.host === ws.pid && g.status === 'playing', 'Nur der Gastgeber kann überspringen.');
     addLog(g, g.players[g.turn].name + ' wurde übersprungen.');
@@ -211,9 +258,15 @@ const handlers = {
     for (const set of sockets.values()) for (const s of set) if (s.gameCode === g.code) { s.gameCode = null; send(s, { t: 'ended' }); }
   }
 };
-function myTurn(g, me) {
+function myTurn(g, me, allowChoose) {
   must(g.status === 'playing', 'Das Spiel läuft gerade nicht.');
   must(g.players[g.turn].id === me, 'Du bist gerade nicht dran.');
+  if (!allowChoose) must(!g.choose, 'Wähle zuerst, wer aussetzen muss.');
+}
+function applySkip(g, by, target) {
+  g.skips = g.skips || {};
+  g.skips[target] = (g.skips[target] || 0) + 1;
+  addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
 }
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);

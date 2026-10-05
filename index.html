@@ -80,6 +80,30 @@ body.busy{cursor:progress}
 .card .c{position:absolute;font:800 calc(var(--cw) * .17)/1 var(--f-display)}
 .card .tl{top:8%;left:12%}.card .br{bottom:8%;right:12%;transform:rotate(180deg)}
 .card.g1{--c:var(--g1)}.card.g2{--c:var(--g2)}.card.g3{--c:var(--g3)}
+.card.sp{--c:var(--accent);background:var(--card)}
+.card.sp .diag{position:absolute;inset:12% 14%;background:linear-gradient(to top right,transparent calc(50% - .75px),rgba(38,35,58,.35) 50%,transparent calc(50% + .75px))}
+.card.sp .sa,.card.sp .sb{position:absolute;font:900 calc(var(--cw) * .44)/1 var(--f-display);letter-spacing:-.02em}
+.card.sp .sa{top:11%;left:14%}.card.sp .sb{bottom:11%;right:14%}
+.card.sp .or{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-54deg);font:700 calc(var(--cw) * .11)/1 var(--f-body);color:var(--card-ink);background:var(--card);padding:0 3px;text-transform:uppercase;letter-spacing:.06em}
+.sm .card.sp .or{display:none}
+.special{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.15)}
+.special.on{border-color:rgba(242,184,75,.5)}
+.toggle{flex:none;width:48px;height:28px;border-radius:99px;border:1px solid var(--line-2);background:var(--table);position:relative;padding:0}
+.toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s ease}
+.toggle[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.toggle[aria-checked="true"] i{transform:translateX(20px);background:var(--accent-ink)}
+.card.sk::before{border-color:var(--accent);opacity:.95}
+.card .skb{position:absolute;top:7%;right:9%;width:calc(var(--cw) * .24);height:calc(var(--cw) * .24);color:var(--danger)}
+.card .skb svg,.pill.skip svg,.skipbig svg{width:100%;height:100%;display:block}
+.sm .card .skb{top:4%;right:5%;width:calc(var(--cws) * .32);height:calc(var(--cws) * .32)}
+.pill.skip{display:inline-flex;align-items:center;gap:5px;color:#ffb3a8;border-color:rgba(239,107,91,.5)}
+.pill.skip svg{width:12px;height:12px}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
+.modalbox{background:var(--table-2);max-width:440px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modalbox h2{font:900 32px/1 var(--f-display);text-transform:uppercase}
+.skipbig{width:44px;height:44px;color:var(--danger)}
+.choose{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}
+.choose .btn{padding:10px 18px;font-size:16px}
 .card.j{--c:var(--accent);background:var(--jk);color:var(--accent)}
 .card.j .n{font-size:calc(var(--cw) * .5)}
 .card .as{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:800 12px/1 var(--f-body);padding:3px 6px;border-radius:99px;white-space:nowrap}
@@ -257,7 +281,13 @@ function myName(){
   return n;
 }
 const top = a => a && a.length ? a[a.length-1] : null;
-const fits = (v, pile) => v === 0 || v === pile.length + 1;
+const isSplit = v => v >= 100 && v < 200;
+const isSkip = v => v >= 200;
+const numOf = v => isSkip(v) ? v - 200 : v;
+const splitOf = v => [(v - 100) >> 4, (v - 100) & 15];
+const fits = (v, pile) => v === 0 || (isSplit(v) ? splitOf(v).includes(pile.length + 1) : numOf(v) === pile.length + 1);
+const cardName = v => v === 0 ? 'Joker' : isSplit(v) ? 'Entweder ' + splitOf(v).join(' oder ') : isSkip(v) ? numOf(v) + ' mit Aussetzen' : String(v);
+const cardShort = v => v === 0 ? 'J' : isSplit(v) ? splitOf(v).join('/') : isSkip(v) ? numOf(v) + '⊘' : String(v);
 const meP = () => S.game && S.game.players.find(p => p.id === S.me);
 function myTurn(){ const g = S.game; return !!(g && g.status === 'playing' && g.players[g.turn] && g.players[g.turn].id === S.me && g.hand); }
 function cardAt(sel){
@@ -298,6 +328,7 @@ const Snd = {
       case 'select': this.tone(1200, t, .05, 'sine', .07*v); break;
       case 'place': { const h = Math.max(1, Math.min(12, arg || 1)); this.noise(t, .05, .5*v, 2600); this.tone(330 * Math.pow(2, STEP[h-1]/12), t + .01, .22, 'triangle', .22*v); break; }
       case 'joker': [1568,1976,2349,2637,3136].forEach((f,i) => this.tone(f, t + i*.045, .5 - i*.05, 'sine', .09*v)); this.tone(784, t, .45, 'triangle', .12*v); break;
+      case 'skip': this.tone(520, t, .16, 'square', .06); this.tone(330, t + .14, .28, 'square', .06); break;
       case 'discard': this.noise(t, .09, .55*v, 700); this.tone(150, t, .14, 'sine', .25*v); break;
       case 'turn': this.tone(660, t, .3, 'sine', .22); this.tone(990, t + .13, .45, 'sine', .2); break;
       case 'clear': [523,659,784,1047,1319].forEach((f,i) => this.tone(f, t + .1 + i*.07, .3, 'triangle', .18*v)); break;
@@ -417,7 +448,15 @@ function onNewState(prev, g){
     }});
   } else if(fresh && mv.kind === 'discard'){
     fly(cardHTML(mv.v), fromRect, dstEl(mv));
-  } else if(fresh && mv.kind === 'deal'){
+  }
+  if(fresh && (mv.kind === 'skipped' || mv.skipTarget)){
+    const target = mv.target || mv.skipTarget;
+    const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+    if(target === S.me){ toast(name(mv.pid) + ' lässt dich aussetzen!'); Snd.play('skip'); }
+    else if(mv.pid !== S.me) toast(name(mv.pid) + ' lässt ' + name(target) + ' aussetzen.');
+    else toast(name(target) + ' setzt beim nächsten Mal aus.');
+  }
+  if(fresh && mv.kind === 'deal'){
     Snd.play('deal');
   }
   // neue Handkarten fliegen vom Nachziehstapel herein
@@ -468,6 +507,8 @@ const H = {
     Snd.play('select');
   },
   sound(){ Snd.on = !Snd.on; LS.set('zh.sound', Snd.on ? '1' : '0'); Snd.unlock(); renderBar(); if(Snd.on) Snd.play('select'); },
+  chooseSkip(_, b){ send({t:'chooseSkip', target:b.dataset.pid}); },
+  special(_, b){ send({t:'setSpecial', key:b.dataset.k, on: b.getAttribute('aria-checked') !== 'true'}); },
   hand(i){ selectCard({src:'hand', i}); },
   stock(){ selectCard({src:'stock'}); },
   disc(i){
@@ -577,8 +618,18 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape' && S.sel){ S.s
 const BACKS = [['gitter','Gitter'],['sonne','Sonne'],['welle','Welle']];
 function backHTML(style){ return '<div class="back"' + (style ? ' style="' + style + '"' : '') + '><span class="emb">12<small>↑</small></span></div>'; }
 function backPickHTML(){ const cur = document.body.dataset.back; return BACKS.map(([k,l]) => '<button type="button" data-act="pickBack" data-k="' + k + '" aria-pressed="' + (k === cur) + '"><span style="display:contents" data-back="' + k + '">' + backHTML() + '</span>' + l + '</button>').join(''); }
+const grp = n => n <= 4 ? 'var(--g1)' : n <= 8 ? 'var(--g2)' : 'var(--g3)';
+const SKIP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5.6 18.4L18.4 5.6" stroke="currentColor" stroke-width="3"/></svg>';
 function cardHTML(v, extra, style){
   if(v == null) return '';
+  if(isSkip(v)){
+    const n = numOf(v), g = n <= 4 ? 'g1' : n <= 8 ? 'g2' : 'g3';
+    return '<div class="card ' + g + ' sk"' + (style ? ' style="' + style + '"' : '') + '><span class="c tl">' + n + '</span><span class="n">' + n + '</span><span class="skb" title="Aussetzen">' + SKIP_ICON + '</span><span class="c br">' + n + '</span>' + (extra||'') + '</div>';
+  }
+  if(isSplit(v)){
+    const [a,b] = splitOf(v);
+    return '<div class="card sp"' + (style ? ' style="' + style + '"' : '') + '><i class="diag"></i><span class="sa" style="color:' + grp(a) + '">' + a + '</span><span class="sb" style="color:' + grp(b) + '">' + b + '</span><span class="or">oder</span>' + (extra||'') + '</div>';
+  }
   const g = v === 0 ? 'j' : v <= 4 ? 'g1' : v <= 8 ? 'g2' : 'g3';
   const t = v === 0 ? 'J' : v;
   return '<div class="card ' + g + '"' + (style ? ' style="' + style + '"' : '') + '><span class="c tl">' + t + '</span><span class="n">' + (v === 0 ? '★' : v) + '</span><span class="c br">' + t + '</span>' + (extra||'') + '</div>';
@@ -622,6 +673,8 @@ function renderHome(){
           '<li>Ziel: Spiele als Erste oder Erster deinen <b>Spielerstapel</b> leer.</li>' +
           '<li>In der Mitte liegen 4 <b>Aufbaustapel</b>. Jeder wird aufsteigend von 1 bis 12 gelegt. Bei 12 wird er abgeräumt.</li>' +
           '<li>Der <b>Joker ★</b> ersetzt jede Zahl.</li>' +
+          '<li>Optional: Die <b>Entweder-oder-Karte</b> zählt als eine ihrer beiden Zahlen, z. B. 3 oder 4. Der Gastgeber schaltet sie in der Lobby ein.</li>' +
+          '<li>Optional: Legst du eine Karte mit <b>Aussetzen-Symbol</b> auf einen Aufbaustapel, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.</li>' +
           '<li>Zu Beginn deines Zuges wird deine Hand auf 5 Karten aufgefüllt.</li>' +
           '<li>Leg so viele Karten in die Mitte, wie du kannst: aus der Hand, die oberste deines Spielerstapels und die oberste deiner Ablagestapel. Leere Hand? Du ziehst 5 neue.</li>' +
           '<li>Dein Zug endet, wenn du eine Handkarte auf einen deiner 4 <b>Ablagestapel</b> legst.</li>' +
@@ -650,8 +703,9 @@ function renderLobby(){
         '<div class="field"><label class="label" for="invite">Einladungslink</label><div class="row"><input type="text" id="invite" readonly value="' + esc(link) + '" style="flex:1"><button class="btn" data-act="copy">Kopieren</button></div></div>' +
         '<div class="field" style="margin-top:6px"><label class="label" for="stackSel">Größe des Spielerstapels</label>' +
           (isHost ? '<select id="stackSel" style="width:12em">' + opts + '</select>' : '<div class="count">' + g.stackSize + ' Karten</div>') +
-          '<small class="muted">Original: 30 Karten bei bis zu 4 Spielern, 20 ab 5 Spielern. Weniger Karten = kürzere Runde. Gespielt wird mit ' + (g.decks === 2 ? 'zwei Kartensätzen (324 Karten)' : 'einem Kartensatz (162 Karten)') + '.</small>' +
+          '<small class="muted">Original: 30 Karten bei bis zu 4 Spielern, 20 ab 5 Spielern. Weniger Karten = kürzere Runde. Gespielt wird mit ' + (g.decks === 2 ? 'zwei Kartensätzen' : 'einem Kartensatz') + '.</small>' +
         '</div>' +
+        '<div class="field" style="margin-top:6px"><span class="label">Sonderkarten</span>' + specialRow(g, isHost) + '</div>' +
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:12px">' +
         '<div class="label">Spieler (' + n + '/' + MAXP + ')</div>' +
@@ -663,9 +717,24 @@ function renderLobby(){
     '</section>';
 }
 
+function specialRow(g, isHost){
+  const n = 4 * (g.decks || 1);
+  const list = [
+    ['split', 'Entweder-oder', 100 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
+    ['skip', 'Aussetzen', 207, n + ' zufällige Zahlenkarten tragen das Aussetzen-Symbol. Wer so eine Karte auf einen Aufbaustapel legt, wählt einen Mitspieler, der seinen nächsten Zug aussetzt.']
+  ];
+  return '<div style="display:flex;flex-direction:column;gap:8px">' + list.map(([k, name, sample, text]) => {
+    const on = !!(g.specials && g.specials[k]);
+    return '<div class="special' + (on ? ' on' : '') + '">' +
+      '<div class="sm">' + cardHTML(sample) + '</div>' +
+      '<div style="min-width:0;flex:1"><b>' + name + '</b><div class="muted" style="font-size:13px">' + text + '</div></div>' +
+      (isHost ? '<button type="button" class="toggle" role="switch" aria-checked="' + on + '" aria-label="' + name + '" data-act="special" data-k="' + k + '"><i></i></button>' : '<span class="pill' + (on ? ' live' : '') + '">' + (on ? 'An' : 'Aus') + '</span>') +
+    '</div>';
+  }).join('') + '</div>';
+}
 function miniPile(cards, label, i){
   const t = top(cards);
-  return '<div class="mini sm" data-k="disc" data-i="' + i + '" title="' + esc(label + (cards.length ? ': ' + cards.map(v => v === 0 ? 'J' : v).join(', ') : ': leer')) + '">' +
+  return '<div class="mini sm" data-k="disc" data-i="' + i + '" title="' + esc(label + (cards.length ? ': ' + cards.map(cardShort).join(', ') : ': leer')) + '">' +
     (t == null ? '<div class="slot"></div>' : cardHTML(t)) + '<small>' + cards.length + '</small></div>';
 }
 function renderGame(){
@@ -692,7 +761,7 @@ function renderGame(){
     const idx = g.players.indexOf(p);
     const turn = g.status === 'playing' && idx === g.turn;
     return '<div class="opp' + (turn ? ' turn' : '') + '" data-pid="' + esc(p.id) + '">' +
-      '<div class="head"><span class="name">' + esc(p.name) + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + '</div>' +
+      '<div class="head"><span class="name">' + esc(p.name) + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + (g.skips && g.skips[p.id] ? '<span class="pill skip">' + SKIP_ICON + 'setzt aus</span>' : '') + '</div>' +
       '<div class="rowc">' +
         '<div class="mini sm" data-k="stock" title="Spielerstapel">' + (p.stockTop != null ? cardHTML(p.stockTop) : '<div class="slot"></div>') + '<small><b style="color:var(--ink)">' + p.stockCount + '</b> übrig</small></div>' +
         '<div class="discs">' + p.discards.map((d,i) => miniPile(d, 'Ablage ' + (i+1), i)).join('') + '</div>' +
@@ -702,7 +771,7 @@ function renderGame(){
 
   const builds = g.build.map((p,i) => {
     const t = top(p), ok = sel && fits(sel.v, p);
-    const face = t == null ? '<div class="slot">1</div>' : cardHTML(t, t === 0 ? '<span class="as">= ' + p.length + '</span>' : '');
+    const face = t == null ? '<div class="slot">1</div>' : cardHTML(t, (t === 0 || isSplit(t)) ? '<span class="as">= ' + p.length + '</span>' : '');
     return '<button class="bpile" data-act="build" data-i="' + i + '" aria-label="Aufbaustapel ' + (i+1) + ', als nächstes ' + (p.length+1) + '"' + (mine ? '' : ' tabindex="-1"') + '>' +
       '<div class="face' + (ok ? ' tgt' : '') + '" style="border-radius:var(--r)">' + face + '</div>' +
       '<span class="need">nächste: ' + (p.length + 1) + '</span></button>';
@@ -731,10 +800,10 @@ function renderGame(){
       const cards = n ? d.map((v,k) => '<div style="top:' + (k*off) + 'px' + (isSel && k === n-1 ? ';transform:translateY(-10px)' : '') + '">' + cardHTML(v, '', isSel && k === n-1 ? 'outline:3px solid var(--accent);outline-offset:2px' : '') + '</div>').join('') : '<div style="top:0"><div class="slot"></div></div>';
       return '<button class="dpile' + (tgt ? ' tgt' : '') + '" data-act="disc" data-i="' + i + '" aria-label="Ablagestapel ' + (i+1) + '"' + (mine ? '' : ' tabindex="-1"') + '><div class="stack" style="height:' + h + '">' + cards + '</div></button>';
     }).join('');
-    const handH = hand.map((v,i) => '<button class="cbtn' + (sel && sel.src === 'hand' && sel.i === i ? ' sel' : '') + '" data-act="hand" data-i="' + i + '"' + (mine ? '' : ' tabindex="-1"') + ' aria-label="Handkarte ' + (v === 0 ? 'Joker' : v) + '">' + cardHTML(v) + '</button>').join('');
+    const handH = hand.map((v,i) => '<button class="cbtn' + (sel && sel.src === 'hand' && sel.i === i ? ' sel' : '') + '" data-act="hand" data-i="' + i + '"' + (mine ? '' : ' tabindex="-1"') + ' aria-label="Handkarte ' + cardName(v) + '">' + cardHTML(v) + '</button>').join('');
     me = '<section class="mine' + (mine ? ' turn' : '') + '">' +
       '<div class="grp"><div class="label">Dein Spielerstapel</div><div class="stockwrap">' +
-        (stTop == null ? '<div class="slot">—</div>' : '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + (stTop === 0 ? 'Joker' : stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button>') +
+        (stTop == null ? '<div class="slot">—</div>' : '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + cardName(stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button>') +
         '<div><div class="count">' + p.stockCount + '</div><div class="muted" style="font-size:12px">übrig</div></div></div>' +
         (stockFits && !stockSel ? '<div class="hint">Deine Stapelkarte passt!</div>' : '') +
       '</div>' +
@@ -746,9 +815,18 @@ function renderGame(){
   } else {
     me = '<div class="panel muted">Du schaust zu. Neue Mitspieler können in der nächsten Runde über einen neuen Tisch dazukommen.</div>';
   }
-  const who = g.status === 'playing' ? (mine ? '<b>Du bist dran</b>' : esc(cur ? cur.name : '?') + ' ist dran' + (cur && !cur.online ? ' (offline)' : '')) : '';
+  const chooser = g.choose && g.status === 'playing' ? g.choose.pid : null;
+  let who = g.status === 'playing' ? (mine ? '<b>Du bist dran</b>' : esc(cur ? cur.name : '?') + ' ist dran' + (cur && !cur.online ? ' (offline)' : '')) : '';
+  if(chooser && chooser !== S.me) who = esc(pn(chooser)) + ' wählt, wer aussetzen muss …';
+  if(g.status === 'playing' && g.skips && g.skips[S.me]) who += '<span class="pill skip" style="margin-left:12px">' + SKIP_ICON + 'Du setzt beim nächsten Mal aus</span>';
+  let dialog = '';
+  if(chooser === S.me){
+    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="chooseTitle"><div class="panel modalbox"><span class="skipbig">' + SKIP_ICON + '</span><h2 id="chooseTitle">Wer soll aussetzen?</h2><p class="muted" style="margin:0">Der gewählte Spieler wird bei seinem nächsten Zug übersprungen.</p><div class="choose">' +
+      g.players.filter(p => p.id !== S.me).map(p => '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + (g.skips && g.skips[p.id] ? ' <span class="muted">(setzt schon aus)</span>' : '') + '</button>').join('') +
+      '</div></div></div>';
+  }
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';
-  view.innerHTML = win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me + turnline;
+  view.innerHTML = win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me + turnline + dialog;
   if(S.dragHide){ const el = srcEl({pid:S.me, src:S.dragHide.src, i:S.dragHide.i}); if(el) el.style.visibility = 'hidden'; }
 }
 
