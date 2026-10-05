@@ -142,7 +142,7 @@ function viewFor(g, me) {
     discards: g.discards[p.id] || [[], [], [], []]
   }));
   return {
-    code: g.code, status: g.status, host: g.host, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
+    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], drawCount: g.draw.length, doneCount: g.done.length,
     choose: g.choose || null, skips: g.skips || {}, slog: g.slog || [],
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
@@ -211,10 +211,21 @@ const handlers = {
     must(STACK_SIZES.includes(m.n), 'Ungültige Stapelgröße.');
     g.stackSize = m.n; broadcast(g);
   },
+  // nach Spielende: jeder Mitspieler darf eine neue Runde anstoßen -> alle zurück in die Lobby
+  newRound(ws, m, g) {
+    must(g.status === 'finished', 'Die Runde läuft noch.');
+    must(g.players.some(p => p.id === ws.pid), 'Nur Mitspieler können eine neue Runde starten.');
+    g.status = 'lobby'; g.round = (g.round || 1) + 1; g.rematchBy = ws.pid;
+    g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
+    g.build = [[], [], [], []]; g.bval = [0, 0, 0, 0]; g.bdir = [1, 1, 1, 1];
+    g.skips = {}; g.choose = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
+    broadcast(g);
+  },
   start(ws, m, g) {
     must(g.host === ws.pid, 'Nur der Gastgeber kann starten.');
     must(g.status !== 'playing', 'Das Spiel läuft schon.');
     must(g.players.length >= 2, 'Es braucht mindestens 2 Spieler.');
+    g.rematchBy = null;
     startRound(g); broadcast(g);
   },
   play(ws, m, g) {
