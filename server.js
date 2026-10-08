@@ -69,7 +69,8 @@ function fits(v, need) {
 }
 const pname = (g, id) => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
 // Verlauf nur für Sonderkarten (wird im Spiel angezeigt)
-function addSLog(g, kind, text) { g.slog = g.slog || []; g.slog.unshift({ k: kind, t: text, n: g.turnNo }); g.slog = g.slog.slice(0, 40); }
+// priv: optionale Texte nur für bestimmte Spieler, z. B. { spielerId: 'Text nur für diesen Spieler' }
+function addSLog(g, kind, text, priv) { g.slog = g.slog || []; g.slog.unshift({ k: kind, t: text, n: g.turnNo, priv }); g.slog = g.slog.slice(0, 40); }
 function cardLabel(v) {
   if (v === 0) return 'einen Joker';
   if (isSplit(v)) return 'eine ' + splitOf(v).join('/');
@@ -164,7 +165,7 @@ function viewFor(g, me) {
     code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
     spy: g.spy ? (g.spy.pid === me ? { pid: g.spy.pid, target: g.spy.target, hand: g.hands[g.spy.target] } : { pid: g.spy.pid, target: g.spy.target }) : null,
-    choose: g.choose || null, skips: g.skips || {}, slog: g.slog || [],
+    choose: g.choose || null, skips: g.skips || {}, slog: (g.slog || []).map(e => ({ k: e.k, t: e.priv && e.priv[me] ? e.priv[me] : e.t, n: e.n })),
     turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove && g.lastMove.kind === 'spy' && me !== g.lastMove.pid && me !== g.lastMove.target ? { ...g.lastMove, sv: undefined } : (g.lastMove || null),
     me, hand: g.hands[me] || null
   };
@@ -397,7 +398,10 @@ const handlers = {
     const target = g.spy.target, sv = th.splice(m.k, 1)[0];
     g.hands[me].push(sv); g.spy = null;
     addLog(g, pname(g, me) + ' nimmt ' + pname(g, target) + ' eine Karte weg.');
-    addSLog(g, 'spy', pname(g, me) + ' spioniert bei ' + pname(g, target) + ' und nimmt eine Karte');
+    addSLog(g, 'spy', pname(g, me) + ' spioniert bei ' + pname(g, target) + ' und nimmt eine Karte', {
+      [target]: pname(g, me) + ' spioniert bei dir und nimmt dir ' + cardLabel(sv),
+      [me]: 'Du spionierst bei ' + pname(g, target) + ' und nimmst ' + cardLabel(sv)
+    });
     setMove(g, { kind: 'spy', pid: me, target, k: m.k, sv });
     broadcast(g);
   },
