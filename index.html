@@ -227,15 +227,15 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .mine{display:flex;flex-wrap:wrap;gap:24px 36px;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
 .mine.turn{border-color:rgba(242,184,75,.55)}
 .mine .grp{display:flex;flex-direction:column;gap:8px}
-.mydiscs{display:flex;gap:10px}
-.dpile{background:none;border:0;padding:0;position:relative;width:var(--cw);border-radius:var(--r);min-height:calc(var(--cw) * 2.5);align-self:flex-start}
+.mydiscs{display:flex;gap:10px;padding-top:12px}
+.dpile{background:none;border:0;padding:0;position:relative;width:var(--cw);border-radius:var(--r);min-height:calc(var(--cw) * 2.5);align-self:flex-start;display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start}
 .dpile .stack{position:relative;width:var(--cw)}
 .dpile .stack>*{position:absolute;left:0}
 .hand{display:flex;gap:8px;padding-top:12px;flex-wrap:nowrap;min-height:calc(var(--cw) * 1.4);min-width:0}
 .hand .cbtn+.cbtn{margin-left:calc(-1 * var(--hov, 0px))}
 .endrow{min-height:38px}
 .handgrp{flex:1 1 calc(var(--cw) * 5.6);min-width:0}
-.stockwrap{display:flex;gap:10px;align-items:flex-end}
+.stockwrap{display:flex;gap:10px;align-items:flex-end;padding-top:12px}
 .count{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--accent)}
 .turnline{min-height:44px;display:flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:12px;font-size:18px;color:var(--muted)}
@@ -500,7 +500,7 @@ const FX = { cv:null, ctx:null, parts:[], running:false,
         p.vy += p.g; p.x += p.vx; p.y += p.vy; p.life -= p.dec;
         c.globalAlpha = Math.max(0, Math.min(1, p.life * 1.5)); c.fillStyle = p.c;
         if(p.kind === 'conf'){ p.rot += p.vr; p.vx *= .99; c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.fillRect(-p.r/2, -p.r/4, p.r, p.r/2); c.restore(); }
-        else { c.beginPath(); c.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2); c.fill(); }
+        else { c.beginPath(); c.arc(p.x, p.y, Math.max(0, p.r * p.life), 0, Math.PI*2); c.fill(); }
       }
       c.globalAlpha = 1;
       if(this.parts.length) requestAnimationFrame(step); else { this.running = false; c.clearRect(0, 0, innerWidth, innerHeight); }
