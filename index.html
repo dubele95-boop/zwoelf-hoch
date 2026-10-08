@@ -113,6 +113,11 @@ body.busy{cursor:progress}
 .skipbig{width:44px;height:44px;color:var(--danger)}
 .choose{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}
 .choose .btn{padding:10px 18px;font-size:16px}
+.card.spy{--c:var(--accent);background:linear-gradient(160deg,#6a2f7e,#2c1238);color:#f6f0e4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6%}
+.card.spy .ricon{width:60%;color:#ffd27a}
+.card.spy .ricon svg{width:100%;height:auto;display:block}
+.sm .card.spy .glabel{display:none}
+.sm .card.spy .ricon{width:78%}
 .card.st{--c:var(--accent);background:linear-gradient(160deg,#2b3f78,#141d3d);color:#f6f0e4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6%}
 .card.st .ricon{width:60%;color:#ffd27a}
 .card.st .ricon svg{width:100%;height:auto;display:block}
@@ -200,7 +205,8 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .mini{display:flex;flex-direction:column;align-items:center;gap:3px}
 .mini small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .discs{display:flex;gap:4px}
-.hcount{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-left:auto}
+.hcount{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:13px;color:var(--muted);flex-basis:100%;min-height:16px}
+.hcount .dots{max-width:120px;overflow:hidden}
 .hcount .dots{display:flex}
 .hcount .dots{padding-left:5px}
 .mid{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:start;padding:18px;border-radius:16px;background:rgba(0,0,0,.18);border:1px solid var(--line)}
@@ -215,17 +221,20 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .slogitem.newest{color:var(--ink);background:rgba(242,184,75,.10)}
 .slogicon{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--accent)}
 .slogicon svg{width:18px;height:18px}
-.k-gift .slogicon{color:var(--ok)}.k-steal .slogicon{color:#8fb4ff}.k-skip .slogicon,.k-skipped .slogicon{color:var(--danger)}.k-rev .slogicon{color:#ff8f9c}
+.k-spy .slogicon{color:#d9a6ff}.k-gift .slogicon{color:var(--ok)}.k-steal .slogicon{color:#8fb4ff}.k-skip .slogicon,.k-skipped .slogicon{color:var(--danger)}.k-rev .slogicon{color:#ff8f9c}
 .log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto;min-width:0}
 .log div:first-child{color:var(--ink)}
 .mine{display:flex;flex-wrap:wrap;gap:24px 36px;align-items:flex-start;padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
 .mine.turn{border-color:rgba(242,184,75,.55)}
 .mine .grp{display:flex;flex-direction:column;gap:8px}
 .mydiscs{display:flex;gap:10px}
-.dpile{background:none;border:0;padding:0;position:relative;width:var(--cw);border-radius:var(--r)}
+.dpile{background:none;border:0;padding:0;position:relative;width:var(--cw);border-radius:var(--r);min-height:calc(var(--cw) * 2.5);align-self:flex-start}
 .dpile .stack{position:relative;width:var(--cw)}
 .dpile .stack>*{position:absolute;left:0}
-.hand{display:flex;gap:8px;padding-top:12px;flex-wrap:wrap;min-height:calc(var(--cw) * 1.4)}
+.hand{display:flex;gap:8px;padding-top:12px;flex-wrap:nowrap;min-height:calc(var(--cw) * 1.4);min-width:0}
+.hand .cbtn+.cbtn{margin-left:calc(-1 * var(--hov, 0px))}
+.endrow{min-height:38px}
+.handgrp{flex:1 1 calc(var(--cw) * 5.6);min-width:0}
 .stockwrap{display:flex;gap:10px;align-items:flex-end}
 .count{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--accent)}
@@ -343,19 +352,20 @@ const isSkip = v => v >= 200 && v < 300;
 const isGift = v => v === 300;
 const isRev = v => v === 400;
 const isSteal = v => v === 500;
-const targetsOpp = v => isGift(v) || isSteal(v);
+const isSpy = v => v === 600;
+const targetsOpp = v => isGift(v) || isSteal(v) || isSpy(v);
 const numOf = v => isSkip(v) ? v - 200 : v;
 const splitOf = v => [(v - 1000) >> 4, (v - 1000) & 15];
 // Aufbaustapel: aktueller Wert (bval) und Richtung (bdir: 1 aufwärts, -1 abwärts)
 const valAt = (g, i) => g.bval ? g.bval[i] : g.build[i].length;
 const isDown = (g, i) => !!(g.bdir && g.bdir[i] === -1);
 const needAt = (g, i) => isDown(g, i) ? valAt(g, i) - 1 : valAt(g, i) + 1;
-const fitsNeed = (v, need) => !isGift(v) && !isRev(v) && !isSteal(v) && (v === 0 || (isSplit(v) ? splitOf(v).includes(need) : numOf(v) === need));
+const fitsNeed = (v, need) => !isGift(v) && !isRev(v) && !isSteal(v) && !isSpy(v) && (v === 0 || (isSplit(v) ? splitOf(v).includes(need) : numOf(v) === need));
 const canRevAt = (g, i) => isDown(g, i) ? valAt(g, i) <= 11 : valAt(g, i) >= 2;
 const playable = (g, v, i) => isRev(v) ? canRevAt(g, i) : fitsNeed(v, needAt(g, i));
 const failMsg = (g, v, i) => isRev(v) ? (isDown(g, i) ? 'Hier geht Rückwärts nicht: Der Stapel muss mindestens bei 11 sein.' : 'Rückwärts geht erst, wenn auf dem Stapel mindestens eine 2 liegt.') : 'Passt nicht: Hier wird eine ' + needAt(g, i) + ' gebraucht.';
-const cardName = v => isSteal(v) ? 'Diebstahl' : isRev(v) ? 'Rückwärts' : isGift(v) ? 'Geschenk' : v === 0 ? 'Joker' : isSplit(v) ? 'Entweder ' + splitOf(v).join(' oder ') : isSkip(v) ? numOf(v) + ' mit Aussetzen' : String(v);
-const cardShort = v => isSteal(v) ? 'D' : isRev(v) ? 'R' : isGift(v) ? 'G' : v === 0 ? 'J' : isSplit(v) ? splitOf(v).join('/') : isSkip(v) ? numOf(v) + '⊘' : String(v);
+const cardName = v => isSpy(v) ? 'Spion' : isSteal(v) ? 'Diebstahl' : isRev(v) ? 'Rückwärts' : isGift(v) ? 'Geschenk' : v === 0 ? 'Joker' : isSplit(v) ? 'Entweder ' + splitOf(v).join(' oder ') : isSkip(v) ? numOf(v) + ' mit Aussetzen' : String(v);
+const cardShort = v => isSpy(v) ? 'Sp' : isSteal(v) ? 'D' : isRev(v) ? 'R' : isGift(v) ? 'G' : v === 0 ? 'J' : isSplit(v) ? splitOf(v).join('/') : isSkip(v) ? numOf(v) + '⊘' : String(v);
 const meP = () => S.game && S.game.players.find(p => p.id === S.me);
 function myTurn(){ const g = S.game; return !!(g && g.status === 'playing' && g.players[g.turn] && g.players[g.turn].id === S.me && g.hand); }
 function cardAt(sel){
@@ -400,6 +410,7 @@ const Snd = {
       case 'split': this.tone(587, t, .22, 'triangle', .14*v); this.tone(880, t + .16, .3, 'triangle', .14*v); break;
       case 'skipcard': this.tone(660, t, .12, 'square', .05*v); this.tone(440, t + .12, .22, 'square', .05*v); break;
       case 'rev': { const c = this.ctx, o = c.createOscillator(), gn = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(300, t + .25); o.frequency.exponentialRampToValueAtTime(900, t + .5); gn.gain.setValueAtTime(.0001, t); gn.gain.linearRampToValueAtTime(.14*v, t + .02); gn.gain.exponentialRampToValueAtTime(.0001, t + .55); o.connect(gn); gn.connect(this.master); o.start(t); o.stop(t + .6); break; }
+      case 'spy': [1318,1046,1318,1568].forEach((f,i) => this.tone(f, t + i*.08, .18, 'triangle', .08*v)); break;
       case 'steal': this.noise(t, .18, .45*v, 1800); this.tone(1046, t + .05, .12, 'sine', .1*v); this.tone(698, t + .15, .2, 'sine', .1*v); break;
       case 'skip': this.tone(520, t, .16, 'square', .06); this.tone(330, t + .14, .28, 'square', .06); break;
       case 'discard': this.noise(t, .09, .55*v, 700); this.tone(150, t, .14, 'sine', .25*v); break;
@@ -547,6 +558,24 @@ function onNewState(prev, g){
     const who = mv.pid === S.me ? 'Du drehst' : ((g.players.find(p => p.id === mv.pid) || {}).name || 'Jemand') + ' dreht';
     toast(who + ' Stapel ' + (mv.pile + 1) + ' um: jetzt ' + (isDown(g, mv.pile) ? 'abwärts bis 1.' : 'wieder aufwärts.'));
   }
+  if(fresh && mv.kind === 'spyLook'){
+    const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+    Snd.play('spy', 0, mv.pid === S.me || mv.target === S.me ? 1 : .6);
+    if(mv.target === S.me) toast(name(mv.pid) + ' spioniert: Er schaut sich deine Handkarten an!');
+    else if(mv.pid !== S.me) toast(name(mv.pid) + ' spioniert bei ' + name(mv.target) + '.');
+    if(mv.win){ Snd.play('win'); FX.confetti(); }
+  }
+  if(fresh && mv.kind === 'spy'){
+    const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+    if(mv.pid === S.me){
+      fly(cardHTML(mv.sv), rectOf(q('.opp[data-pid="' + mv.target + '"] [data-k="hand"]')), q('.hand [data-act="hand"][data-i="' + (g.hand.length - 1) + '"] .card'), { dur: 560 });
+    } else {
+      const from = mv.target === S.me ? rectOf(q('.hand')) : rectOf(q('.opp[data-pid="' + mv.target + '"] [data-k="hand"]'));
+      fly(backHTML(), from, q('.opp[data-pid="' + mv.pid + '"] [data-k="hand"]'), { dur: 560 });
+      if(mv.target === S.me) toast(name(mv.pid) + ' hat dir ' + (mv.sv === 0 ? 'einen Joker' : 'eine ' + cardName(mv.sv)) + ' weggenommen!');
+      else toast(name(mv.pid) + ' nimmt ' + name(mv.target) + ' eine Karte weg.');
+    }
+  }
   if(fresh && mv.kind === 'steal'){
     Snd.play('steal', 0, mv.pid === S.me || mv.target === S.me ? 1 : .6);
     const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
@@ -580,6 +609,7 @@ function onNewState(prev, g){
     if(fresh && mv.kind === 'deal') base = 0;
     else if(fresh && mv.kind === 'gift' && mv.target === S.me) base = g.hand.length;
     else if(fresh && mv.kind === 'steal') base = g.hand.length;
+    else if(fresh && mv.kind === 'spy' && (mv.pid === S.me || mv.target === S.me)) base = g.hand.length;
     else if(fresh && mv.kind === 'gift' && mv.pid === S.me) base = Math.max(0, oldHand - (mv.src === 'hand' ? 2 : 1));
     else if(fresh && mv.pid === S.me && mv.src === 'hand') base = Math.max(0, oldHand - 1);
     for(let i = base, k = 0; i < g.hand.length; i++, k++){
@@ -638,6 +668,7 @@ const H = {
     if(!S.sel || !targetsOpp(S.sel.v) || !myTurn()) return;
     const sl = S.sel; S.sel = null;
     if(isGift(sl.v)) S.gift = { src: sl.src, i: sl.i, v: sl.v, target: b.dataset.pid };
+    else if(isSpy(sl.v)) startSpy(sl.src, sl.i, b.dataset.pid);
     else startSteal(sl.src, sl.i, sl.v, b.dataset.pid, null);
     render();
   },
@@ -646,6 +677,7 @@ const H = {
     if(!S.sel || !targetsOpp(S.sel.v) || !myTurn()) return;
     const sl = S.sel; S.sel = null;
     if(isGift(sl.v)) S.gift = { src: sl.src, i: sl.i, v: sl.v, target: o.dataset.pid };
+    else if(isSpy(sl.v)) startSpy(sl.src, sl.i, o.dataset.pid);
     else startSteal(sl.src, sl.i, sl.v, o.dataset.pid, i);
     render();
   },
@@ -653,6 +685,7 @@ const H = {
     const sl = S.steal; if(!sl) return; S.steal = null;
     send({t:'steal', src:sl.src, i:sl.i, v:sl.v, target:sl.target, pile:i}); render();
   },
+  spyTake(i){ const sp = S.game && S.game.spy; if(!sp || !sp.hand) return; send({t:'spyTake', k:i, v:sp.hand[i]}); },
   stealCancel(){ S.steal = null; render(); },
   giftGive(i){
     const gft = S.gift; if(!gft || !S.game || !S.game.hand) return;
@@ -677,6 +710,7 @@ const H = {
 };
 function selectCard(sel){
   if(!myTurn()) return toast('Du bist gerade nicht dran.');
+  if(S.game.spy) return toast('Nimm dir zuerst eine Karte beim Spionieren.');
   const v = cardAt(sel); if(v == null) return;
   if(S.sel && S.sel.src === sel.src && S.sel.i === sel.i) S.sel = null; else S.sel = {...sel, v};
   render();
@@ -707,6 +741,11 @@ function oppDrop(t){
 }
 const oppPiles = id => { const p = S.game.players.find(x => x.id === id); return p ? p.discards : [[],[],[],[]]; };
 const canStealFrom = id => oppPiles(id).some(d => d.length);
+function startSpy(src, i, pid){
+  const p = S.game.players.find(x => x.id === pid);
+  if(!p || !p.handCount){ Snd.play('error'); toast((p ? p.name : 'Jemand') + ' hat gerade keine Handkarten.'); return false; }
+  return send({t:'spyLook', src, i, v:600, target:pid});
+}
 function startSteal(src, i, v, pid, pile){
   const piles = oppPiles(pid), name = (S.game.players.find(x => x.id === pid) || {}).name || 'Jemand';
   if(pile != null && piles[pile] && piles[pile].length){ send({t:'steal', src, i, v, target:pid, pile}); return true; }
@@ -740,6 +779,7 @@ document.addEventListener('pointermove', e => {
   let ok, ov;
   if(od){
     if(isGift(D.start.v)){ ok = true; ov = od.box; }
+    else if(isSpy(D.start.v)){ const op = S.game.players.find(x => x.id === od.pid); ok = !!(op && op.handCount); ov = od.box; }
     else if(isSteal(D.start.v)){ ok = od.pile != null ? oppPiles(od.pid)[od.pile].length > 0 : canStealFrom(od.pid); ov = od.pile != null ? t : od.box; }
     else ok = false;
   } else {
@@ -764,6 +804,7 @@ function endDrag(e, cancel){
   if(t && myTurn() && od){
     if(isGift(st.v)) S.gift = { src: st.src.src, i: st.src.i, v: st.v, target: od.pid };
     if(isSteal(st.v)) sentSteal = startSteal(st.src.src, st.src.i, st.v, od.pid, od.pile);
+    if(isSpy(st.v)) sentSteal = startSpy(st.src.src, st.src.i, od.pid);
     t = null;
   }
   if(t && myTurn()){
@@ -809,6 +850,7 @@ const SPECIAL_HELP = [
   ['split', 1000 + 3*16 + 4, 'Entweder-oder', ['Zählt als eine ihrer beiden Zahlen, z. B. 3 <b>oder</b> 4.', 'Passt auf einen Aufbaustapel, wenn eine der beiden Zahlen gebraucht wird.', 'Darf auch auf deine Ablagestapel.']],
   ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
   ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
+  ['spy', 600, 'Spion', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Nur du siehst dann seine Handkarten.', 'Eine davon musst du dir nehmen – sie kommt auf deine Hand.']],
   ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
   ['rev', 400, 'Rückwärts', ['Dreht die Richtung eines Aufbaustapels um.', 'Aufwärts-Stapel (ab einer 2): zählt dann abwärts, z. B. 7, 6, 5 …, und wird bei 1 abgeräumt.', 'Rückwärts-Stapel (bis 11): zählt dann aufwärts und wird bei 12 abgeräumt.', 'Nach dem Abräumen startet der Stapel wieder in seiner ursprünglichen Richtung.']]
 ];
@@ -851,6 +893,7 @@ function backPickHTML(){ const cur = document.body.dataset.back; return BACKS.ma
 const grp = n => n <= 4 ? 'var(--g1)' : n <= 8 ? 'var(--g2)' : 'var(--g3)';
 const SKIP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5.6 18.4L18.4 5.6" stroke="currentColor" stroke-width="3"/></svg>';
 const REV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v14M3.5 13.5L7 17l3.5-3.5"/><path d="M17 21V7M13.5 10.5L17 7l3.5 3.5"/></svg>';
+const SPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>';
 const STEAL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 9.5C2 8 3.2 7 4.8 7.3c2.3.4 4.6 1.2 7.2 1.2s4.9-.8 7.2-1.2C20.8 7 22 8 22 9.5c0 3.4-2 6-4.8 6-2 0-3.3-1.4-5.2-1.4s-3.2 1.4-5.2 1.4C4 15.5 2 12.9 2 9.5zm4.3-.2c-1.2 0-2 .7-2 1.4s1 1.2 2.2 1.2 2.2-.4 2.2-1.1-1.2-1.5-2.4-1.5zm11.4 0c-1.2 0-2.4.8-2.4 1.5s1 1.1 2.2 1.1 2.2-.5 2.2-1.2-.8-1.4-2-1.4z"/></svg>';
 const GIFT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="9" width="17" height="11.5" rx="1.5"/><path d="M2.5 9h19v-3h-19z"/><path d="M12 6v14.5"/><path d="M12 6c-1.5-3-5.5-3.6-5.5-1.3S10 6 12 6zM12 6c1.5-3 5.5-3.6 5.5-1.3S14 6 12 6z"/></svg>';
 // gelegte Entweder-oder-Karte: die gewählte Zahl groß in der Mitte, beide Zahlen klein in den Ecken
@@ -868,6 +911,7 @@ function jokerAs(n){
 }
 function cardHTML(v, extra, style){
   if(v == null) return '';
+  if(isSpy(v)) return '<div class="card spy"' + (style ? ' style="' + style + '"' : '') + '><span class="ricon">' + SPY_ICON + '</span><span class="glabel">Spion</span>' + (extra||'') + '</div>';
   if(isSteal(v)) return '<div class="card st"' + (style ? ' style="' + style + '"' : '') + '><span class="ricon">' + STEAL_ICON + '</span><span class="glabel">Diebstahl</span>' + (extra||'') + '</div>';
   if(isRev(v)) return '<div class="card rv"' + (style ? ' style="' + style + '"' : '') + '><span class="ricon">' + REV_ICON + '</span><span class="glabel">Rückwärts</span>' + (extra||'') + '</div>';
   if(isGift(v)) return '<div class="card gf"' + (style ? ' style="' + style + '"' : '') + '><span class="gicon">' + GIFT_ICON + '</span><span class="glabel">Geschenk</span>' + (extra||'') + '</div>';
@@ -888,8 +932,8 @@ function render(){
   if((!S.game || S.game.status === 'lobby') && !document.getElementById('rules').hidden) closeRules();
   renderBar();
   if(!S.everConnected){ S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
-  if(!S.game) return renderHome();
-  if(S.game.status === 'lobby') return renderLobby();
+  if(!S.game){ resetFit(); return renderHome(); }
+  if(S.game.status === 'lobby'){ resetFit(); return renderLobby(); }
   return renderGame();
 }
 function renderBar(){
@@ -925,6 +969,7 @@ function renderHome(){
           '<li>In der Mitte liegen <b>Aufbaustapel</b> (normal 4). Jeder wird aufsteigend von 1 bis 12 gelegt und bei 12 abgeräumt. Der Gastgeber kann 1 bis 6 Stapel wählen und einige davon rückwärts laufen lassen (12 bis 1).</li>' +
           '<li>Der <b>Joker ★</b> ersetzt jede Zahl.</li>' +
           '<li>Optional: Die <b>Entweder-oder-Karte</b> zählt als eine ihrer beiden Zahlen, z. B. 3 oder 4. Der Gastgeber schaltet sie in der Lobby ein.</li>' +
+          '<li>Optional: Mit der <b>Spion-Karte</b> schaust du dir die Handkarten eines Mitspielers an und nimmst dir eine davon.</li>' +
           '<li>Optional: Mit der <b>Diebstahl-Karte</b> klaust du die oberste Karte von einem Ablagestapel eines Mitspielers.</li>' +
           '<li>Optional: Die <b>Rückwärts-Karte</b> dreht einen Aufbaustapel um. Er zählt dann abwärts (z. B. 7, 6, 5 …) und wird bei 1 abgeräumt.</li>' +
           '<li>Optional: Die <b>Geschenk-Karte</b> ziehst du auf einen Mitspieler. Er bekommt eine deiner Handkarten, die du aussuchst.</li>' +
@@ -956,7 +1001,7 @@ function renderLobby(){
   const notice = g.rematchBy ? '<div class="panel rematch">' + (isHost
       ? '<b>Neue Runde!</b> ' + (g.rematchBy === S.me ? 'Du hast' : esc(by) + ' hat') + ' eine neue Runde angestoßen. Passen die Einstellungen noch? Du kannst Stapelgröße und Sonderkarten jetzt ändern und dann starten.'
       : '<b>Neue Runde!</b> ' + (g.rematchBy === S.me ? 'Du hast' : esc(by) + ' hat') + ' eine neue Runde angestoßen. ' + esc((g.players.find(p => p.id === g.host) || {}).name || 'Der Gastgeber') + ' prüft gerade die Einstellungen und startet dann.') + '</div>' : '';
-  const NAMES = { split: 'Entweder-oder', skip: 'Aussetzen', gift: 'Geschenk', steal: 'Diebstahl', rev: 'Rückwärts' };
+  const NAMES = { split: 'Entweder-oder', skip: 'Aussetzen', gift: 'Geschenk', steal: 'Diebstahl', spy: 'Spion', rev: 'Rückwärts' };
   const onList = Object.keys(NAMES).filter(k => g.specials && g.specials[k]).map(k => NAMES[k]);
   const confirm = S.confirmStart ? '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="confTitle"><div class="panel modalbox" style="max-width:480px">' +
       '<h2 id="confTitle">Passen die Einstellungen?</h2>' +
@@ -999,6 +1044,7 @@ function specialRow(g, isHost){
   const n = 4 * (g.decks || 1);
   const list = [
     ['split', 'Entweder-oder', 1000 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
+    ['spy', 'Spion', 600, (2 * (g.decks || 1)) + ' Stück im Spiel. Zieh sie auf einen Mitspieler: Du siehst seine Handkarten und nimmst dir eine davon.'],
     ['steal', 'Diebstahl', 500, n + ' Stück im Spiel. Zieh sie auf einen Ablagestapel eines Mitspielers und nimm dir dessen oberste Karte auf die Hand.'],
     ['rev', 'Rückwärts', 400, (2 * (g.decks || 1)) + ' Stück im Spiel. Dreht die Richtung eines Aufbaustapels um: Ein aufwärts laufender Stapel (ab 2) zählt dann abwärts bis 1, ein Rückwärts-Stapel (bis 11) wieder aufwärts bis 12.'],
     ['gift', 'Geschenk', 300, n + ' Stück im Spiel. Spiel sie auf einen Mitspieler und schenke ihm eine deiner Handkarten. Die Geschenk-Karte ist danach weg.'],
@@ -1014,7 +1060,7 @@ function specialRow(g, isHost){
   }).join('') + '</div>';
 }
 const anySpecial = g => !!(g.specials && Object.values(g.specials).some(Boolean));
-const SLOG_ICON = { gift: () => GIFT_ICON, steal: () => STEAL_ICON, skip: () => SKIP_ICON, skipped: () => SKIP_ICON, rev: () => REV_ICON, split: () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M6.5 20L17.5 4"/></svg>' };
+const SLOG_ICON = { spy: () => SPY_ICON, gift: () => GIFT_ICON, steal: () => STEAL_ICON, skip: () => SKIP_ICON, skipped: () => SKIP_ICON, rev: () => REV_ICON, split: () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M6.5 20L17.5 4"/></svg>' };
 function specialLogHTML(g){
   const list = g.slog || [];
   return '<div class="pilegrp slogwrap"><div class="label">Sonderkarten-Verlauf</div><div class="slog" aria-live="polite">' +
@@ -1027,6 +1073,24 @@ function miniPile(cards, label, i){
   return '<div class="mini sm" data-k="disc" data-act="oppDisc" data-i="' + i + '" title="' + esc(label + (cards.length ? ': ' + cards.map(cardShort).join(', ') : ': leer')) + '">' +
     (t == null ? '<div class="slot"></div>' : cardHTML(t)) + '<small>' + cards.length + '</small></div>';
 }
+function fitCards(){
+  const root = document.documentElement, app = document.getElementById('app');
+  const apply = cw => { root.style.setProperty('--cw', cw + 'px'); root.style.setProperty('--cws', Math.round(Math.max(28, Math.min(60, cw * .5))) + 'px'); };
+  const ok = cw => { apply(cw); S.cw = cw; fitHand(); return app.scrollHeight + 6 <= innerHeight && root.scrollWidth <= innerWidth; };
+  const usable = Math.min(innerWidth, 1440) - 32;
+  let lo = 46, hi = Math.max(lo, Math.min(140, Math.floor(usable / 12.4)));
+  if(ok(hi)) lo = hi;
+  else { while(hi - lo > 1){ const m = (lo + hi) >> 1; if(ok(m)) lo = m; else hi = m; } }
+  apply(lo); S.cw = lo;
+}
+function fitHand(){   // viele Handkarten überlappen leicht, statt in eine neue Zeile zu rutschen
+  const h = q('.hand'); if(!h) return;
+  const n = h.querySelectorAll('.cbtn').length, cw = S.cw || 70;
+  const need = n * cw + (n - 1) * 8, avail = h.clientWidth;
+  h.style.setProperty('--hov', n > 1 && need > avail ? Math.ceil((need - avail) / (n - 1)) + 'px' : '0px');
+}
+function resetFit(){ if(!S.fitKey) return; S.fitKey = ''; S.cw = 0; document.documentElement.style.removeProperty('--cw'); document.documentElement.style.removeProperty('--cws'); }
+let fitT; addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => { if(S.view === 'game') render(); }, 250); });
 function renderGame(){
   S.view = 'game';
   const g = S.game, meIdx = g.players.findIndex(p => p.id === S.me), isPlayer = meIdx >= 0 && !!g.hand;
@@ -1050,7 +1114,7 @@ function renderGame(){
   const opps = order.map(p => {
     const idx = g.players.indexOf(p);
     const turn = g.status === 'playing' && idx === g.turn;
-    return '<div class="opp' + (turn ? ' turn' : '') + (sel && (isGift(sel.v) || (isSteal(sel.v) && p.discards.some(d => d.length))) ? ' tgt' : '') + '" data-act="opp" data-pid="' + esc(p.id) + '">' +
+    return '<div class="opp' + (turn ? ' turn' : '') + (sel && (isGift(sel.v) || (isSpy(sel.v) && p.handCount > 0) || (isSteal(sel.v) && p.discards.some(d => d.length))) ? ' tgt' : '') + '" data-act="opp" data-pid="' + esc(p.id) + '">' +
       '<div class="head"><span class="name">' + esc(p.name) + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + (g.skips && g.skips[p.id] ? '<span class="pill skip">' + SKIP_ICON + 'setzt aus</span>' : '') + '</div>' +
       '<div class="rowc">' +
         '<div class="mini sm" data-k="stock" title="Spielerstapel">' + (p.stockTop != null ? cardHTML(p.stockTop) : '<div class="slot"></div>') + '<small><b style="color:var(--ink)">' + p.stockCount + '</b> übrig</small></div>' +
@@ -1086,7 +1150,7 @@ function renderGame(){
     const stockSel = sel && sel.src === 'stock';
     const stockFits = mine && stTop != null && g.build.some((b, i) => playable(g, stTop, i));
     const discs = ds.map((d,i) => {
-      const n = d.length, off = n > 1 ? Math.min(20, 110/(n-1)) : 0;
+      const cwPx = S.cw || 70, n = d.length, off = n > 1 ? Math.min(cwPx * .24, cwPx * 1.1 / (n-1)) : 0;
       const h = 'calc(var(--cw) * 1.4 + ' + (off*(Math.max(n,1)-1)) + 'px)';
       const isSel = sel && sel.src === 'disc' && sel.i === i, tgt = sel && sel.src === 'hand';
       const cards = n ? d.map((v,k) => '<div style="top:' + (k*off) + 'px' + (isSel && k === n-1 ? ';transform:translateY(-10px)' : '') + '">' + cardHTML(v, '', isSel && k === n-1 ? 'outline:3px solid var(--accent);outline-offset:2px' : '') + '</div>').join('') : '<div style="top:0"><div class="slot"></div></div>';
@@ -1097,11 +1161,11 @@ function renderGame(){
       '<div class="grp"><div class="label">Dein Spielerstapel</div><div class="stockwrap">' +
         (stTop == null ? '<div class="slot">—</div>' : '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + cardName(stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button>') +
         '<div><div class="count">' + p.stockCount + '</div><div class="muted" style="font-size:12px">übrig</div></div></div>' +
-        (stockFits && !stockSel ? '<div class="hint">Deine Stapelkarte passt!</div>' : '') +
+        '<div class="hint"' + (stockFits && !stockSel ? '' : ' style="visibility:hidden"') + '>Deine Stapelkarte passt!</div>' +
       '</div>' +
       '<div class="grp"><div class="label">Deine Ablagestapel</div><div class="mydiscs">' + discs + '</div></div>' +
-      '<div class="grp" style="min-width:0;flex:1"><div class="label">Deine Hand</div><div class="hand">' + (handH || '<span class="muted">Keine Karten auf der Hand.</span>') + '</div>' +
-        (mine && !hand.length ? '<div><button class="btn" data-act="endTurn">Zug beenden</button></div>' : '') +
+      '<div class="grp handgrp"><div class="label">Deine Hand</div><div class="hand">' + (handH || '<span class="muted">Keine Karten auf der Hand.</span>') + '</div>' +
+        '<div class="endrow">' + (mine && !hand.length ? '<button class="btn" data-act="endTurn">Zug beenden</button>' : '') + '</div>' +
       '</div>' +
     '</section>';
   } else {
@@ -1110,9 +1174,16 @@ function renderGame(){
   const chooser = g.choose && g.status === 'playing' ? g.choose.pid : null;
   let who = g.status === 'playing' ? (mine ? '<b>Du bist dran</b>' : esc(cur ? cur.name : '?') + ' ist dran' + (cur && !cur.online ? ' (offline)' : '')) : '';
   if(chooser && chooser !== S.me) who = esc(pn(chooser)) + ' wählt, wer aussetzen muss …';
+  if(g.spy && g.status === 'playing' && g.spy.pid !== S.me) who = g.spy.target === S.me ? '<b>' + esc(pn(g.spy.pid)) + ' schaut sich gerade deine Handkarten an!</b>' : esc(pn(g.spy.pid)) + ' spioniert bei ' + esc(pn(g.spy.target)) + ' …';
   if(g.status === 'playing' && g.skips && g.skips[S.me]) who += '<span class="pill skip" style="margin-left:12px">' + SKIP_ICON + 'Du setzt beim nächsten Mal aus</span>';
   let dialog = '';
   if(!mine || chooser){ S.gift = null; S.steal = null; }
+  if(g.spy && g.spy.pid === S.me && g.spy.hand){
+    const sp = g.spy;
+    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="spyTitle"><div class="panel modalbox" style="max-width:640px"><span class="skipbig" style="color:#d9a6ff">' + SPY_ICON + '</span><h2 id="spyTitle">' + esc(pn(sp.target)) + 's Handkarten</h2>' +
+      '<p class="muted" style="margin:0">Nur du siehst diese Karten. Nimm dir eine davon.</p><div class="choose giftcards">' +
+      sp.hand.map((v,i) => '<button type="button" class="cbtn" data-act="spyTake" data-i="' + i + '" aria-label="' + esc(cardName(v)) + ' nehmen">' + cardHTML(v) + '</button>').join('') + '</div></div></div>';
+  }
   if(S.steal && mine){
     const sl = S.steal, piles = (g.players.find(p => p.id === sl.target) || {discards:[]}).discards;
     const opts = piles.map((d,i) => d.length ? '<button type="button" class="cbtn" data-act="stealPick" data-i="' + i + '" aria-label="' + esc(cardName(top(d))) + ' klauen">' + cardHTML(top(d)) + '</button>' : '').join('');
@@ -1137,6 +1208,10 @@ function renderGame(){
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';
   const slogEl = q('.slog'), slogTop = slogEl ? slogEl.scrollTop : 0;
   view.innerHTML = win + (opps ? '<section class="opps">' + opps + '</section>' : '') + mid + me + turnline + dialog;
+  // Kartengröße nur neu berechnen, wenn sich Fenster oder Tischaufbau ändern – nicht bei jedem Zug
+  const fitKey = innerWidth + 'x' + innerHeight + ':' + g.players.length + ':' + (g.hand ? 1 : 0) + ':' + g.build.length + ':' + anySpecial(g);
+  if(fitKey !== S.fitKey){ S.fitKey = fitKey; const before = S.cw; fitCards(); if(before !== S.cw) return renderGame(); }
+  fitHand();
   if(slogTop){ const n = q('.slog'); if(n) n.scrollTop = slogTop; }
   if(S.dragHide){ const el = srcEl({pid:S.me, src:S.dragHide.src, i:S.dragHide.i}); if(el) el.style.visibility = 'hidden'; }
 }

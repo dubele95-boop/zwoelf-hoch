@@ -47,9 +47,10 @@ const isSkip = v => v >= 200 && v < 300;
 const GIFT = 300; // Geschenk-Karte
 const REV = 400;  // Rückwärts-Karte
 const STEAL = 500; // Diebstahl-Karte
+const SPY = 600;   // Spion-Karte
 const splitOf = v => [(v - 1000) >> 4, (v - 1000) & 15];
 const makeSplit = () => { const a = 1 + crypto.randomInt(12); let b; do { b = 1 + crypto.randomInt(12); } while (b === a); return 1000 + Math.min(a, b) * 16 + Math.max(a, b); };
-const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 }, gift: { perDeck: 4 }, rev: { perDeck: 2 }, steal: { perDeck: 4 } };
+const SPECIALS = { split: { perDeck: 4 }, skip: { perDeck: 4 }, gift: { perDeck: 4 }, rev: { perDeck: 2 }, steal: { perDeck: 4 }, spy: { perDeck: 2 } };
 // Jeder Aufbaustapel hat einen aktuellen Wert (bval) und eine Richtung (bdir: 1 aufwärts, -1 abwärts)
 const needOf = (g, i) => g.bdir[i] === 1 ? g.bval[i] + 1 : g.bval[i] - 1;
 // aufwärts: erst ab einer 2 umdrehbar; abwärts: nur wenn danach noch eine Zahl bis 12 folgen kann
@@ -60,7 +61,7 @@ function downCount(g) { return Math.min(pileCount(g), Math.max(0, g.downPiles ||
 function resetPile(g, i) { const down = i >= pileCount(g) - downCount(g); g.build[i] = []; g.bval[i] = down ? 13 : 0; g.bdir[i] = down ? -1 : 1; }
 function setupPiles(g) { const n = pileCount(g); g.build = []; g.bval = []; g.bdir = []; for (let i = 0; i < n; i++) resetPile(g, i); }
 function fits(v, need) {
-  if (v === GIFT || v === REV || v === STEAL) return false;
+  if (v === GIFT || v === REV || v === STEAL || v === SPY) return false;
   if (v === 0) return true;
   if (isSplit(v)) return splitOf(v).includes(need);
   if (isSkip(v)) return v - 200 === need;
@@ -76,6 +77,7 @@ function cardLabel(v) {
   if (v === GIFT) return 'eine Geschenk-Karte';
   if (v === REV) return 'eine Rückwärts-Karte';
   if (v === STEAL) return 'eine Diebstahl-Karte';
+  if (v === SPY) return 'eine Spion-Karte';
   return 'eine ' + v;
 }
 function addLog(g, text) { g.log.unshift(text); g.log = g.log.slice(0, 14); }
@@ -100,7 +102,7 @@ function refill(g, id) {
   while (h.length < 5) { const c = drawOne(g); if (c == null) break; h.push(c); }
 }
 function advance(g) {
-  g.choose = null;
+  g.choose = null; g.spy = null;
   g.skips = g.skips || {};
   for (let k = 0; k <= g.players.length; k++) {
     g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
@@ -123,6 +125,7 @@ function startRound(g) {
       const idx = []; for (let i = start; i < deck.length; i++) if (deck[i] >= 1 && deck[i] <= 12) idx.push(i);
       shuffle(idx).slice(0, SPECIALS.skip.perDeck).forEach(i => { deck[i] = 200 + deck[i]; });
     }
+    if (g.specials && g.specials.spy) for (let k = 0; k < SPECIALS.spy.perDeck; k++) deck.push(SPY);
     if (g.specials && g.specials.steal) for (let k = 0; k < SPECIALS.steal.perDeck; k++) deck.push(STEAL);
     if (g.specials && g.specials.rev) for (let k = 0; k < SPECIALS.rev.perDeck; k++) deck.push(REV);
     if (g.specials && g.specials.gift) for (let k = 0; k < SPECIALS.gift.perDeck; k++) deck.push(GIFT);
@@ -131,7 +134,7 @@ function startRound(g) {
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
   g.draw = deck; setupPiles(g); g.done = []; g.decks = decks;
-  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = [];
+  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.spy = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = [];
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
   addLog(g, 'Neue Runde mit ' + g.stackSize + ' Karten pro Spielerstapel. ' + g.players[g.turn].name + ' beginnt.');
@@ -160,8 +163,9 @@ function viewFor(g, me) {
   return {
     code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
+    spy: g.spy ? (g.spy.pid === me ? { pid: g.spy.pid, target: g.spy.target, hand: g.hands[g.spy.target] } : { pid: g.spy.pid, target: g.spy.target }) : null,
     choose: g.choose || null, skips: g.skips || {}, slog: g.slog || [],
-    turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove || null,
+    turn: g.turn, turnNo: g.turnNo, winner: g.winner, log: g.log, lastMove: g.lastMove && g.lastMove.kind === 'spy' && me !== g.lastMove.pid && me !== g.lastMove.target ? { ...g.lastMove, sv: undefined } : (g.lastMove || null),
     me, hand: g.hands[me] || null
   };
 }
@@ -256,7 +260,7 @@ const handlers = {
     g.status = 'lobby'; g.round = (g.round || 1) + 1; g.rematchBy = ws.pid;
     g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
     setupPiles(g);
-    g.skips = {}; g.choose = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
+    g.skips = {}; g.choose = null; g.spy = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
     broadcast(g);
   },
   start(ws, m, g) {
@@ -366,6 +370,37 @@ const handlers = {
     setMove(g, mv);
     broadcast(g);
   },
+  // Spion, Schritt 1: Karte spielen und Mitspieler wählen -> nur du siehst seine Hand
+  spyLook(ws, m, g) {
+    const me = ws.pid; myTurn(g, me);
+    const v = cardAt(g, me, m.src, m.i);
+    must(v === SPY && m.v === SPY, 'Die Karte hat sich geändert. Wähle neu.');
+    must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
+    must(g.hands[m.target] && g.hands[m.target].length, pname(g, m.target) + ' hat gerade keine Handkarten.');
+    removeAt(g, me, m.src, m.i); g.done.push(SPY);
+    const name = pname(g, me);
+    const mv = { kind: 'spyLook', pid: me, target: m.target, src: m.src, i: m.i };
+    if (m.src === 'stock' && !g.stocks[me].length) {
+      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+    } else {
+      g.spy = { pid: me, target: m.target };
+      addLog(g, name + ' spioniert bei ' + pname(g, m.target) + '.');
+    }
+    setMove(g, mv); broadcast(g);
+  },
+  // Spion, Schritt 2: eine der gesehenen Karten nehmen (Pflicht)
+  spyTake(ws, m, g) {
+    const me = ws.pid; myTurn(g, me, true);
+    must(g.spy && g.spy.pid === me, 'Gerade spionierst du nicht.');
+    const th = g.hands[g.spy.target];
+    must(Number.isInteger(m.k) && th[m.k] != null && th[m.k] === m.v, 'Die Karte hat sich geändert. Wähle neu.');
+    const target = g.spy.target, sv = th.splice(m.k, 1)[0];
+    g.hands[me].push(sv); g.spy = null;
+    addLog(g, pname(g, me) + ' nimmt ' + pname(g, target) + ' eine Karte weg.');
+    addSLog(g, 'spy', pname(g, me) + ' spioniert bei ' + pname(g, target) + ' und nimmt eine Karte');
+    setMove(g, { kind: 'spy', pid: me, target, k: m.k, sv });
+    broadcast(g);
+  },
   chooseSkip(ws, m, g) {
     const me = ws.pid; myTurn(g, me, true);
     must(g.choose && g.choose.pid === me, 'Gerade gibt es nichts auszuwählen.');
@@ -395,7 +430,7 @@ const BOT_DELAY = Number(process.env.BOT_DELAY) || 1500;  // Pause zwischen Bot-
 const botTimers = new Map();   // Spielcode -> Timer
 function botToMove(g) {
   if (g.status !== 'playing') return null;
-  const id = g.choose ? g.choose.pid : g.players[g.turn].id;
+  const id = g.choose ? g.choose.pid : g.spy ? g.spy.pid : g.players[g.turn].id;
   const p = g.players.find(x => x.id === id);
   return p && p.bot ? p : null;
 }
@@ -419,7 +454,7 @@ const botWs = (g, id) => ({ pid: id, gameCode: g.code, readyState: 0 });
 // Wie weit ist ein Kartenwert von dem entfernt, was ein Stapel gerade braucht? (0 = passt sofort)
 function gapTo(g, i, n) { const need = needOf(g, i); return g.bdir[i] === 1 ? n - need : need - n; }
 function cardScore(g, v) {            // je kleiner, desto nützlicher ist die Karte gerade
-  if (v === 0 || v === GIFT || v === STEAL || v === REV) return 0;
+  if (v === 0 || v === GIFT || v === STEAL || v === REV || v === SPY) return 0;
   const nums = isSplit(v) ? splitOf(v) : [isSkip(v) ? v - 200 : v];
   let best = 99;
   for (let i = 0; i < g.build.length; i++) for (const n of nums) { const d = gapTo(g, i, n); if (d >= 0 && d < best) best = d; }
@@ -429,12 +464,13 @@ function botAct(g, id, hurry) {
   const ws = botWs(g, id), h = handlers;
   const others = g.players.filter(p => p.id !== id);
   const leader = others.slice().sort((a, b) => g.stocks[a.id].length - g.stocks[b.id].length)[0];
+  if (g.spy && g.spy.pid === id) return h.spyTake(ws, botSpyPick(g), g);
   if (g.choose && g.choose.pid === id) { const open = skippable(g, id).sort((a, b) => g.stocks[a.id].length - g.stocks[b.id].length); return h.chooseSkip(ws, { target: open[0].id }, g); }
   if (hurry) return botFinish(g, id);
   const hand = g.hands[id], stock = g.stocks[id], discs = g.discards[id];
   const st = top(stock), P = g.build.length;
   const tryPlay = (src, i, v) => {
-    if (v === REV || v === GIFT || v === STEAL) return false;
+    if (v === REV || v === GIFT || v === STEAL || v === SPY) return false;
     for (let pi = 0; pi < P; pi++) if (fits(v, needOf(g, pi))) { h.play(ws, { src, i, v, pile: pi }, g); return true; }
     return false;
   };
@@ -460,6 +496,11 @@ function botAct(g, id, hurry) {
     const need = g.bdir[pi] === 1 ? g.bval[pi] - 1 : g.bval[pi] + 1;
     if (stockNums.includes(need)) return h.play(ws, { src: 'hand', i: ri, v: REV, pile: pi }, g);
   }
+  // 3b) Spion: bei dem mit den meisten Handkarten nachschauen
+  const spyTarget = () => others.filter(p => g.hands[p.id].length).sort((a, b) => g.hands[b.id].length - g.hands[a.id].length)[0];
+  if (st === SPY && spyTarget()) return h.spyLook(ws, { src: 'stock', v: SPY, target: spyTarget().id }, g);
+  const yi = hand.indexOf(SPY);
+  if (yi >= 0 && spyTarget() && g.hands[spyTarget().id].length >= 3) return h.spyLook(ws, { src: 'hand', i: yi, v: SPY, target: spyTarget().id }, g);
   // 4) Diebstahl, wenn es etwas Brauchbares gibt
   const si = hand.indexOf(STEAL);
   if (si >= 0) { const vt = stealTarget(g, id); if (vt) return h.steal(ws, { src: 'hand', i: si, v: STEAL, target: vt.id, pile: vt.pile }, g); }
@@ -488,8 +529,16 @@ function stealTarget(g, id) {
   }
   return best && best.sc <= 2 ? best : null;
 }
+function botSpyPick(g) {            // beste Karte aus der fremden Hand: Joker zuerst, sonst die nützlichste
+  const th = g.hands[g.spy.target];
+  let k = th.indexOf(0);
+  if (k < 0) { let best = 99; th.forEach((v, i) => { const sc = cardScore(g, v); if (sc < best) { best = sc; k = i; } }); }
+  if (k < 0) k = 0;
+  return { k, v: th[k] };
+}
 function botFinish(g, id) {          // Zug beenden: eine Karte ablegen
   const ws = botWs(g, id), hand = g.hands[id], discs = g.discards[id];
+  if (g.spy && g.spy.pid === id) return handlers.spyTake(ws, botSpyPick(g), g);
   if (g.choose && g.choose.pid === id) return handlers.chooseSkip(ws, { target: skippable(g, id)[0].id }, g);
   if (!hand.length) return handlers.endTurn(ws, {}, g);
   const k = worstCard(g, hand), v = hand[k];
@@ -503,6 +552,7 @@ function myTurn(g, me, allowChoose) {
   must(g.status === 'playing', 'Das Spiel läuft gerade nicht.');
   must(g.players[g.turn].id === me, 'Du bist gerade nicht dran.');
   if (!allowChoose) must(!g.choose, 'Wähle zuerst, wer aussetzen muss.');
+  if (!allowChoose) must(!g.spy, 'Nimm dir zuerst eine Karte beim Spionieren.');
 }
 const skippable = (g, me) => g.players.filter(p => p.id !== me && !(g.skips && g.skips[p.id]));
 function applySkip(g, by, target) {
