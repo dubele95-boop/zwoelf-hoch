@@ -135,6 +135,9 @@ body.busy{cursor:progress}
 .opp.tgt{cursor:pointer}
 .giftcards .cbtn{--cw:72px}
 .card.sp.spa .c{font-size:calc(var(--cw) * .13)}
+.card.rv.rva{color:#ffd27a;display:grid}
+.card.rv.rva .n{font-size:calc(var(--cw) * .62)}
+.card.rv.rva .c.br{transform:none}
 .card.j.ja .n{font-size:calc(var(--cw) * .62)}
 .card.j{--c:var(--accent);background:var(--jk);color:var(--accent)}
 .card.j .n{font-size:calc(var(--cw) * .5)}
@@ -231,7 +234,7 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .winner{text-align:center;padding:22px;border-radius:16px;background:rgba(242,184,75,.12);border:1px solid var(--accent);display:flex;flex-direction:column;gap:10px;align-items:center}
 .winner h2{font:900 clamp(34px,5vw,56px)/1 var(--f-display);text-transform:uppercase;color:var(--accent)}
 
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--table);padding:10px 16px;border-radius:10px;font-weight:700;max-width:min(92vw,520px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:10}
+#toast{position:fixed;text-align:center;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--table);padding:10px 16px;border-radius:10px;font-weight:700;max-width:min(92vw,520px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:10}
 
 @media (max-width:900px){
   .home,.lobby{grid-template-columns:minmax(0,1fr)}
@@ -314,7 +317,19 @@ function send(m){
 }
 
 let toastT;
-function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3800); }
+function placeToast(){
+  // im Spiel: Meldung auf die Grenze zwischen Tischmitte (Ziehen/Aufbaustapel) und deinem Bereich setzen
+  const t = document.getElementById('toast'), mid = document.querySelector('.mid'), mine = document.querySelector('.mine');
+  if(t.hidden) return;
+  if(mid && mine){
+    const a = mid.getBoundingClientRect(), b = mine.getBoundingClientRect();
+    const y = (a.bottom + b.top) / 2 - t.offsetHeight / 2;
+    if(a.bottom > 0 && b.top < innerHeight){ t.style.top = Math.max(8, Math.min(innerHeight - t.offsetHeight - 8, y)) + 'px'; t.style.bottom = 'auto'; return; }
+  }
+  t.style.top = ''; t.style.bottom = '';
+}
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; placeToast(); clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3800); }
+addEventListener('scroll', placeToast, {passive:true}); addEventListener('resize', placeToast);
 
 function myName(){
   const el = document.getElementById('nameInput');
@@ -513,6 +528,10 @@ function onNewState(prev, g){
     }});
   } else if(fresh && mv.kind === 'discard'){
     fly(cardHTML(mv.v), fromRect, dstEl(mv));
+  }
+  if(fresh && mv.skipNone){
+    const nm = mv.pid === S.me ? 'Du spielst' : ((g.players.find(p => p.id === mv.pid) || {}).name || 'Jemand') + ' spielt';
+    toast(nm + ' Aussetzen – aber alle anderen setzen schon aus. Die Karte wirkt diesmal nicht.');
   }
   if(fresh && (mv.kind === 'skipped' || mv.skipTarget)){
     const target = mv.target || mv.skipTarget;
@@ -788,7 +807,7 @@ document.addEventListener('keydown', e => {
 /* ---------- Regel-Übersicht während des Spiels ---------- */
 const SPECIAL_HELP = [
   ['split', 1000 + 3*16 + 4, 'Entweder-oder', ['Zählt als eine ihrer beiden Zahlen, z. B. 3 <b>oder</b> 4.', 'Passt auf einen Aufbaustapel, wenn eine der beiden Zahlen gebraucht wird.', 'Darf auch auf deine Ablagestapel.']],
-  ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
+  ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
   ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
   ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
   ['rev', 400, 'Rückwärts', ['Dreht die Richtung eines Aufbaustapels um.', 'Aufwärts-Stapel (ab einer 2): zählt dann abwärts, z. B. 7, 6, 5 …, und wird bei 1 abgeräumt.', 'Rückwärts-Stapel (bis 11): zählt dann aufwärts und wird bei 12 abgeräumt.', 'Nach dem Abräumen startet der Stapel wieder in seiner ursprünglichen Richtung.']]
@@ -838,6 +857,11 @@ const GIFT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 function splitAs(v, n){
   const [a, b] = splitOf(v);
   return '<div class="card sp spa" style="color:' + grp(n) + '"><span class="c tl">' + a + '/' + b + '</span><span class="n">' + n + '</span><span class="c br">' + a + '/' + b + '</span></div>';
+}
+// gelegte Rückwärts-Karte: aktuelle Zahl groß, Karte bleibt rot; Pfeil zeigt die neue Richtung
+function revAs(n, down){
+  const arrow = down ? '↓' : '↑';
+  return '<div class="card rv rva"><span class="c tl">' + arrow + '</span><span class="n">' + n + '</span><span class="c br">' + arrow + '</span></div>';
 }
 function jokerAs(n){
   return '<div class="card j ja"><span class="c tl">★</span><span class="n">' + n + '</span><span class="c br">★</span></div>';
@@ -1037,9 +1061,9 @@ function renderGame(){
 
   const builds = g.build.map((p,i) => {
     const t = top(p), ok = sel && playable(g, sel.v, i), down = isDown(g, i), need = needAt(g, i);
-    const badge = isRev(t) ? '<span class="as">' + (down ? '↓ ' : '↑ ') + valAt(g, i) + '</span>' : '';
+    const badge = '';
     // ein gelegter Joker zeigt die Zahl, für die er steht – in Joker-Farben
-    const face = t == null ? '<div class="slot">' + need + '</div>' : t === 0 ? jokerAs(valAt(g, i)) : isSplit(t) ? splitAs(t, valAt(g, i)) : cardHTML(t, badge);
+    const face = t == null ? '<div class="slot">' + need + '</div>' : t === 0 ? jokerAs(valAt(g, i)) : isSplit(t) ? splitAs(t, valAt(g, i)) : isRev(t) ? revAs(valAt(g, i), down) : cardHTML(t, badge);
     return '<button class="bpile' + (down ? ' down' : '') + '" data-act="build" data-i="' + i + '" aria-label="Aufbaustapel ' + (i+1) + (down ? ', läuft abwärts' : '') + ', als nächstes ' + need + '"' + (mine ? '' : ' tabindex="-1"') + '>' +
       '<div class="face' + (ok ? ' tgt' : '') + '" style="border-radius:var(--r)">' + face + '</div>' +
       '<span class="need">' + (down ? '<b class="downtag">↓ abwärts</b> ' : '') + 'nächste: ' + need + '</span></button>';
@@ -1105,7 +1129,9 @@ function renderGame(){
   }
   if(chooser === S.me){
     dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="chooseTitle"><div class="panel modalbox"><span class="skipbig">' + SKIP_ICON + '</span><h2 id="chooseTitle">Wer soll aussetzen?</h2><p class="muted" style="margin:0">Der gewählte Spieler wird bei seinem nächsten Zug übersprungen.</p><div class="choose">' +
-      order.filter(p => p.id !== S.me).map(p => '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + (g.skips && g.skips[p.id] ? ' <span class="muted">(setzt schon aus)</span>' : '') + '</button>').join('') +
+      order.filter(p => p.id !== S.me).map(p => (g.skips && g.skips[p.id])
+        ? '<button type="button" class="btn" disabled title="Setzt schon aus">' + esc(p.name) + ' <span class="muted">(setzt schon aus)</span></button>'
+        : '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') +
       '</div></div></div>';
   }
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';

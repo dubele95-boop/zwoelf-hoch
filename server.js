@@ -297,8 +297,10 @@ const handlers = {
     } else {
       if (!g.hands[me].length) { refill(g, me); mv.refill = true; addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
       if (isSkip(v) && g.players.length > 1) {
-        const others = g.players.filter(p => p.id !== me);
-        if (others.length === 1) { applySkip(g, me, others[0].id); mv.skipTarget = others[0].id; }
+        // nur wer noch kein Aussetzen offen hat, kann eines bekommen
+        const open = skippable(g, me);
+        if (!open.length) { mv.skipNone = true; addSLog(g, 'skip', name + ' spielt Aussetzen, aber alle setzen schon aus'); }
+        else if (open.length === 1) { applySkip(g, me, open[0].id); mv.skipTarget = open[0].id; }
         else g.choose = { pid: me, kind: 'skip' };
       }
     }
@@ -368,6 +370,7 @@ const handlers = {
     const me = ws.pid; myTurn(g, me, true);
     must(g.choose && g.choose.pid === me, 'Gerade gibt es nichts auszuwählen.');
     must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
+    must(!(g.skips && g.skips[m.target]), pname(g, m.target) + ' setzt schon aus. Wähle jemand anderen.');
     g.choose = null; applySkip(g, me, m.target);
     setMove(g, { kind: 'skipped', pid: me, target: m.target });
     broadcast(g);
@@ -388,7 +391,7 @@ const handlers = {
 /* ---------------- Bots ----------------
    Bots sind Mitspieler ohne Verbindung. Der Server spielt für sie – mit kleinen Pausen,
    damit man jeden Zug verfolgen kann. Ist kein Mensch online, pausieren sie. */
-const BOT_DELAY = Number(process.env.BOT_DELAY) || 900;  // Pause zwischen Bot-Aktionen (ms)
+const BOT_DELAY = Number(process.env.BOT_DELAY) || 1500;  // Pause zwischen Bot-Aktionen (ms)
 const botTimers = new Map();   // Spielcode -> Timer
 function botToMove(g) {
   if (g.status !== 'playing') return null;
@@ -426,7 +429,7 @@ function botAct(g, id, hurry) {
   const ws = botWs(g, id), h = handlers;
   const others = g.players.filter(p => p.id !== id);
   const leader = others.slice().sort((a, b) => g.stocks[a.id].length - g.stocks[b.id].length)[0];
-  if (g.choose && g.choose.pid === id) return h.chooseSkip(ws, { target: leader.id }, g);
+  if (g.choose && g.choose.pid === id) { const open = skippable(g, id).sort((a, b) => g.stocks[a.id].length - g.stocks[b.id].length); return h.chooseSkip(ws, { target: open[0].id }, g); }
   if (hurry) return botFinish(g, id);
   const hand = g.hands[id], stock = g.stocks[id], discs = g.discards[id];
   const st = top(stock), P = g.build.length;
@@ -487,7 +490,7 @@ function stealTarget(g, id) {
 }
 function botFinish(g, id) {          // Zug beenden: eine Karte ablegen
   const ws = botWs(g, id), hand = g.hands[id], discs = g.discards[id];
-  if (g.choose && g.choose.pid === id) return handlers.chooseSkip(ws, { target: g.players.find(p => p.id !== id).id }, g);
+  if (g.choose && g.choose.pid === id) return handlers.chooseSkip(ws, { target: skippable(g, id)[0].id }, g);
   if (!hand.length) return handlers.endTurn(ws, {}, g);
   const k = worstCard(g, hand), v = hand[k];
   let to = discs.findIndex(d => d.length && top(d) === v + 1);           // absteigend stapeln
@@ -501,9 +504,10 @@ function myTurn(g, me, allowChoose) {
   must(g.players[g.turn].id === me, 'Du bist gerade nicht dran.');
   if (!allowChoose) must(!g.choose, 'Wähle zuerst, wer aussetzen muss.');
 }
+const skippable = (g, me) => g.players.filter(p => p.id !== me && !(g.skips && g.skips[p.id]));
 function applySkip(g, by, target) {
   g.skips = g.skips || {};
-  g.skips[target] = (g.skips[target] || 0) + 1;
+  g.skips[target] = 1;   // höchstens ein offenes Aussetzen pro Spieler
   addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
   addSLog(g, 'skip', pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen');
 }
