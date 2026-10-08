@@ -32,6 +32,52 @@ const server = http.createServer((req, res) => {
 
 /* ---------------- Spielzustand ---------------- */
 const games = new Map();      // code -> game
+
+/* ---------------- Speichern (optional) ----------------
+   Ist REDIS_URL gesetzt (Render "Key Value"), werden laufende Spiele dort abgelegt
+   und nach einem Neustart des Servers wieder geladen. Ohne REDIS_URL läuft alles nur im Speicher. */
+let store = null;
+if (process.env.REDIS_URL) {
+  const Redis = require('ioredis');
+  store = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 2, enableOfflineQueue: true });
+  let lastErr = 0;
+  store.on('error', e => { if (Date.now() - lastErr > 60000) { lastErr = Date.now(); console.error('Speicher-Fehler:', e.message); } });
+}
+const KEY = code => 'zh:game:' + code;
+const saveTimers = new Map();
+function serializeGame(g) { const { watchers, botMoves, botTurnNo, ...rest } = g; return JSON.stringify({ ...rest, watchers: [...watchers] }); }
+function saveNow(code) {
+  saveTimers.delete(code);
+  const g = games.get(code); if (!store || !g) return Promise.resolve();
+  return store.set(KEY(code), serializeGame(g), 'EX', 24 * 3600).catch(e => console.error('Speichern fehlgeschlagen:', e.message));
+}
+function saveSoon(g) {
+  if (!store || saveTimers.has(g.code)) return;
+  saveTimers.set(g.code, setTimeout(() => saveNow(g.code), 400));
+}
+function dropGame(code) {
+  games.delete(code);
+  if (saveTimers.has(code)) { clearTimeout(saveTimers.get(code)); saveTimers.delete(code); }
+  if (store) store.del(KEY(code)).catch(() => {});
+}
+async function loadGames() {
+  if (!store) return;
+  try {
+    let cursor = '0', n = 0;
+    do {
+      const [next, keys] = await store.scan(cursor, 'MATCH', 'zh:game:*', 'COUNT', 100); cursor = next;
+      for (const k of keys) {
+        const raw = await store.get(k); if (!raw) continue;
+        try { const g = JSON.parse(raw); g.watchers = new Set(g.watchers || []); g.choose = g.choose || null; games.set(g.code, g); n++; }
+        catch (e) { console.error('Spiel konnte nicht geladen werden:', k); }
+      }
+    } while (cursor !== '0');
+    console.log(n + ' gespeicherte Spiele geladen.');
+  } catch (e) { console.error('Laden fehlgeschlagen:', e.message); }
+}
+// Beim Herunterfahren (Update/Neustart bei Render) noch schnell alles sichern
+async function flushAll() { await Promise.all([...saveTimers.keys()].map(saveNow)); }
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, async () => { try { await flushAll(); if (store) await store.quit(); } finally { process.exit(0); } });
 const sockets = new Map();    // Spieler-ID -> Set<ws>
 
 const rid = (n = 9) => crypto.randomBytes(n).toString('base64url');
@@ -82,7 +128,7 @@ function cardLabel(v) {
   return 'eine ' + v;
 }
 function addLog(g, text) { g.log.unshift(text); g.log = g.log.slice(0, 14); }
-let moveSeq = 0;
+let moveSeq = Date.now();   // eindeutig auch über Neustarts hinweg
 function setMove(g, mv) { g.lastMove = { ...mv, seq: ++moveSeq }; }
 function decksFor(n, stack) { return (n * stack + n * 5) > 110 ? 2 : 1; }
 
@@ -102,13 +148,35 @@ function refill(g, id) {
   const h = g.hands[id];
   while (h.length < 5) { const c = drawOne(g); if (c == null) break; h.push(c); }
 }
+
+/* ---------------- Statistik pro Runde ---------------- */
+const ST0 = () => ({ played: 0, fromStock: 0, fromHand: 0, fromDisc: 0, jokers: 0, clears: 0, bestTurn: 0, turns: 0,
+  skipped: 0, skipsGiven: 0, giftsGiven: 0, giftsGot: 0, steals: 0, stolenFrom: 0, spies: 0, spiedOn: 0, specials: 0 });
+function initStats(g) {
+  g.stats = { start: Date.now(), end: null, players: {} };
+  for (const p of g.players) g.stats.players[p.id] = ST0();
+  g.turnCards = 0;
+  g.wins = g.wins || {};
+}
+function stat(g, id) { if (!g.stats) initStats(g); return g.stats.players[id] || (g.stats.players[id] = ST0()); }
+function endTurnStats(g) {             // Zug des aktuellen Spielers abschließen
+  const p = g.players[g.turn]; if (!p || !g.stats) return;
+  const s = stat(g, p.id); s.turns++; s.bestTurn = Math.max(s.bestTurn, g.turnCards || 0); g.turnCards = 0;
+}
+function finishStats(g, winner) {
+  endTurnStats(g);
+  if (g.stats) g.stats.end = Date.now();
+  g.wins = g.wins || {}; g.wins[winner] = (g.wins[winner] || 0) + 1;
+}
+
 function advance(g) {
   g.choose = null; g.spy = null;
   g.skips = g.skips || {};
+  endTurnStats(g);
   for (let k = 0; k <= g.players.length; k++) {
     g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
     const p = g.players[g.turn];
-    if (g.skips[p.id] > 0) { g.skips[p.id]--; addLog(g, p.name + ' setzt aus.'); addSLog(g, 'skipped', p.name + ' setzt aus'); continue; }
+    if (g.skips[p.id] > 0) { g.skips[p.id]--; stat(g, p.id).skipped++; addLog(g, p.name + ' setzt aus.'); addSLog(g, 'skipped', p.name + ' setzt aus'); continue; }
     break;
   }
   refill(g, g.players[g.turn].id);
@@ -135,7 +203,7 @@ function startRound(g) {
   g.hands = {}; g.stocks = {}; g.discards = {};
   for (const p of g.players) { g.stocks[p.id] = deck.splice(0, g.stackSize); g.hands[p.id] = []; g.discards[p.id] = [[], [], [], []]; }
   g.draw = deck; setupPiles(g); g.done = []; g.decks = decks;
-  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.spy = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = [];
+  g.status = 'playing'; g.winner = null; g.skips = {}; g.choose = null; g.spy = null; g.turn = crypto.randomInt(n); g.turnNo = 1; g.log = []; g.slog = []; initStats(g);
   refill(g, g.players[g.turn].id);
   setMove(g, { kind: 'deal' });
   addLog(g, 'Neue Runde mit ' + g.stackSize + ' Karten pro Spielerstapel. ' + g.players[g.turn].name + ' beginnt.');
@@ -162,7 +230,7 @@ function viewFor(g, me) {
     discards: g.discards[p.id] || [[], [], [], []]
   }));
   return {
-    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
+    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, wins: g.wins || {}, stats: g.status === 'finished' ? g.stats || null : null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
     spy: g.spy ? (g.spy.pid === me ? { pid: g.spy.pid, target: g.spy.target, hand: g.hands[g.spy.target] } : { pid: g.spy.pid, target: g.spy.target }) : null,
     choose: g.choose || null, skips: g.skips || {}, slog: (g.slog || []).map(e => ({ k: e.k, t: e.priv && e.priv[me] ? e.priv[me] : e.t, n: e.n })),
@@ -176,6 +244,7 @@ const isOnline = id => !!(sockets.get(id) && sockets.get(id).size);
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(g) {
   g.updated = Date.now();
+  saveSoon(g);
   const ids = new Set(g.players.map(p => p.id));
   for (const id of g.watchers) ids.add(id);
   for (const id of ids) {
@@ -296,9 +365,12 @@ const handlers = {
         addLog(g, 'Stapel ' + (pi + 1) + ' ist bei ' + end + ' und wird abgeräumt.');
       }
     }
+    { const s = stat(g, me); s.played++; g.turnCards = (g.turnCards || 0) + 1;
+      if (m.src === 'stock') s.fromStock++; else if (m.src === 'hand') s.fromHand++; else s.fromDisc++;
+      if (v === 0) s.jokers++; if (v === REV || isSplit(v) || isSkip(v)) s.specials++; if (mv.cleared) s.clears++; }
     if (m.src === 'stock') { const left = g.stocks[me].length; addLog(g, name + ' spielt vom Spielerstapel' + (left ? ' (noch ' + left + ')' : '') + '.'); }
     if (m.src === 'stock' && !g.stocks[me].length) {
-      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+      mv.win = true; g.status = 'finished'; g.winner = me; finishStats(g, me); addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
     } else {
       if (!g.hands[me].length) { refill(g, me); mv.refill = true; addLog(g, name + ' hat die Hand leer gespielt und zieht 5 neue Karten.'); }
       if (isSkip(v) && g.players.length > 1) {
@@ -335,19 +407,32 @@ const handlers = {
     must(v === GIFT && m.v === GIFT, 'Die Karte hat sich geändert. Wähle neu.');
     must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
     const hand = g.hands[me];
-    must(Number.isInteger(m.give) && hand[m.give] != null && !(m.src === 'hand' && m.give === m.i), 'Wähle eine Handkarte zum Verschenken.');
-    must(hand[m.give] === m.gv, 'Die Karte hat sich geändert. Wähle neu.');
-    const gv = hand[m.give];
-    if (m.src === 'hand') { [m.i, m.give].sort((a, b) => b - a).forEach(i => hand.splice(i, 1)); }
-    else { removeAt(g, me, m.src, m.i); hand.splice(m.give, 1); }
+    const otherHand = hand.length - (m.src === 'hand' ? 1 : 0);
+    let gv;
+    if (m.giveSrc === 'disc') {
+      // nur erlaubt, wenn die Geschenk-Karte deine letzte Handkarte ist (keine andere Handkarte übrig)
+      must(otherHand === 0, 'Du hast noch Handkarten – verschenke eine davon.');
+      const piles = g.discards[me];
+      must(Number.isInteger(m.give) && piles[m.give], 'Wähle einen Ablagestapel.');
+      removeAt(g, me, m.src, m.i);                       // erst die Geschenk-Karte weg (kann selbst oben auf einer Ablage liegen)
+      must(piles[m.give].length && top(piles[m.give]) === m.gv, 'Die Karte hat sich geändert. Wähle neu.');
+      gv = piles[m.give].pop();
+    } else {
+      must(Number.isInteger(m.give) && hand[m.give] != null && !(m.src === 'hand' && m.give === m.i), 'Wähle eine Handkarte zum Verschenken.');
+      must(hand[m.give] === m.gv, 'Die Karte hat sich geändert. Wähle neu.');
+      gv = hand[m.give];
+      if (m.src === 'hand') { [m.i, m.give].sort((a, b) => b - a).forEach(i => hand.splice(i, 1)); }
+      else { removeAt(g, me, m.src, m.i); hand.splice(m.give, 1); }
+    }
     g.done.push(GIFT);
     g.hands[m.target].push(gv);
     const name = pname(g, me);
     addLog(g, name + ' schenkt ' + pname(g, m.target) + ' eine Karte.');
+    stat(g, me).giftsGiven++; stat(g, me).specials++; stat(g, m.target).giftsGot++;
     addSLog(g, 'gift', name + ' schenkt ' + pname(g, m.target) + ' eine Karte');
-    const mv = { kind: 'gift', pid: me, target: m.target, src: m.src, i: m.i, give: m.give };
+    const mv = { kind: 'gift', pid: me, target: m.target, src: m.src, i: m.i, give: m.give, giveSrc: m.giveSrc === 'disc' ? 'disc' : 'hand' };
     if (m.src === 'stock' && !g.stocks[me].length) {
-      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+      mv.win = true; g.status = 'finished'; g.winner = me; finishStats(g, me); addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
     } else if (!hand.length) { refill(g, me); mv.refill = true; }
     setMove(g, mv);
     broadcast(g);
@@ -363,10 +448,11 @@ const handlers = {
     const sv = pile.pop(); g.hands[me].push(sv);
     const name = pname(g, me);
     addLog(g, name + ' klaut ' + pname(g, m.target) + ' eine Karte.');
+    stat(g, me).steals++; stat(g, me).specials++; stat(g, m.target).stolenFrom++;
     addSLog(g, 'steal', name + ' klaut ' + pname(g, m.target) + ' ' + cardLabel(sv));
     const mv = { kind: 'steal', pid: me, target: m.target, pile: m.pile, src: m.src, i: m.i, sv };
     if (m.src === 'stock' && !g.stocks[me].length) {
-      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+      mv.win = true; g.status = 'finished'; g.winner = me; finishStats(g, me); addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
     }
     setMove(g, mv);
     broadcast(g);
@@ -382,7 +468,7 @@ const handlers = {
     const name = pname(g, me);
     const mv = { kind: 'spyLook', pid: me, target: m.target, src: m.src, i: m.i };
     if (m.src === 'stock' && !g.stocks[me].length) {
-      mv.win = true; g.status = 'finished'; g.winner = me; addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
+      mv.win = true; g.status = 'finished'; g.winner = me; finishStats(g, me); addLog(g, name + ' hat den Spielerstapel leer gespielt und gewinnt!');
     } else {
       g.spy = { pid: me, target: m.target };
       addLog(g, name + ' spioniert bei ' + pname(g, m.target) + '.');
@@ -397,6 +483,7 @@ const handlers = {
     must(Number.isInteger(m.k) && th[m.k] != null && th[m.k] === m.v, 'Die Karte hat sich geändert. Wähle neu.');
     const target = g.spy.target, sv = th.splice(m.k, 1)[0];
     g.hands[me].push(sv); g.spy = null;
+    stat(g, me).spies++; stat(g, me).specials++; stat(g, target).spiedOn++;
     addLog(g, pname(g, me) + ' nimmt ' + pname(g, target) + ' eine Karte weg.');
     addSLog(g, 'spy', pname(g, me) + ' spioniert bei ' + pname(g, target) + ' und nimmt eine Karte', {
       [target]: pname(g, me) + ' spioniert bei dir und nimmt dir ' + cardLabel(sv),
@@ -422,7 +509,7 @@ const handlers = {
   },
   endGame(ws, m, g) {
     must(g.host === ws.pid, 'Nur der Gastgeber kann das Spiel beenden.');
-    games.delete(g.code);
+    dropGame(g.code);
     for (const set of sockets.values()) for (const s of set) if (s.gameCode === g.code) { s.gameCode = null; send(s, { t: 'ended' }); }
   }
 };
@@ -481,6 +568,7 @@ function botAct(g, id, hurry) {
   // 1) Spielerstapel hat Vorrang
   if (st != null) {
     if (st === GIFT && hand.length) return h.gift(ws, { src: 'stock', v: GIFT, target: leader.id, give: worstCard(g, hand), gv: hand[worstCard(g, hand)] }, g);
+    if (st === GIFT && !hand.length) { const d = worstDisc(g, discs); if (d >= 0) return h.gift(ws, { src: 'stock', v: GIFT, target: leader.id, giveSrc: 'disc', give: d, gv: top(discs[d]) }, g); }
     if (st === STEAL) { const vt = stealTarget(g, id); if (vt) return h.steal(ws, { src: 'stock', v: STEAL, target: vt.id, pile: vt.pile }, g); }
     if (st === REV) { for (let pi = 0; pi < P; pi++) if (canReverse(g, pi)) return h.play(ws, { src: 'stock', v: REV, pile: pi }, g); }
     if (tryPlay('stock', undefined, st)) return;
@@ -514,7 +602,13 @@ function botAct(g, id, hurry) {
   // 6) Geschenk: die unnützeste Karte an den Führenden loswerden
   const gi = hand.indexOf(GIFT);
   if (gi >= 0 && hand.length >= 2) { const give = worstCard(g, hand, gi); return h.gift(ws, { src: 'hand', i: gi, v: GIFT, target: leader.id, give, gv: hand[give] }, g); }
+  if (gi >= 0 && hand.length === 1) { const d = worstDisc(g, discs); if (d >= 0) return h.gift(ws, { src: 'hand', i: gi, v: GIFT, target: leader.id, giveSrc: 'disc', give: d, gv: top(discs[d]) }, g); }
   botFinish(g, id);
+}
+function worstDisc(g, discs) {        // unnützeste oberste Ablagekarte (Joker nie)
+  let w = -1, ws = -1;
+  discs.forEach((d, i) => { if (!d.length || top(d) === 0) return; const sc = cardScore(g, top(d)); if (sc > ws) { ws = sc; w = i; } });
+  return w;
 }
 function worstCard(g, hand, skip) {
   let w = -1, ws = -1;
@@ -560,6 +654,7 @@ function myTurn(g, me, allowChoose) {
 }
 const skippable = (g, me) => g.players.filter(p => p.id !== me && !(g.skips && g.skips[p.id]));
 function applySkip(g, by, target) {
+  stat(g, by).skipsGiven++;
   g.skips = g.skips || {};
   g.skips[target] = 1;   // höchstens ein offenes Aussetzen pro Spieler
   addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
@@ -568,7 +663,7 @@ function applySkip(g, by, target) {
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);
   const humans = g.players.filter(p => !p.bot);
-  if (!humans.length) { games.delete(g.code); return; }
+  if (!humans.length) { dropGame(g.code); return; }
   if (g.host === id) g.host = humans[0].id;
   broadcast(g);
 }
@@ -619,8 +714,10 @@ setInterval(() => {
   const now = Date.now();
   for (const g of games.values()) {
     const anyone = g.players.some(p => isOnline(p.id));
-    if (!anyone && now - g.updated > 6 * 3600 * 1000) games.delete(g.code);
+    if (!anyone && now - g.updated > 6 * 3600 * 1000) dropGame(g.code);
   }
 }, 10 * 60 * 1000);
 
-server.listen(PORT, () => console.log('Zwölf hoch läuft auf http://localhost:' + PORT));
+// nur für automatische Tests (im echten Betrieb nie gesetzt)
+if (process.env.ZH_TEST_HOOKS) global.__zh = { games, handlers, setupPiles, botAct: (...a) => botAct(...a) };
+loadGames().then(() => server.listen(PORT, () => console.log('Zwölf hoch läuft auf http://localhost:' + PORT + (store ? ' (mit Speicher)' : ''))));

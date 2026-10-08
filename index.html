@@ -99,6 +99,20 @@ body.busy{cursor:progress}
 .pill.bot{color:#9ec3ff;border-color:rgba(143,180,255,.45);font-size:10px;padding:1px 6px;vertical-align:middle}
 .pill.skip{display:inline-flex;align-items:center;gap:5px;color:#ffb3a8;border-color:rgba(239,107,91,.5)}
 .pill.skip svg{width:12px;height:12px}
+.modalbox.statsbox{max-width:900px;max-height:min(90vh,900px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
+.awards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px}
+.award{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:rgba(242,184,75,.08);border:1px solid rgba(242,184,75,.3);font-size:14px}
+.award .aicon{width:24px;height:24px;flex:none;color:var(--accent)}
+.award .aicon svg{width:24px;height:24px;display:block}
+.tablewrap{overflow-x:auto}
+.stattable{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.stattable th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line-2);vertical-align:bottom;line-height:1.25;hyphens:manual;max-width:92px}
+.stattable th:nth-child(2){text-align:left}
+.stattable td{padding:7px 8px;border-bottom:1px solid var(--line)}
+.stattable td.num{text-align:right}
+.stattable td.nm{white-space:nowrap}
+.stattable tr.me td{background:rgba(242,184,75,.07)}
+.winlist{display:flex;flex-wrap:wrap;gap:6px}
 .modalbox.rulesbox{max-width:640px;max-height:min(86vh,820px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
 .ruleshead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .rulelist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
@@ -267,6 +281,7 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 </div>
 <div id="toast" hidden></div>
 <div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div>
+<div id="stats" class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden></div>
 <script>
 (function(){
 const view = document.getElementById('view');
@@ -516,13 +531,19 @@ function onNewState(prev, g){
   let giftFrom = null, stealFrom = null;
   if(fresh && mv.kind === 'steal') stealFrom = rectOf(q('.opp[data-pid="' + mv.target + '"] [data-k="disc"][data-i="' + mv.pile + '"] > :first-child')) || rectOf(q('.opp[data-pid="' + mv.target + '"]'));
   if(fresh && mv.kind === 'steal' && mv.target === S.me) stealFrom = rectOf(q('[data-act="disc"][data-i="' + mv.pile + '"] .stack > div:last-child'));
-  if(fresh && mv.kind === 'gift') giftFrom = mv.pid === S.me ? rectOf(q('.hand [data-act="hand"][data-i="' + mv.give + '"] .card')) : rectOf(q('.opp[data-pid="' + mv.pid + '"] [data-k="hand"]'));
+  if(fresh && mv.kind === 'gift') giftFrom = mv.giveSrc === 'disc'
+    ? (mv.pid === S.me ? rectOf(q('[data-act="disc"][data-i="' + mv.give + '"] .stack > div:last-child')) : rectOf(q('.opp[data-pid="' + mv.pid + '"] [data-k="disc"][data-i="' + mv.give + '"] > :first-child')))
+    : (mv.pid === S.me ? rectOf(q('.hand [data-act="hand"][data-i="' + mv.give + '"] .card')) : rectOf(q('.opp[data-pid="' + mv.pid + '"] [data-k="hand"]')));
   if(fresh && mv.pid === S.me && S.dropRect){ fromRect = S.dropRect; }
   S.dropRect = null; S.dragHide = null;
   const drawRect = rectOf(q('[data-k="draw"] .back'));
   const oldHand = same && prev.hand ? prev.hand.length : 0;
   const wasMine = same && prev.status === 'playing' && prev.players[prev.turn] && prev.players[prev.turn].id === S.me;
   S.game = g; render();
+  if(g.status === 'finished' && g.stats && S.statsShownFor !== g.code + ':' + (g.round || 1)){
+    S.statsShownFor = g.code + ':' + (g.round || 1);
+    clearTimeout(S.statsT); S.statsT = setTimeout(() => { if(S.game && S.game.status === 'finished') openStats(); }, 2600);
+  }
   if(!g.hand || g.status === 'lobby') return;
   const mine = myTurn();
   const vol = fresh && mv.pid === S.me ? 1 : .6;
@@ -610,7 +631,7 @@ function onNewState(prev, g){
     else if(fresh && mv.kind === 'gift' && mv.target === S.me) base = g.hand.length;
     else if(fresh && mv.kind === 'steal') base = g.hand.length;
     else if(fresh && mv.kind === 'spy' && (mv.pid === S.me || mv.target === S.me)) base = g.hand.length;
-    else if(fresh && mv.kind === 'gift' && mv.pid === S.me) base = Math.max(0, oldHand - (mv.src === 'hand' ? 2 : 1));
+    else if(fresh && mv.kind === 'gift' && mv.pid === S.me) base = Math.max(0, oldHand - (mv.src === 'hand' ? 1 : 0) - (mv.giveSrc === 'disc' ? 0 : 1));
     else if(fresh && mv.pid === S.me && mv.src === 'hand') base = Math.max(0, oldHand - 1);
     for(let i = base, k = 0; i < g.hand.length; i++, k++){
       const el = q('.hand [data-act="hand"][data-i="' + i + '"] .card');
@@ -663,6 +684,7 @@ const H = {
     Snd.play('select');
   },
   rules(){ openRules(); },
+  showStats(){ openStats(); },
   sound(){ Snd.on = !Snd.on; LS.set('zh.sound', Snd.on ? '1' : '0'); Snd.unlock(); renderBar(); if(Snd.on) Snd.play('select'); },
   opp(_, b){
     if(!S.sel || !targetsOpp(S.sel.v) || !myTurn()) return;
@@ -691,6 +713,13 @@ const H = {
     const gft = S.gift; if(!gft || !S.game || !S.game.hand) return;
     S.gift = null;
     send({t:'gift', src:gft.src, i:gft.i, v:gft.v, target:gft.target, give:i, gv:S.game.hand[i]}); render();
+  },
+  giftGiveDisc(i){
+    const gft = S.gift; if(!gft || !S.game) return;
+    const me = S.game.players.find(p => p.id === S.me);
+    const d = (gft.src === 'disc' && gft.i === i) ? me.discards[i].slice(0, -1) : me.discards[i];
+    S.gift = null;
+    send({t:'gift', src:gft.src, i:gft.i, v:gft.v, target:gft.target, giveSrc:'disc', give:i, gv:top(d)}); render();
   },
   giftCancel(){ S.gift = null; render(); },
   chooseSkip(_, b){ send({t:'chooseSkip', target:b.dataset.pid}); },
@@ -741,6 +770,14 @@ function oppDrop(t){
 }
 const oppPiles = id => { const p = S.game.players.find(x => x.id === id); return p ? p.discards : [[],[],[],[]]; };
 const canStealFrom = id => oppPiles(id).some(d => d.length);
+// Geschenk ist deine letzte Handkarte: dann darfst du die oberste Karte eines Ablagestapels verschenken
+function giftDiscHTML(g, gft){
+  const me = g.players.find(p => p.id === S.me);
+  const piles = me.discards.map((d, i) => (gft.src === 'disc' && gft.i === i) ? d.slice(0, -1) : d);   // die Geschenk-Karte selbst zählt nicht
+  const opts = piles.map((d, i) => d.length ? '<button type="button" class="cbtn" data-act="giftGiveDisc" data-i="' + i + '" aria-label="' + esc(cardName(top(d))) + ' von Ablagestapel ' + (i+1) + ' verschenken">' + cardHTML(top(d)) + '</button>' : '').join('');
+  return opts ? '<p class="muted" style="margin:0">Du hast keine andere Handkarte. Verschenke stattdessen die oberste Karte eines deiner Ablagestapel.</p><div class="choose giftcards">' + opts + '</div>'
+              : '<p class="muted" style="margin:0">Du hast keine Handkarte und keine Ablagekarte zum Verschenken.</p>';
+}
 function startSpy(src, i, pid){
   const p = S.game.players.find(x => x.id === pid);
   if(!p || !p.handCount){ Snd.play('error'); toast((p ? p.name : 'Jemand') + ' hat gerade keine Handkarten.'); return false; }
@@ -842,14 +879,67 @@ view.addEventListener('keydown', e => {
 });
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
+  if(!document.getElementById('stats').hidden){ closeStats(); return; }
   if(!document.getElementById('rules').hidden){ closeRules(); return; }
   if(S.sel){ S.sel = null; render(); }
 });
+
+/* ---------- Statistik nach der Runde ---------- */
+function fmtDur(ms){ const m = Math.floor(ms / 60000), s = Math.round((ms % 60000) / 1000); return m ? m + ' Min. ' + s + ' Sek.' : s + ' Sek.'; }
+function statsAwards(g){
+  const st = g.stats.players, ps = g.players.filter(p => st[p.id]);
+  const best = (key, min) => { const top = Math.max(...ps.map(p => st[p.id][key] || 0)); if(top < min) return null; return { n: top, who: ps.filter(p => (st[p.id][key] || 0) === top).map(p => p.name) }; };
+  const names = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' & ' + a[a.length - 1] : a[0];
+  const out = [];
+  const add = (icon, title, r, text) => { if(r) out.push({ icon, title, text: text(names(r.who), r.n, r.who.length > 1) }); };
+  const I = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+  const ICON = { bolt: I('<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'), stack: I('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'), cards: I('<rect x="4" y="5" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v13"/>'), star: I('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>') };
+  add(ICON.bolt, 'Kettenreaktion', best('bestTurn', 3), (w, n, pl) => w + (pl ? ' legten je ' : ' legte ') + n + ' Karten in einem einzigen Zug.');
+  add(ICON.stack, 'Stapel-Profi', best('clears', 1), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + ' Stapel abgeräumt.');
+  add(ICON.cards, 'Fleißig', best('played', 1), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + ' Karten in die Mitte gelegt.');
+  add(ICON.star, 'Joker-Fan', best('jokers', 2), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + ' Joker gespielt.');
+  add(SKIP_ICON, 'Pechvogel', best('skipped', 1), (w, n, pl) => w + (pl ? ' mussten je ' : ' musste ') + n + 'x aussetzen.');
+  add(STEAL_ICON, 'Langfinger', best('steals', 1), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + 'x geklaut.');
+  add(SPY_ICON, 'Spürnase', best('spies', 1), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + 'x spioniert.');
+  add(GIFT_ICON, 'Großzügig', best('giftsGiven', 1), (w, n, pl) => w + (pl ? ' haben je ' : ' hat ') + n + (n === 1 ? ' Geschenk' : ' Geschenke') + ' verteilt.');
+  return out.slice(0, 6);
+}
+function openStats(){
+  const g = S.game; if(!g || !g.stats) return;
+  const pn = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
+  const st = g.stats.players, specials = anySpecial(g);
+  const ranked = g.players.slice().sort((a, b) => (b.id === g.winner) - (a.id === g.winner) || a.stockCount - b.stockCount || (st[b.id] ? st[b.id].played : 0) - (st[a.id] ? st[a.id].played : 0));
+  const row = (p, i) => { const s = st[p.id] || {};
+    return '<tr' + (p.id === S.me ? ' class="me"' : '') + '><td class="num">' + (i + 1) + '.</td><td class="nm">' + esc(p.name) + (p.id === g.winner ? ' <span class="pill live">Sieg</span>' : '') + '</td>' +
+      '<td class="num">' + p.stockCount + '</td><td class="num">' + (s.played || 0) + '</td><td class="num">' + (s.fromStock || 0) + '</td><td class="num">' + (s.jokers || 0) + '</td>' +
+      '<td class="num">' + (s.clears || 0) + '</td><td class="num">' + (s.bestTurn || 0) + '</td><td class="num">' + (s.turns || 0) + '</td>' +
+      (specials ? '<td class="num">' + (s.specials || 0) + '</td>' : '') + '</tr>'; };
+  const awards = statsAwards(g);
+  const wins = g.wins || {}, wl = g.players.filter(p => wins[p.id]).sort((a, b) => wins[b.id] - wins[a.id]);
+  const totalTurns = Object.values(st).reduce((a, s) => a + (s.turns || 0), 0);
+  const el = document.getElementById('stats');
+  el.innerHTML = '<div class="panel modalbox statsbox"><div class="ruleshead"><h2 id="statsTitle">Runde ' + (g.round || 1) + ' – Statistik</h2><button type="button" class="btn small" data-close aria-label="Statistik schließen">Schließen</button></div>' +
+    '<p class="muted" style="margin:0">' + esc(pn(g.winner)) + ' gewinnt nach ' + fmtDur((g.stats.end || Date.now()) - g.stats.start) + ' und ' + totalTurns + ' Zügen.</p>' +
+    (awards.length ? '<div class="awards">' + awards.map(a => '<div class="award"><span class="aicon" aria-hidden="true">' + a.icon + '</span><div><b>' + a.title + '</b><div class="muted">' + esc(a.text) + '</div></div></div>').join('') + '</div>' : '') +
+    '<div class="label">Rangliste</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Platz</th><th>Spieler</th><th title="Karten, die am Ende noch im Spielerstapel lagen">Rest im Stapel</th><th title="Karten auf die Aufbaustapel gelegt">Karten gelegt</th><th title="davon vom Spielerstapel">vom Spieler&shy;stapel</th><th>Joker</th><th title="Aufbaustapel, die man selbst bei 12 (bzw. 1) abgeräumt hat">Stapel abge&shy;räumt</th><th title="Meiste Karten in einem Zug">Bester Zug</th><th>Züge</th>' + (specials ? '<th>Sonder&shy;karten</th>' : '') + '</tr></thead><tbody>' +
+      ranked.map(row).join('') + '</tbody></table></div>' +
+    (wl.length ? '<div class="label">Siege an diesem Tisch</div><div class="winlist">' + wl.map(p => '<span class="pill' + (p.id === g.winner ? ' live' : '') + '">' + esc(p.name) + ': ' + wins[p.id] + '</span>').join('') + '</div>' : '') +
+    (g.hand ? '<div class="row" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="rematchFromStats">Neue Runde</button></div>' : '') +
+    '</div>';
+  el.hidden = false;
+  const btn = el.querySelector('[data-close]'); if(btn) btn.focus();
+}
+function closeStats(){ const el = document.getElementById('stats'); el.hidden = true; el.innerHTML = ''; }
+document.getElementById('stats').addEventListener('click', e => {
+  if(e.target.id === 'stats' || e.target.closest('[data-close]')) return closeStats();
+  if(e.target.closest('[data-act="rematchFromStats"]')){ closeStats(); send({t:'newRound'}); }
+});
+
 /* ---------- Regel-Übersicht während des Spiels ---------- */
 const SPECIAL_HELP = [
   ['split', 1000 + 3*16 + 4, 'Entweder-oder', ['Zählt als eine ihrer beiden Zahlen, z. B. 3 <b>oder</b> 4.', 'Passt auf einen Aufbaustapel, wenn eine der beiden Zahlen gebraucht wird.', 'Darf auch auf deine Ablagestapel.']],
   ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
-  ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
+  ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Ist das Geschenk deine letzte Handkarte, darfst du stattdessen die oberste Karte eines deiner Ablagestapel verschenken.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
   ['spy', 600, 'Spion', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Nur du siehst dann seine Handkarten.', 'Eine davon musst du dir nehmen – sie kommt auf deine Hand.']],
   ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
   ['rev', 400, 'Rückwärts', ['Dreht die Richtung eines Aufbaustapels um.', 'Aufwärts-Stapel (ab einer 2): zählt dann abwärts, z. B. 7, 6, 5 …, und wird bei 1 abgeräumt.', 'Rückwärts-Stapel (bis 11): zählt dann aufwärts und wird bei 12 abgeräumt.', 'Nach dem Abräumen startet der Stapel wieder in seiner ursprünglichen Richtung.']]
@@ -930,6 +1020,7 @@ function cardHTML(v, extra, style){
 
 function render(){
   if((!S.game || S.game.status === 'lobby') && !document.getElementById('rules').hidden) closeRules();
+  if((!S.game || S.game.status !== 'finished') && !document.getElementById('stats').hidden) closeStats();
   renderBar();
   if(!S.everConnected){ S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
   if(!S.game){ resetFit(); return renderHome(); }
@@ -1141,6 +1232,7 @@ function renderGame(){
   let win = '';
   if(g.status === 'finished'){
     win = '<div class="winner"><div class="label">Runde vorbei</div><h2>' + esc(pn(g.winner)) + ' gewinnt</h2>' +
+      (g.stats ? '<button class="btn" data-act="showStats">Statistik ansehen</button>' : '') +
       (g.hand ? '<button class="btn primary" data-act="rematch">Neue Runde</button><p class="muted" style="margin:0">Alle kommen zurück in die Lobby. ' + (g.host === S.me ? 'Dort kannst du die Einstellungen anpassen.' : esc(pn(g.host)) + ' kann dort die Einstellungen anpassen.') + '</p>' : '<p class="muted" style="margin:0">Die Mitspieler können eine neue Runde starten.</p>') + '</div>';
   }
 
@@ -1195,7 +1287,7 @@ function renderGame(){
     const gft = S.gift;
     const opts = g.hand.map((v,i) => (gft.src === 'hand' && gft.i === i) ? '' : '<button type="button" class="cbtn" data-act="giftGive" data-i="' + i + '" aria-label="' + esc(cardName(v)) + ' verschenken">' + cardHTML(v) + '</button>').join('');
     dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="giftTitle"><div class="panel modalbox" style="max-width:560px"><span class="skipbig" style="color:var(--ok)">' + GIFT_ICON + '</span><h2 id="giftTitle">Was schenkst du ' + esc(pn(gft.target)) + '?</h2>' +
-      (opts ? '<p class="muted" style="margin:0">Klick eine deiner Handkarten an.</p><div class="choose giftcards">' + opts + '</div>' : '<p class="muted" style="margin:0">Du hast keine andere Handkarte zum Verschenken.</p>') +
+      (opts ? '<p class="muted" style="margin:0">Klick eine deiner Handkarten an.</p><div class="choose giftcards">' + opts + '</div>' : giftDiscHTML(g, gft)) +
       '<button type="button" class="btn small" data-act="giftCancel">Abbrechen</button></div></div>';
   }
   if(chooser === S.me){

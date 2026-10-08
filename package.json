@@ -8,6 +8,7 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "ioredis": "^5.11.1",
     "ws": "^8.22.0"
   },
   "engines": {
