@@ -96,6 +96,7 @@ body.busy{cursor:progress}
 .card .skb{position:absolute;top:7%;right:9%;width:calc(var(--cw) * .24);height:calc(var(--cw) * .24);color:var(--danger)}
 .card .skb svg,.pill.skip svg,.skipbig svg{width:100%;height:100%;display:block}
 .sm .card .skb{top:4%;right:5%;width:calc(var(--cws) * .32);height:calc(var(--cws) * .32)}
+.pill.bot{color:#9ec3ff;border-color:rgba(143,180,255,.45);font-size:10px;padding:1px 6px;vertical-align:middle}
 .pill.skip{display:inline-flex;align-items:center;gap:5px;color:#ffb3a8;border-color:rgba(239,107,91,.5)}
 .pill.skip svg{width:12px;height:12px}
 .modalbox.rulesbox{max-width:640px;max-height:min(86vh,820px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
@@ -592,6 +593,8 @@ const H = {
   startConfirmed(){ S.confirmStart = false; send({t:'start'}); },
   startCancel(){ S.confirmStart = false; render(); },
   rematch(){ send({t:'newRound'}); },
+  addBot(){ send({t:'addBot'}); },
+  removeBot(_, b){ send({t:'removeBot', id:b.dataset.pid}); },
   skip(){ send({t:'skip'}); },
   endTurn(){ send({t:'endTurn'}); },
   copy(){
@@ -906,6 +909,7 @@ function renderHome(){
           '<li>Leg so viele Karten in die Mitte, wie du kannst: aus der Hand, die oberste deines Spielerstapels und die oberste deiner Ablagestapel. Leere Hand? Du ziehst 5 neue.</li>' +
           '<li>Dein Zug endet, wenn du eine Handkarte auf einen deiner 4 <b>Ablagestapel</b> legst.</li>' +
           '<li>Bedienung: Karte auf das Ziel ziehen. Oder Karte anklicken und dann das Ziel anklicken.</li>' +
+          '<li>Alleine spielen? Der Gastgeber kann in der Lobby bis zu 4 <b>Bots</b> an den Tisch holen.</li>' +
         '</ol></div>' +
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:14px;min-width:0">' +
@@ -955,7 +959,11 @@ function renderLobby(){
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:12px">' +
         '<div class="label">Spieler (' + n + '/' + MAXP + ')</div>' +
-        '<ul class="plist">' + g.players.map(p => '<li><span>' + esc(p.name) + (p.id === S.me ? ' <span class="muted">(du)</span>' : '') + (p.online ? '' : ' <span class="muted">(offline)</span>') + '</span>' + (p.id === g.host ? '<span class="pill wait">Gastgeber</span>' : '') + '</li>').join('') + '</ul>' +
+        '<ul class="plist">' + g.players.map(p => '<li><span>' + esc(p.name) + (p.id === S.me ? ' <span class="muted">(du)</span>' : '') + (p.online ? '' : ' <span class="muted">(offline)</span>') + '</span><span class="row" style="gap:6px">' +
+          (p.bot ? '<span class="pill bot">Bot</span>' + (isHost ? '<button type="button" class="btn small" data-act="removeBot" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' entfernen">Entfernen</button>' : '') : '') +
+          (p.id === g.host ? '<span class="pill wait">Gastgeber</span>' : '') + '</span></li>').join('') + '</ul>' +
+        (isHost ? (() => { const bots = g.players.filter(p => p.bot).length, full = n >= MAXP || bots >= 4;
+            return '<div class="row"><button type="button" class="btn" data-act="addBot"' + (full ? ' disabled' : '') + '>+ Bot hinzufügen</button><small class="muted">' + (bots >= 4 ? 'Maximal 4 Bots.' : n >= MAXP ? 'Der Tisch ist voll.' : 'Bots spielen automatisch mit (' + bots + '/4).') + '</small></div>'; })() : '') +
         (isHost ? '<div class="row"><button class="btn primary" data-act="start"' + (n < 2 ? ' disabled' : '') + '>' + (g.rematchBy ? 'Runde ' + (g.round || 2) + ' starten' : 'Spiel starten') + '</button></div>' : '') +
         (isHost && n < 2 ? '<p class="muted" style="margin:0">Warte auf mindestens eine weitere Person.</p>' : '') +
         (!isHost ? '<p class="muted" style="margin:0">Warte, bis ' + esc((g.players.find(p => p.id === g.host) || {}).name || 'der Gastgeber') + ' das Spiel startet.</p>' : '') +
@@ -1019,7 +1027,7 @@ function renderGame(){
     const idx = g.players.indexOf(p);
     const turn = g.status === 'playing' && idx === g.turn;
     return '<div class="opp' + (turn ? ' turn' : '') + (sel && (isGift(sel.v) || (isSteal(sel.v) && p.discards.some(d => d.length))) ? ' tgt' : '') + '" data-act="opp" data-pid="' + esc(p.id) + '">' +
-      '<div class="head"><span class="name">' + esc(p.name) + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + (g.skips && g.skips[p.id] ? '<span class="pill skip">' + SKIP_ICON + 'setzt aus</span>' : '') + '</div>' +
+      '<div class="head"><span class="name">' + esc(p.name) + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + (p.online ? '' : ' <span class="muted" style="font-weight:400">(offline)</span>') + '</span>' + (turn ? '<span class="pill wait">am Zug</span>' : (g.winner === p.id ? '<span class="pill live">Sieg</span>' : '')) + (g.skips && g.skips[p.id] ? '<span class="pill skip">' + SKIP_ICON + 'setzt aus</span>' : '') + '</div>' +
       '<div class="rowc">' +
         '<div class="mini sm" data-k="stock" title="Spielerstapel">' + (p.stockTop != null ? cardHTML(p.stockTop) : '<div class="slot"></div>') + '<small><b style="color:var(--ink)">' + p.stockCount + '</b> übrig</small></div>' +
         '<div class="discs">' + p.discards.map((d,i) => miniPile(d, 'Ablage ' + (i+1), i)).join('') + '</div>' +
@@ -1097,7 +1105,7 @@ function renderGame(){
   }
   if(chooser === S.me){
     dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="chooseTitle"><div class="panel modalbox"><span class="skipbig">' + SKIP_ICON + '</span><h2 id="chooseTitle">Wer soll aussetzen?</h2><p class="muted" style="margin:0">Der gewählte Spieler wird bei seinem nächsten Zug übersprungen.</p><div class="choose">' +
-      g.players.filter(p => p.id !== S.me).map(p => '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + (g.skips && g.skips[p.id] ? ' <span class="muted">(setzt schon aus)</span>' : '') + '</button>').join('') +
+      order.filter(p => p.id !== S.me).map(p => '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + (g.skips && g.skips[p.id] ? ' <span class="muted">(setzt schon aus)</span>' : '') + '</button>').join('') +
       '</div></div></div>';
   }
   const turnline = '<div class="turnline' + (mine ? ' me' : '') + '">' + who + '</div>';

@@ -10,6 +10,8 @@ const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 const MAXP = 8;
+const MAXBOTS = 4;
+const BOT_NAMES = ['Bot Bruno', 'Bot Clara', 'Bot Emil', 'Bot Frieda'];
 const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 
 /* ---------------- HTTP ---------------- */
@@ -149,7 +151,7 @@ function removeAt(g, id, src, i) {
 /* Was ein bestimmter Spieler sehen darf: fremde Handkarten und verdeckte Stapel bleiben geheim. */
 function viewFor(g, me) {
   const players = g.players.map(p => ({
-    id: p.id, name: p.name, online: isOnline(p.id),
+    id: p.id, name: p.name, bot: !!p.bot, online: p.bot ? true : isOnline(p.id),
     stockCount: g.stocks[p.id] ? g.stocks[p.id].length : 0,
     stockTop: g.stocks[p.id] ? top(g.stocks[p.id]) : null,
     handCount: g.hands[p.id] ? g.hands[p.id].length : 0,
@@ -176,6 +178,7 @@ function broadcast(g) {
     const v = viewFor(g, id);
     for (const ws of set) if (ws.gameCode === g.code) send(ws, { t: 'state', game: v });
   }
+  scheduleBot(g);
 }
 function gameOf(id) { for (const g of games.values()) if (g.players.some(p => p.id === id)) return g; return null; }
 
@@ -219,6 +222,20 @@ const handlers = {
     must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
     must(Object.prototype.hasOwnProperty.call(SPECIALS, m.key), 'Unbekannte Sonderkarte.');
     g.specials = { ...(g.specials || {}), [m.key]: !!m.on }; broadcast(g);
+  },
+  addBot(ws, m, g) {
+    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann Bots hinzufügen.');
+    must(g.players.length < MAXP, 'Der Tisch ist voll (' + MAXP + ' Spieler).');
+    must(g.players.filter(p => p.bot).length < MAXBOTS, 'Mehr als ' + MAXBOTS + ' Bots gehen nicht.');
+    const used = new Set(g.players.map(p => p.name));
+    const name = BOT_NAMES.find(n => !used.has(n)) || ('Bot ' + (g.players.length + 1));
+    g.players.push({ id: 'bot-' + rid(6), name, bot: true });
+    broadcast(g);
+  },
+  removeBot(ws, m, g) {
+    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann Bots entfernen.');
+    must(g.players.some(p => p.id === m.id && p.bot), 'Diesen Bot gibt es nicht.');
+    g.players = g.players.filter(p => p.id !== m.id); broadcast(g);
   },
   setPiles(ws, m, g) {
     must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
@@ -367,6 +384,118 @@ const handlers = {
     for (const set of sockets.values()) for (const s of set) if (s.gameCode === g.code) { s.gameCode = null; send(s, { t: 'ended' }); }
   }
 };
+
+/* ---------------- Bots ----------------
+   Bots sind Mitspieler ohne Verbindung. Der Server spielt für sie – mit kleinen Pausen,
+   damit man jeden Zug verfolgen kann. Ist kein Mensch online, pausieren sie. */
+const BOT_DELAY = Number(process.env.BOT_DELAY) || 900;  // Pause zwischen Bot-Aktionen (ms)
+const botTimers = new Map();   // Spielcode -> Timer
+function botToMove(g) {
+  if (g.status !== 'playing') return null;
+  const id = g.choose ? g.choose.pid : g.players[g.turn].id;
+  const p = g.players.find(x => x.id === id);
+  return p && p.bot ? p : null;
+}
+function scheduleBot(g) {
+  if (botTimers.has(g.code) || !botToMove(g)) return;
+  if (!g.players.some(p => !p.bot && isOnline(p.id)) && ![...g.watchers].some(isOnline)) return;  // niemand schaut zu
+  botTimers.set(g.code, setTimeout(() => {
+    botTimers.delete(g.code);
+    if (games.get(g.code) !== g) return;
+    const bot = botToMove(g); if (!bot) return;
+    g.botMoves = (g.botTurnNo === g.turnNo ? g.botMoves || 0 : 0) + 1; g.botTurnNo = g.turnNo;
+    try { botAct(g, bot.id, g.botMoves > 40); }
+    catch (e) {
+      if (process.env.BOT_DEBUG) console.log('BOTERR', e.message);
+      // Notbremse: falls ein Zug abgelehnt wird, Zug sauber beenden statt hängenzubleiben
+      try { botFinish(g, bot.id); } catch (e2) { g.choose = null; advance(g); broadcast(g); }
+    }
+  }, BOT_DELAY));
+}
+const botWs = (g, id) => ({ pid: id, gameCode: g.code, readyState: 0 });
+// Wie weit ist ein Kartenwert von dem entfernt, was ein Stapel gerade braucht? (0 = passt sofort)
+function gapTo(g, i, n) { const need = needOf(g, i); return g.bdir[i] === 1 ? n - need : need - n; }
+function cardScore(g, v) {            // je kleiner, desto nützlicher ist die Karte gerade
+  if (v === 0 || v === GIFT || v === STEAL || v === REV) return 0;
+  const nums = isSplit(v) ? splitOf(v) : [isSkip(v) ? v - 200 : v];
+  let best = 99;
+  for (let i = 0; i < g.build.length; i++) for (const n of nums) { const d = gapTo(g, i, n); if (d >= 0 && d < best) best = d; }
+  return best;
+}
+function botAct(g, id, hurry) {
+  const ws = botWs(g, id), h = handlers;
+  const others = g.players.filter(p => p.id !== id);
+  const leader = others.slice().sort((a, b) => g.stocks[a.id].length - g.stocks[b.id].length)[0];
+  if (g.choose && g.choose.pid === id) return h.chooseSkip(ws, { target: leader.id }, g);
+  if (hurry) return botFinish(g, id);
+  const hand = g.hands[id], stock = g.stocks[id], discs = g.discards[id];
+  const st = top(stock), P = g.build.length;
+  const tryPlay = (src, i, v) => {
+    if (v === REV || v === GIFT || v === STEAL) return false;
+    for (let pi = 0; pi < P; pi++) if (fits(v, needOf(g, pi))) { h.play(ws, { src, i, v, pile: pi }, g); return true; }
+    return false;
+  };
+  // 1) Spielerstapel hat Vorrang
+  if (st != null) {
+    if (st === GIFT && hand.length) return h.gift(ws, { src: 'stock', v: GIFT, target: leader.id, give: worstCard(g, hand), gv: hand[worstCard(g, hand)] }, g);
+    if (st === STEAL) { const vt = stealTarget(g, id); if (vt) return h.steal(ws, { src: 'stock', v: STEAL, target: vt.id, pile: vt.pile }, g); }
+    if (st === REV) { for (let pi = 0; pi < P; pi++) if (canReverse(g, pi)) return h.play(ws, { src: 'stock', v: REV, pile: pi }, g); }
+    if (tryPlay('stock', undefined, st)) return;
+  }
+  // 2) Karten, die den Weg zur Stapelkarte frei machen (Joker nur, wenn die Stapelkarte danach passt)
+  const stockNums = st == null ? [] : st === 0 ? [] : isSplit(st) ? splitOf(st) : (st >= 1 && st <= 12) || isSkip(st) ? [isSkip(st) ? st - 200 : st] : [];
+  for (let pi = 0; pi < P && stockNums.length; pi++) {
+    const after = g.bdir[pi] === 1 ? needOf(g, pi) + 1 : needOf(g, pi) - 1;
+    if (!stockNums.includes(after)) continue;
+    for (let d = 0; d < 4; d++) { const v = top(discs[d]); if (v != null && v !== REV && v !== GIFT && v !== STEAL && fits(v, needOf(g, pi))) return h.play(ws, { src: 'disc', i: d, v, pile: pi }, g); }
+    for (let k = 0; k < hand.length; k++) if (fits(hand[k], needOf(g, pi)) && ![REV, GIFT, STEAL].includes(hand[k])) return h.play(ws, { src: 'hand', i: k, v: hand[k], pile: pi }, g);
+  }
+  // 3) Rückwärts-Karte, wenn danach die Stapelkarte passt
+  const ri = hand.indexOf(REV);
+  if (ri >= 0 && stockNums.length) for (let pi = 0; pi < P; pi++) {
+    if (!canReverse(g, pi)) continue;
+    const need = g.bdir[pi] === 1 ? g.bval[pi] - 1 : g.bval[pi] + 1;
+    if (stockNums.includes(need)) return h.play(ws, { src: 'hand', i: ri, v: REV, pile: pi }, g);
+  }
+  // 4) Diebstahl, wenn es etwas Brauchbares gibt
+  const si = hand.indexOf(STEAL);
+  if (si >= 0) { const vt = stealTarget(g, id); if (vt) return h.steal(ws, { src: 'hand', i: si, v: STEAL, target: vt.id, pile: vt.pile }, g); }
+  // 5) normale Karten von Ablage und Hand (keine Joker, die hebt sich der Bot auf)
+  for (let d = 0; d < 4; d++) { const v = top(discs[d]); if (v != null && v !== 0 && tryPlay('disc', d, v)) return; }
+  for (let k = 0; k < hand.length; k++) if (hand[k] !== 0 && tryPlay('hand', k, hand[k])) return;
+  // 6) Geschenk: die unnützeste Karte an den Führenden loswerden
+  const gi = hand.indexOf(GIFT);
+  if (gi >= 0 && hand.length >= 2) { const give = worstCard(g, hand, gi); return h.gift(ws, { src: 'hand', i: gi, v: GIFT, target: leader.id, give, gv: hand[give] }, g); }
+  botFinish(g, id);
+}
+function worstCard(g, hand, skip) {
+  let w = -1, ws = -1;
+  hand.forEach((v, k) => { if (k === skip) return; const sc = cardScore(g, v) + (v === 0 ? -100 : 0); if (sc > ws) { ws = sc; w = k; } });
+  return w < 0 ? (skip === 0 ? 1 : 0) : w;
+}
+function stealTarget(g, id) {
+  let best = null;
+  for (const p of g.players) {
+    if (p.id === id) continue;
+    g.discards[p.id].forEach((d, i) => {
+      if (!d.length) return;
+      const sc = cardScore(g, top(d));
+      if (!best || sc < best.sc) best = { id: p.id, pile: i, sc };
+    });
+  }
+  return best && best.sc <= 2 ? best : null;
+}
+function botFinish(g, id) {          // Zug beenden: eine Karte ablegen
+  const ws = botWs(g, id), hand = g.hands[id], discs = g.discards[id];
+  if (g.choose && g.choose.pid === id) return handlers.chooseSkip(ws, { target: g.players.find(p => p.id !== id).id }, g);
+  if (!hand.length) return handlers.endTurn(ws, {}, g);
+  const k = worstCard(g, hand), v = hand[k];
+  let to = discs.findIndex(d => d.length && top(d) === v + 1);           // absteigend stapeln
+  if (to < 0) to = discs.findIndex(d => !d.length);
+  if (to < 0) to = discs.reduce((b, d, i) => d.length < discs[b].length ? i : b, 0);
+  handlers.discard(ws, { i: k, v, to }, g);
+}
+
 function myTurn(g, me, allowChoose) {
   must(g.status === 'playing', 'Das Spiel läuft gerade nicht.');
   must(g.players[g.turn].id === me, 'Du bist gerade nicht dran.');
@@ -380,8 +509,9 @@ function applySkip(g, by, target) {
 }
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);
-  if (!g.players.length) { games.delete(g.code); return; }
-  if (g.host === id) g.host = g.players[0].id;
+  const humans = g.players.filter(p => !p.bot);
+  if (!humans.length) { games.delete(g.code); return; }
+  if (g.host === id) g.host = humans[0].id;
   broadcast(g);
 }
 
