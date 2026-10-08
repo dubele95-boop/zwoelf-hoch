@@ -11,7 +11,7 @@ const { WebSocketServer } = require('ws');
 const PORT = process.env.PORT || 3000;
 const MAXP = 8;
 const MAXBOTS = 4;
-const BOT_NAMES = ['Bot Bruno', 'Bot Clara', 'Bot Emil', 'Bot Frieda'];
+const BOT_NAMES = ['Bruno', 'Clara', 'Emil', 'Frieda'];
 const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 
 /* ---------------- HTTP ---------------- */
@@ -292,6 +292,10 @@ const handlers = {
     g.watchers.delete(ws.pid);
     if (g.status === 'lobby') removePlayer(g, ws.pid);
   },
+  setAllSpecials(ws, m, g) {
+    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    g.specials = {}; for (const k of Object.keys(SPECIALS)) g.specials[k] = !!m.on; broadcast(g);
+  },
   setSpecial(ws, m, g) {
     must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
     must(Object.prototype.hasOwnProperty.call(SPECIALS, m.key), 'Unbekannte Sonderkarte.');
@@ -302,7 +306,7 @@ const handlers = {
     must(g.players.length < MAXP, 'Der Tisch ist voll (' + MAXP + ' Spieler).');
     must(g.players.filter(p => p.bot).length < MAXBOTS, 'Mehr als ' + MAXBOTS + ' Bots gehen nicht.');
     const used = new Set(g.players.map(p => p.name));
-    const name = BOT_NAMES.find(n => !used.has(n)) || ('Bot ' + (g.players.length + 1));
+    const name = BOT_NAMES.find(n => !used.has(n)) || ('Computer ' + (g.players.length + 1));
     g.players.push({ id: 'bot-' + rid(6), name, bot: true });
     broadcast(g);
   },

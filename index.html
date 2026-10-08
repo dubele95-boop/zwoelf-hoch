@@ -723,6 +723,7 @@ const H = {
   },
   giftCancel(){ S.gift = null; render(); },
   chooseSkip(_, b){ send({t:'chooseSkip', target:b.dataset.pid}); },
+  allSpecials(_, b){ send({t:'setAllSpecials', on: b.dataset.on === '1'}); },
   special(_, b){ send({t:'setSpecial', key:b.dataset.k, on: b.getAttribute('aria-checked') !== 'true'}); },
   hand(i){ selectCard({src:'hand', i}); },
   stock(){ selectCard({src:'stock'}); },
@@ -785,7 +786,6 @@ function startSpy(src, i, pid){
 }
 function startSteal(src, i, v, pid, pile){
   const piles = oppPiles(pid), name = (S.game.players.find(x => x.id === pid) || {}).name || 'Jemand';
-  if(pile != null && piles[pile] && piles[pile].length){ send({t:'steal', src, i, v, target:pid, pile}); return true; }
   if(!canStealFrom(pid)){ Snd.play('error'); toast(name + ' hat nichts auf den Ablagestapeln.'); return false; }
   S.steal = { src, i, v, target: pid }; return false;
 }
@@ -817,7 +817,7 @@ document.addEventListener('pointermove', e => {
   if(od){
     if(isGift(D.start.v)){ ok = true; ov = od.box; }
     else if(isSpy(D.start.v)){ const op = S.game.players.find(x => x.id === od.pid); ok = !!(op && op.handCount); ov = od.box; }
-    else if(isSteal(D.start.v)){ ok = od.pile != null ? oppPiles(od.pid)[od.pile].length > 0 : canStealFrom(od.pid); ov = od.pile != null ? t : od.box; }
+    else if(isSteal(D.start.v)){ ok = canStealFrom(od.pid); ov = od.box; }
     else ok = false;
   } else {
     ok = t && (t.dataset.act === 'build' ? playable(S.game, D.start.v, +t.dataset.i) : D.start.src.src === 'hand');
@@ -941,7 +941,7 @@ const SPECIAL_HELP = [
   ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
   ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Ist das Geschenk deine letzte Handkarte, darfst du stattdessen die oberste Karte eines deiner Ablagestapel verschenken.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
   ['spy', 600, 'Spion', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Nur du siehst dann seine Handkarten.', 'Eine davon musst du dir nehmen – sie kommt auf deine Hand.']],
-  ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Ablagestapel eines Mitspielers.', 'Dessen oberste Karte kommt auf deine Hand.', 'Ziehst du sie auf den ganzen Kasten, kannst du den Stapel auswählen.']],
+  ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Mitspieler (oder klick erst die Karte, dann den Mitspieler).', 'Dann wählst du aus, welche oberste Karte seiner Ablagestapel du klaust.', 'Die Karte kommt auf deine Hand.']],
   ['rev', 400, 'Rückwärts', ['Dreht die Richtung eines Aufbaustapels um.', 'Aufwärts-Stapel (ab einer 2): zählt dann abwärts, z. B. 7, 6, 5 …, und wird bei 1 abgeräumt.', 'Rückwärts-Stapel (bis 11): zählt dann aufwärts und wird bei 12 abgeräumt.', 'Nach dem Abräumen startet der Stapel wieder in seiner ursprünglichen Richtung.']]
 ];
 function pilesRule(g){
@@ -1115,7 +1115,7 @@ function renderLobby(){
             (isHost ? '<select id="downSel" style="width:9em">' + Array.from({length:(g.piles || 4) + 1}, (_, k) => '<option value="' + k + '"' + (k === (g.downPiles || 0) ? ' selected' : '') + '>' + (k === 0 ? 'keiner' : k + ' Stapel') + '</option>').join('') + '</select>' : '<div class="count">' + ((g.downPiles || 0) ? g.downPiles + ' Stapel' : 'keiner') + '</div>') + '</div>' +
         '</div>' +
         '<small class="muted">Rückwärts-Stapel fangen bei 12 an und werden bei 1 abgeräumt. Sie haben einen roten Rand.</small>' +
-        '<div class="field" style="margin-top:6px"><span class="label">Sonderkarten</span>' + specialRow(g, isHost) + '</div>' +
+        '<div class="field" style="margin-top:6px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="label">Sonderkarten</span>' + (isHost ? allSpecialsBtn(g) : '') + '</div>' + specialRow(g, isHost) + '</div>' +
       '</div>' +
       '<div class="panel" style="display:flex;flex-direction:column;gap:12px">' +
         '<div class="label">Spieler (' + n + '/' + MAXP + ')</div>' +
@@ -1131,12 +1131,16 @@ function renderLobby(){
     '</section>' + confirm;
 }
 
+function allSpecialsBtn(g){
+  const all = ['split','spy','steal','rev','gift','skip'].every(k => g.specials && g.specials[k]);
+  return '<button type="button" class="btn small" data-act="allSpecials" data-on="' + (all ? '0' : '1') + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>';
+}
 function specialRow(g, isHost){
   const n = 4 * (g.decks || 1);
   const list = [
     ['split', 'Entweder-oder', 1000 + 3*16 + 4, 'Zählt als eine ihrer zwei Zahlen. Darf überall abgelegt werden. ' + n + ' Stück im Spiel, jede mit einer zufälligen Zahlenkombi.'],
     ['spy', 'Spion', 600, (2 * (g.decks || 1)) + ' Stück im Spiel. Zieh sie auf einen Mitspieler: Du siehst seine Handkarten und nimmst dir eine davon.'],
-    ['steal', 'Diebstahl', 500, n + ' Stück im Spiel. Zieh sie auf einen Ablagestapel eines Mitspielers und nimm dir dessen oberste Karte auf die Hand.'],
+    ['steal', 'Diebstahl', 500, n + ' Stück im Spiel. Zieh sie auf einen Mitspieler und wähle aus, welche oberste Karte seiner Ablagestapel du dir auf die Hand nimmst.'],
     ['rev', 'Rückwärts', 400, (2 * (g.decks || 1)) + ' Stück im Spiel. Dreht die Richtung eines Aufbaustapels um: Ein aufwärts laufender Stapel (ab 2) zählt dann abwärts bis 1, ein Rückwärts-Stapel (bis 11) wieder aufwärts bis 12.'],
     ['gift', 'Geschenk', 300, n + ' Stück im Spiel. Spiel sie auf einen Mitspieler und schenke ihm eine deiner Handkarten. Die Geschenk-Karte ist danach weg.'],
     ['skip', 'Aussetzen', 207, n + ' zufällige Zahlenkarten tragen das Aussetzen-Symbol. Wer so eine Karte auf einen Aufbaustapel legt, wählt einen Mitspieler, der seinen nächsten Zug aussetzt.']
