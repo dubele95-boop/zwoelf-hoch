@@ -381,7 +381,7 @@ const handlers = {
         // nur wer noch kein Aussetzen offen hat, kann eines bekommen
         const open = skippable(g, me);
         if (!open.length) { mv.skipNone = true; addSLog(g, 'skip', name + ' spielt Aussetzen, aber alle setzen schon aus'); }
-        else if (open.length === 1) { applySkip(g, me, open[0].id); mv.skipTarget = open[0].id; }
+        else if (open.length === 1) { mv.gag = applySkip(g, me, open[0].id); mv.skipTarget = open[0].id; }
         else g.choose = { pid: me, kind: 'skip' };
       }
     }
@@ -501,8 +501,8 @@ const handlers = {
     must(g.choose && g.choose.pid === me, 'Gerade gibt es nichts auszuwählen.');
     must(m.target !== me && g.players.some(p => p.id === m.target), 'Diesen Spieler gibt es nicht.');
     must(!(g.skips && g.skips[m.target]), pname(g, m.target) + ' setzt schon aus. Wähle jemand anderen.');
-    g.choose = null; applySkip(g, me, m.target);
-    setMove(g, { kind: 'skipped', pid: me, target: m.target });
+    g.choose = null; const gag = applySkip(g, me, m.target);
+    setMove(g, { kind: 'skipped', pid: me, target: m.target, gag });
     broadcast(g);
   },
   skip(ws, m, g) {
@@ -657,12 +657,24 @@ function myTurn(g, me, allowChoose) {
   if (!allowChoose) must(!g.spy, 'Nimm dir zuerst eine Karte beim Spionieren.');
 }
 const skippable = (g, me) => g.players.filter(p => p.id !== me && !(g.skips && g.skips[p.id]));
+// Zum Spaß bekommt der Aussetzende jedes Mal einen anderen Gag ab
+const GAGS = {
+  egg: (a, b) => a + ' wirft ' + b + ' ein Ei an den Bildschirm',
+  pizza: (a, b) => a + ' lässt ' + b + ' eine Pizza liefern',
+  tomato: (a, b) => a + ' wirft ' + b + ' eine Tomate an den Bildschirm',
+  pie: (a, b) => a + ' klatscht ' + b + ' eine Torte auf den Bildschirm',
+  water: (a, b) => a + ' wirft ' + b + ' eine Wasserbombe an den Bildschirm',
+  snow: (a, b) => a + ' wirft ' + b + ' einen Schneeball an den Bildschirm'
+};
 function applySkip(g, by, target) {
   stat(g, by).skipsGiven++;
   g.skips = g.skips || {};
   g.skips[target] = 1;   // höchstens ein offenes Aussetzen pro Spieler
+  const keys = Object.keys(GAGS).filter(k => k !== g.lastGag);
+  const gag = keys[Math.floor(Math.random() * keys.length)]; g.lastGag = gag;
   addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
-  addSLog(g, 'skip', pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen');
+  addSLog(g, 'skip', GAGS[gag](pname(g, by), pname(g, target)) + ' – ' + pname(g, target) + ' setzt aus');
+  return gag;
 }
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);

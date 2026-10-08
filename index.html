@@ -267,6 +267,15 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
   .slogwrap{width:auto}
   .slog{height:120px}
 }
+.gag{position:fixed;inset:0;pointer-events:none;z-index:45;overflow:hidden}
+.gag .gproj,.gag .gsplat,.gag .gpzwrap{position:fixed;will-change:transform}
+.gag .gsplat svg,.gag .gproj svg{filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.gag .gagcap{position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(20,16,32,.85);color:#fff;font-weight:900;font-size:clamp(18px,3vw,30px);padding:10px 22px;border-radius:14px;border:2px solid #f2b84b;white-space:nowrap;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:2}
+.gpz{position:relative;width:100%;height:100%;filter:drop-shadow(0 12px 18px rgba(0,0,0,.45))}
+.gpz-box{position:absolute;inset:0}
+.gpz-lid{position:absolute;inset:0;transform-origin:50% 0}
+.gpz-in{position:absolute;left:0;right:0;bottom:100%;height:34%;transform-origin:50% 100%;transform:scaleY(0)}
+.gpz-steam{position:absolute;left:10%;right:10%;bottom:70%;height:45%;opacity:0}
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
 }
@@ -428,6 +437,12 @@ const Snd = {
       case 'spy': [1318,1046,1318,1568].forEach((f,i) => this.tone(f, t + i*.08, .18, 'triangle', .08*v)); break;
       case 'steal': this.noise(t, .18, .45*v, 1800); this.tone(1046, t + .05, .12, 'sine', .1*v); this.tone(698, t + .15, .2, 'sine', .1*v); break;
       case 'skip': this.tone(520, t, .16, 'square', .06); this.tone(330, t + .14, .28, 'square', .06); break;
+      case 'splat': { const c = this.ctx, n = Math.floor(c.sampleRate * .35), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+        for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/n, 3);
+        const src = c.createBufferSource(), lp = c.createBiquadFilter(), gn = c.createGain(); src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = arg === 'water' ? 1400 : arg === 'snow' ? 2600 : 800; gn.gain.value = .9*v;
+        src.connect(lp); lp.connect(gn); gn.connect(this.master); src.start(t);
+        const o = c.createOscillator(), og = c.createGain(); o.frequency.setValueAtTime(arg === 'water' ? 500 : 180, t); o.frequency.exponentialRampToValueAtTime(60, t + .2); og.gain.setValueAtTime(.3*v, t); og.gain.exponentialRampToValueAtTime(.0001, t + .22); o.connect(og); og.connect(this.master); o.start(t); o.stop(t + .25); break; }
+      case 'bell': this.tone(988, t, .7, 'sine', .2*v); this.tone(784, t + .28, .8, 'sine', .2*v); break;
       case 'discard': this.noise(t, .09, .55*v, 700); this.tone(150, t, .14, 'sine', .25*v); break;
       case 'turn': this.tone(660, t, .3, 'sine', .22); this.tone(990, t + .13, .45, 'sine', .2); break;
       case 'clear': [523,659,784,1047,1319].forEach((f,i) => this.tone(f, t + .1 + i*.07, .3, 'triangle', .18*v)); break;
@@ -438,6 +453,175 @@ const Snd = {
   }
 };
 ['pointerdown','keydown'].forEach(ev => document.addEventListener(ev, () => Snd.unlock(), {capture:true}));
+/* ---------- Aussetzen-Gags: Ei, Pizza, Tomate, Torte, Wasserbombe, Schneeball ---------- */
+const GAGS = {
+  egg:    { title: 'Ei',          cap: 'Eier-Volltreffer!' },
+  pizza:  { title: 'Pizza',       cap: 'Pizza-Lieferung – erst mal Pause!' },
+  tomato: { title: 'Tomate',      cap: 'Tomate! Du setzt aus.' },
+  pie:    { title: 'Torte',       cap: 'Torte ins Gesicht!' },
+  water:  { title: 'Wasserbombe', cap: 'Platsch! Wasserbombe.' },
+  snow:   { title: 'Schneeball',  cap: 'Schneeball-Treffer!' }
+};
+const GAG_KEYS = Object.keys(GAGS);
+const SPLAT = {
+  egg:    { body: '#fffaf0', edge: '#efe6cf', drops: '#fffaf0', drip: true },
+  tomato: { body: '#d42a1f', edge: '#9e1b14', drops: '#e2412f', drip: true },
+  pie:    { body: '#fff7ef', edge: '#ecd9c6', drops: '#fff7ef', drip: true },
+  water:  { body: 'rgba(90,180,255,.55)', edge: 'rgba(40,130,220,.6)', drops: 'rgba(110,195,255,.65)', drip: true },
+  snow:   { body: '#f6f9ff', edge: '#c9daf5', drops: '#f6f9ff', drip: false }
+};
+function gagRand(seed){ let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function gagBlob(r, cx, cy, R, n, jit){
+  const pts = [];
+  for(let k = 0; k < n; k++){
+    const a = k / n * Math.PI * 2 + (r() - .5) * .3, spike = r() < .35 ? 1.25 + r() * .25 : 1;
+    const rr = R * (1 - jit / 2 + r() * jit) * spike;
+    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+  }
+  let d = '';
+  for(let k = 0; k < n; k++){
+    const p = pts[k], q = pts[(k + 1) % n], m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    d += (k ? ' Q' : 'M' + ((pts[n-1][0] + p[0]) / 2).toFixed(1) + ' ' + ((pts[n-1][1] + p[1]) / 2).toFixed(1) + ' Q') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' ' + m[0].toFixed(1) + ' ' + m[1].toFixed(1);
+  }
+  return d + 'Z';
+}
+function gagProjectile(kind){
+  const s = '<svg viewBox="0 0 100 100" width="100%" height="100%">';
+  if(kind === 'egg') return s + '<ellipse cx="50" cy="54" rx="30" ry="40" fill="#fffaf0" stroke="#d9cfb8" stroke-width="2"/><ellipse cx="40" cy="38" rx="8" ry="14" fill="#fff" opacity=".8"/></svg>';
+  if(kind === 'tomato') return s + '<circle cx="50" cy="56" r="38" fill="#d9311f"/><ellipse cx="36" cy="44" rx="9" ry="12" fill="#f0705f" opacity=".7"/><path d="M50 22l7-9 2 11 11-3-7 9 9 6-12 1-4 10-6-9-6 9-4-10-12-1 9-6-7-9 11 3 2-11z" fill="#3c9a3c"/></svg>';
+  if(kind === 'pie') return s + '<ellipse cx="50" cy="64" rx="44" ry="18" fill="#c98d4c"/><ellipse cx="50" cy="56" rx="40" ry="16" fill="#fff7ef"/><circle cx="50" cy="44" r="8" fill="#c8102e"/><path d="M50 36q4-10 12-12" stroke="#3c7a2c" stroke-width="2.5" fill="none"/></svg>';
+  if(kind === 'water') return s + '<path d="M50 10C74 10 86 34 84 56 82 76 68 88 50 88 32 88 18 76 16 56 14 34 26 10 50 10z" fill="#4aa8f5"/><path d="M45 88l5 7 5-7z" fill="#2f86d6"/><ellipse cx="36" cy="36" rx="8" ry="13" fill="#fff" opacity=".55"/></svg>';
+  if(kind === 'snow') return s + '<circle cx="50" cy="50" r="38" fill="#f6f9ff"/><circle cx="58" cy="58" r="30" fill="#dbe7fb" opacity=".7"/><circle cx="40" cy="40" r="10" fill="#fff"/></svg>';
+  return '';
+}
+function gagSplat(kind, seed){
+  const c = SPLAT[kind], r = gagRand(seed);
+  let svg = '<svg viewBox="0 0 200 200" width="100%" height="100%" style="overflow:visible">';
+  svg += '<path d="' + gagBlob(r, 100, 100, 62, 18, .35) + '" fill="' + c.edge + '"/>';
+  svg += '<path d="' + gagBlob(r, 100, 98, 56, 18, .3) + '" fill="' + c.body + '"/>';
+  for(let k = 0; k < 11; k++){ const a = r() * Math.PI * 2, dd = 78 + r() * 34, rr = 2.5 + r() * 7;
+    svg += '<circle class="gdrop" cx="' + (100 + Math.cos(a) * dd).toFixed(1) + '" cy="' + (100 + Math.sin(a) * dd).toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="' + c.drops + '"/>'; }
+  if(kind === 'egg'){
+    svg += '<circle cx="104" cy="96" r="25" fill="#ffad14"/><circle cx="104" cy="96" r="25" fill="none" stroke="#f08c00" stroke-width="3"/><ellipse cx="96" cy="88" rx="8" ry="5" fill="#ffe08a" opacity=".9"/>';
+    for(let k = 0; k < 5; k++){ const a = r() * Math.PI * 2, dd = 70 + r() * 40, x = 100 + Math.cos(a) * dd, y = 100 + Math.sin(a) * dd;
+      svg += '<path class="gshard" d="M' + x.toFixed(1) + ' ' + y.toFixed(1) + 'l' + (8 + r() * 6).toFixed(1) + ' ' + (3 - r() * 6).toFixed(1) + 'l' + (-4 - r() * 6).toFixed(1) + ' ' + (7 + r() * 5).toFixed(1) + 'z" fill="#fffdf6" stroke="#d9cfb8" stroke-width="1.2"/>'; }
+  }
+  if(kind === 'tomato'){
+    for(let k = 0; k < 9; k++){ const a = r() * Math.PI * 2, dd = r() * 34; svg += '<ellipse cx="' + (100 + Math.cos(a) * dd).toFixed(1) + '" cy="' + (100 + Math.sin(a) * dd).toFixed(1) + '" rx="3" ry="4.5" fill="#ffd27a" transform="rotate(' + (r() * 180).toFixed(0) + ' ' + (100 + Math.cos(a) * dd).toFixed(1) + ' ' + (100 + Math.sin(a) * dd).toFixed(1) + ')"/>'; }
+    svg += '<path d="M118 70l6-8 2 9 9-2-6 7 7 5-10 1-3 8-5-7-5 7-3-8-10-1 7-5-6-7 9 2 2-9z" fill="#3c9a3c"/>';
+  }
+  if(kind === 'pie'){
+    for(let k = 0; k < 6; k++){ const a = r() * Math.PI * 2, dd = 50 + r() * 30, x = 100 + Math.cos(a) * dd, y = 100 + Math.sin(a) * dd;
+      svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (8 + r() * 8).toFixed(1) + '" height="' + (5 + r() * 4).toFixed(1) + '" rx="2" fill="#c98d4c" transform="rotate(' + (r() * 90).toFixed(0) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')"/>'; }
+    svg += '<circle cx="96" cy="92" r="13" fill="#c8102e"/><ellipse cx="91" cy="87" rx="4" ry="3" fill="#ff6b80"/><path d="M96 79q6-14 18-16" stroke="#3c7a2c" stroke-width="3" fill="none"/>';
+  }
+  if(kind === 'water'){
+    svg += '<path d="M70 80q20-22 50-14" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none" opacity=".6"/><path d="M80 120q14 10 34 4" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".45"/>';
+  }
+  if(kind === 'snow'){
+    for(let k = 0; k < 6; k++){ const x = 40 + r() * 120, y = 40 + r() * 120, s = 4 + r() * 4;
+      svg += '<g class="gflake" stroke="#9fbcef" stroke-width="1.6" stroke-linecap="round"><path d="M' + (x - s) + ' ' + y + 'h' + 2 * s + 'M' + x + ' ' + (y - s) + 'v' + 2 * s + 'M' + (x - s * .7) + ' ' + (y - s * .7) + 'l' + 1.4 * s + ' ' + 1.4 * s + 'M' + (x - s * .7) + ' ' + (y + s * .7) + 'l' + 1.4 * s + ' ' + -1.4 * s + '"/></g>'; }
+  }
+  if(c.drip) for(let k = 0; k < 4; k++){ const x = 70 + r() * 60, w = 6 + r() * 7;
+    svg += '<path class="gdrip" d="M' + x.toFixed(1) + ' 140v' + (14 + r() * 26).toFixed(1) + 'a' + (w / 2).toFixed(1) + ' ' + (w / 2).toFixed(1) + ' 0 0 0 ' + w.toFixed(1) + ' 0v-' + (14).toFixed(1) + 'z" fill="' + c.body + '" style="transform-origin:' + x.toFixed(1) + 'px 140px;transform-box:view-box"/>'; }
+  return svg + '</svg>';
+}
+function gagPizza(){
+  return '<div class="gpz">' +
+    '<div class="gpz-in"><svg viewBox="0 0 120 40" width="100%" height="100%"><rect x="2" y="2" width="116" height="36" rx="4" fill="#a8723f"/><rect x="8" y="8" width="104" height="26" rx="3" fill="#bf8a52"/></svg></div>' +
+    '<div class="gpz-box"><svg viewBox="0 0 120 120" width="100%" height="100%"><rect x="2" y="2" width="116" height="116" rx="5" fill="#c99257"/><rect x="8" y="8" width="104" height="104" rx="4" fill="#ead2ac"/>' +
+      '<circle cx="60" cy="60" r="48" fill="#e2a246"/><circle cx="60" cy="60" r="41" fill="#d9472b"/>' +
+      '<g fill="#ffd77a" opacity=".95"><circle cx="45" cy="50" r="9"/><circle cx="72" cy="44" r="8"/><circle cx="66" cy="74" r="10"/><circle cx="42" cy="74" r="7"/><circle cx="80" cy="64" r="6"/></g>' +
+      '<g fill="#a51d1d"><circle cx="54" cy="38" r="6"/><circle cx="80" cy="52" r="6"/><circle cx="50" cy="64" r="6"/><circle cx="70" cy="84" r="6"/><circle cx="34" cy="60" r="5"/></g>' +
+      '<g fill="#3c8a3c"><ellipse cx="62" cy="58" rx="4" ry="2" transform="rotate(30 62 58)"/><ellipse cx="40" cy="44" rx="4" ry="2" transform="rotate(-20 40 44)"/><ellipse cx="78" cy="76" rx="4" ry="2"/></g></svg>' +
+      '<div class="gpz-lid"><svg viewBox="0 0 120 120" width="100%" height="100%"><rect x="2" y="2" width="116" height="116" rx="5" fill="#d9a466" stroke="#a8723f" stroke-width="3"/><circle cx="60" cy="52" r="30" fill="none" stroke="#b5372a" stroke-width="5"/><text x="60" y="61" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="22" fill="#b5372a">PIZZA</text><text x="60" y="102" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="11" fill="#7a4f25">heiß &amp; frisch</text></svg></div>' +
+    '</div>' +
+    '<div class="gpz-steam"><svg viewBox="0 0 120 60" width="100%" height="100%" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="4" stroke-linecap="round"><path d="M35 55q-8-12 0-24t0-24"/><path d="M60 55q-8-12 0-24t0-24"/><path d="M85 55q-8-12 0-24t0-24"/></svg></div>' +
+  '</div>';
+}
+/* kind: Gag; box: {x,y,w,h} Ziel; from: {x,y} Startpunkt (optional); big: auf dem eigenen Bildschirm; caption: Text (nur groß) */
+function playGag(kind, box, from, big, caption){
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const size = big ? Math.min(innerWidth, innerHeight) * .78 : Math.max(box.w * .95, box.h * 1.6);
+  const cx = box.x + box.w / 2 + (big ? (Math.random() - .5) * innerWidth * .12 : 0), cy = box.y + box.h / 2 + (big ? (Math.random() - .5) * innerHeight * .1 : 0);
+  const root = document.createElement('div'); root.className = 'gag' + (big ? ' big' : '');
+  document.body.appendChild(root);
+  const total = big ? 3400 : 2800;
+  const done = () => root.remove();
+  if(big && caption){ const cp = document.createElement('div'); cp.className = 'gagcap'; cp.textContent = caption; root.appendChild(cp);
+    cp.animate([{opacity:0, transform:'translate(-50%,10px) scale(.9)'},{opacity:1, transform:'translate(-50%,0) scale(1)', offset:.12},{opacity:1, offset:.8},{opacity:0}], {duration: total, easing:'ease-out', fill:'forwards'}); }
+  if(kind === 'pizza'){
+    const w = big ? size * .62 : Math.max(box.w * .55, 90);
+    const pz = document.createElement('div'); pz.className = 'gpzwrap'; pz.style.cssText = 'left:' + (cx - w/2) + 'px;top:' + (cy - w/2) + 'px;width:' + w + 'px;height:' + w + 'px';
+    pz.innerHTML = gagPizza(); root.appendChild(pz);
+    const startX = from ? from.x - cx : innerWidth - cx + w, startY = from ? from.y - cy : 0;
+    pz.animate(reduce ? [{opacity:0},{opacity:1}] : [
+      {transform:'translate(' + startX + 'px,' + startY + 'px) rotate(25deg) scale(.5)'},
+      {transform:'translate(' + startX * .3 + 'px,' + (startY * .3 - (big ? 30 : 15)) + 'px) rotate(-8deg) scale(.9)', offset:.6},
+      {transform:'translate(0,0) rotate(0) scale(1)', offset:.85},
+      {transform:'translate(0,-4px) scale(1.03)', offset:.92},
+      {transform:'translate(0,0) scale(1)'}], {duration: 700, easing:'cubic-bezier(.25,.8,.3,1)', fill:'forwards'});
+    const lid = pz.querySelector('.gpz-lid'), inn = pz.querySelector('.gpz-in'), st = pz.querySelector('.gpz-steam');
+    lid.animate([{transform:'scaleY(1)'},{transform:'scaleY(0)'}], {duration: 260, delay: 850, easing:'ease-in', fill:'forwards'});
+    inn.animate([{transform:'scaleY(0)'},{transform:'scaleY(1)'}], {duration: 220, delay: 1110, easing:'ease-out', fill:'forwards'});
+    st.animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'translateY(0)', offset:.3},{opacity:0, transform:'translateY(-25px)'}], {duration: 1500, delay: 1200, iterations: 1, fill:'forwards'});
+    pz.animate([{opacity:1},{opacity:0}], {duration: 450, delay: total - 450, fill:'forwards'}).onfinish = done;
+    return;
+  }
+  const flyMs = reduce ? 0 : big ? 520 : 600;
+  const proj = document.createElement('div'); proj.className = 'gproj';
+  const pw = big ? size * .26 : Math.max(26, box.h * .5);
+  proj.style.cssText = 'left:' + (cx - pw/2) + 'px;top:' + (cy - pw/2) + 'px;width:' + pw + 'px;height:' + pw + 'px';
+  proj.innerHTML = gagProjectile(kind); root.appendChild(proj);
+  const fx = from ? from.x - cx : 0, fy = from ? from.y - cy : innerHeight * .25;
+  if(flyMs) proj.animate(big ? [
+      {transform:'translate(0,' + innerHeight * .35 + 'px) scale(.15) rotate(0)'},
+      {transform:'translate(0,' + (-innerHeight * .05) + 'px) scale(.6) rotate(260deg)', offset:.6},
+      {transform:'translate(0,0) scale(1.4) rotate(420deg)'}] : [
+      {transform:'translate(' + fx + 'px,' + fy + 'px) scale(.7) rotate(0)'},
+      {transform:'translate(' + fx * .5 + 'px,' + (fy * .5 - 60) + 'px) scale(.9) rotate(200deg)', offset:.5},
+      {transform:'translate(0,0) scale(1.1) rotate(380deg)'}], {duration: flyMs, easing:'cubic-bezier(.45,0,.9,.6)', fill:'forwards'});
+  setTimeout(() => {
+    proj.remove();
+    const sp = document.createElement('div'); sp.className = 'gsplat';
+    sp.style.cssText = 'left:' + (cx - size/2) + 'px;top:' + (cy - size/2) + 'px;width:' + size + 'px;height:' + size + 'px';
+    sp.innerHTML = gagSplat(kind, Math.random() * 1e9); root.appendChild(sp);
+    Snd.play('splat', kind, big ? 1 : .5);
+    sp.animate([{transform:'scale(.25) rotate(' + (Math.random()*40-20) + 'deg)', opacity:.6},{transform:'scale(1.08)', opacity:1, offset:.55},{transform:'scale(1)', opacity:1}], {duration: 260, easing:'ease-out', fill:'forwards'});
+    sp.querySelectorAll('.gdrop,.gshard').forEach((d, k) => d.animate([{transform:'scale(0)', opacity:0},{transform:'scale(1)', opacity:1}], {duration: 240, delay: 60 + k * 12, easing:'ease-out', fill:'backwards'}));
+    sp.querySelectorAll('.gdrip').forEach((d, k) => d.animate([{transform:'scaleY(.1)'},{transform:'scaleY(1.6)'}], {duration: 1700, delay: 350 + k * 120, easing:'ease-in', fill:'forwards'}));
+    if(big) root.animate([{transform:'translate(0,0)'},{transform:'translate(-7px,4px)'},{transform:'translate(6px,-5px)'},{transform:'translate(-3px,2px)'},{transform:'translate(0,0)'}], {duration: 260});
+    const life = total - flyMs;
+    sp.animate([{opacity:1, transform:'scale(1) translateY(0)'},{opacity:1, transform:'scale(1) translateY(0)', offset:.7},{opacity:0, transform:'scale(1) translateY(' + (kind === 'snow' ? 0 : 14) + 'px)'}], {duration: life, delay: 260, fill:'forwards'}).onfinish = done;
+  }, flyMs);
+}
+
+const GAG_TXT = {
+  egg: (a, b) => a + ' wirft ' + b + ' ein Ei an den Bildschirm',
+  pizza: (a, b) => a + ' lässt ' + b + ' eine Pizza liefern',
+  tomato: (a, b) => a + ' wirft ' + b + ' eine Tomate an den Bildschirm',
+  pie: (a, b) => a + ' klatscht ' + b + ' eine Torte auf den Bildschirm',
+  water: (a, b) => a + ' wirft ' + b + ' eine Wasserbombe an den Bildschirm',
+  snow: (a, b) => a + ' wirft ' + b + ' einen Schneeball an den Bildschirm'
+};
+function unionRect(els){
+  const rs = [...els].map(e => e.getBoundingClientRect()).filter(r => r.width);
+  if(!rs.length) return null;
+  const x = Math.min(...rs.map(r => r.left)), y = Math.min(...rs.map(r => r.top));
+  return { x, y, w: Math.max(...rs.map(r => r.right)) - x, h: Math.max(...rs.map(r => r.bottom)) - y };
+}
+function showGag(kind, from, target){
+  if(target === S.me){
+    playGag(kind, { x: 0, y: 0, w: innerWidth, h: innerHeight }, null, true, GAGS[kind].cap);
+  } else {
+    const box = unionRect(document.querySelectorAll('.opp[data-pid="' + target + '"] [data-k="disc"]')) || unionRect(document.querySelectorAll('.opp[data-pid="' + target + '"]'));
+    if(!box) return;
+    const src = from === S.me ? unionRect(document.querySelectorAll('.mine')) : unionRect(document.querySelectorAll('.opp[data-pid="' + from + '"]'));
+    playGag(kind, box, src ? { x: src.x + src.w / 2, y: src.y + Math.min(src.h / 2, 60) } : null, false);
+  }
+  if(kind === 'pizza') setTimeout(() => Snd.play('bell', 0, target === S.me ? 1 : .5), 700);
+}
+
 
 /* ---------- Animationen ---------- */
 const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -568,9 +752,11 @@ function onNewState(prev, g){
   if(fresh && (mv.kind === 'skipped' || mv.skipTarget)){
     const target = mv.target || mv.skipTarget;
     const name = id => (g.players.find(p => p.id === id) || {}).name || 'Jemand';
-    if(target === S.me){ toast(name(mv.pid) + ' lässt dich aussetzen!'); Snd.play('skip'); }
-    else if(mv.pid !== S.me) toast(name(mv.pid) + ' lässt ' + name(target) + ' aussetzen.');
-    else toast(name(target) + ' setzt beim nächsten Mal aus.');
+    const gt = mv.gag && GAG_TXT[mv.gag];
+    if(target === S.me){ toast(gt ? gt(name(mv.pid), 'dir') + ' – du setzt aus!' : name(mv.pid) + ' lässt dich aussetzen!'); if(!mv.gag) Snd.play('skip'); }
+    else if(mv.pid !== S.me) toast(gt ? gt(name(mv.pid), name(target)) + ' – ' + name(target) + ' setzt aus.' : name(mv.pid) + ' lässt ' + name(target) + ' aussetzen.');
+    else toast(gt ? gt('Du', name(target)).replace(' wirft ', ' wirfst ').replace(' klatscht ', ' klatschst ') + ' – ' + name(target) + ' setzt aus.' : name(target) + ' setzt beim nächsten Mal aus.');
+    if(mv.gag && GAGS[mv.gag]) setTimeout(() => showGag(mv.gag, mv.pid, target), 150);
   }
   if(fresh && mv.kind === 'deal'){
     Snd.play('deal');
@@ -938,7 +1124,7 @@ document.getElementById('stats').addEventListener('click', e => {
 /* ---------- Regel-Übersicht während des Spiels ---------- */
 const SPECIAL_HELP = [
   ['split', 1000 + 3*16 + 4, 'Entweder-oder', ['Zählt als eine ihrer beiden Zahlen, z. B. 3 <b>oder</b> 4.', 'Passt auf einen Aufbaustapel, wenn eine der beiden Zahlen gebraucht wird.', 'Darf auch auf deine Ablagestapel.']],
-  ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
+  ['skip', 207, 'Aussetzen', ['Eine normale Zahlenkarte mit rotem ⊘-Symbol.', 'Legst du sie auf einen <b>Aufbaustapel</b>, wählst du einen Mitspieler, der seinen nächsten Zug aussetzt.', 'Wer schon ein Aussetzen offen hat, kann kein zweites bekommen.', 'Zum Spaß bekommt er dabei jedes Mal etwas ab: ein Ei, eine Tomate, eine Torte, eine Wasserbombe, einen Schneeball – oder eine Pizza geliefert.', 'Auf deinem Ablagestapel hat sie keine Wirkung.']],
   ['gift', 300, 'Geschenk', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Du wählst eine deiner Handkarten, die er bekommt.', 'Ist das Geschenk deine letzte Handkarte, darfst du stattdessen die oberste Karte eines deiner Ablagestapel verschenken.', 'Die Geschenk-Karte ist danach verbraucht, du spielst weiter.']],
   ['spy', 600, 'Spion', ['Zieh sie auf einen Mitspieler (oder anklicken, dann Mitspieler anklicken).', 'Nur du siehst dann seine Handkarten.', 'Eine davon musst du dir nehmen – sie kommt auf deine Hand.']],
   ['steal', 500, 'Diebstahl', ['Zieh sie auf einen Mitspieler (oder klick erst die Karte, dann den Mitspieler).', 'Dann wählst du aus, welche oberste Karte seiner Ablagestapel du klaust.', 'Die Karte kommt auf deine Hand.']],
