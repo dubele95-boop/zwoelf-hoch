@@ -105,3 +105,27 @@ input[type=text],select{background:var(--table);border:1px solid var(--line-2);c
 @media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}.chat{position:static;max-height:none}.chat .msgs{max-height:240px}}
 @media (max-width:760px){.home,.lobby{grid-template-columns:minmax(0,1fr)}.brand span{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Statistik nach der Runde */
+.statsbox{max-width:900px!important}
+.statshead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
+.statshead .big-title{font-size:34px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:8px}
+.kpi{padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.2);border:1px solid var(--line)}
+.kpi b{display:block;font:800 26px/1.1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--accent)}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.awards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px}
+.award{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);font-size:14px}
+.award .aicon{width:26px;height:26px;flex:none;color:var(--accent)}
+.award .aicon svg{width:26px;height:26px;display:block}
+.award b{display:block}
+.tablewrap{overflow-x:auto}
+.stattable{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.stattable th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line-2);vertical-align:bottom;line-height:1.2}
+.stattable th:first-child{text-align:left}
+.stattable td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}
+.stattable td:first-child{text-align:left;white-space:nowrap}
+.stattable tr.me td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.records{display:flex;flex-wrap:wrap;gap:6px}
+.records .pill{color:var(--ink)}
+.modalbox.wide > *{flex-shrink:0}

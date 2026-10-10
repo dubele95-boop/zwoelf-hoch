@@ -151,6 +151,44 @@ function effText(e) {
 }
 const clock = round => ((19 + round) % 24) + ':00';
 
+const AI = {
+  bolt: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  jump: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18c4-10 10-10 14-4"/><path d="M14 9l4 5-6 1"/></svg>',
+  calm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9.5h.01M15 9.5h.01"/></svg>',
+  fire: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 3 1 4 2 4 0-4-1-6 1-9z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  team: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20c0-4 3-7 6-7s6 3 6 7zM12 20c0-3 2-6 4-7 3 0 6 3 6 7z"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4V5a1 1 0 0 1 1-1z"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 3h10v3h3v2a4 4 0 0 1-4 4 5 5 0 0 1-3 3v3h3v3H8v-3h3v-3a5 5 0 0 1-3-3 4 4 0 0 1-4-4V6h3zm0 5V6H5v2a2 2 0 0 0 2 2zm10 0a2 2 0 0 0 2-2V6h-2z"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l10 18H2zm-1 7v5h2V9zm0 7v2h2v-2z"/></svg>',
+  pack: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4a4 4 0 0 1 8 0h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1zm2 0h4a2 2 0 0 0-4 0zm-2 8v3h8v-3z"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3 4 6.8 4c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3C21 4 23.1 8 21.6 11.6 19.5 16.4 12 21 12 21z"/></svg>',
+  gift: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9h18v4H3zM5 13h14v8H5zM11 9h2v12h-2zM12 9C9 9 7 7 8 5s4 0 4 4zm0 0c3 0 5-2 4-4s-4 0-4 4z"/></svg>',
+  magic: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 4l1.6 3.7 4 .4-3 2.7.9 3.9-3.5-2-3.5 2 .9-3.9-3-2.7 4-.4z"/><path d="M3 21l8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+};
+
+function ntStats(r, api) {
+  const g = r.g, won = g.phase === 'won', ps = g.ps || {}, tm = g.team || {}, C = r.catalog.CHARS, P = r.players;
+  const kpi = (v, t) => '<div class="kpi"><b>' + v + '</b><span>' + t + '</span></div>';
+  const list = f => P.map(p => ({ name: p.name, n: f(ps[p.id] || {}) || 0 }));
+  const aw = [];
+  { const b = api.best(list(x => x.points), 1); if (b) aw.push(api.award(AI.pack, 'Packesel', api.names(b.names) + (b.names.length > 1 ? ' brachten je ' : ' brachte ') + b.n + ' Punkte für die Gruppe ein.')); }
+  { const b = api.best(list(x => x.cards), 1); if (b) aw.push(api.award(AI.team, 'Fleißig', api.names(b.names) + (b.names.length > 1 ? ' legten je ' : ' legte ') + b.n + ' Karten.')); }
+  for (const c of ['kraft', 'mut', 'wissen', 'geschick']) { const b = api.best(list(x => (x.colors || {})[c]), 6); if (b) aw.push(api.award(IC[c], 'Meister in ' + CN[c], api.names(b.names) + ': ' + b.n + ' Punkte ' + CN[c] + '.')); }
+  { const b = api.best(list(x => x.heals)); if (b) aw.push(api.award(AI.heart, 'Heilende Hände', api.names(b.names) + (b.names.length > 1 ? ' heilten je ' : ' heilte ') + b.n + 'x.')); }
+  { const b = api.best(list(x => x.gifts)); if (b) aw.push(api.award(AI.gift, 'Großzügig', api.names(b.names) + (b.names.length > 1 ? ' verschenkten je ' : ' verschenkte ') + b.n + (b.n === 1 ? ' Karte.' : ' Karten.'))); }
+  { const b = api.best(list(x => (x.specials || 0) + (x.items || 0))); if (b) aw.push(api.award(AI.magic, 'Trickkiste', api.names(b.names) + (b.names.length > 1 ? ' setzten je ' : ' setzte ') + b.n + ' Sonderkarten und Gegenstände ein.')); }
+  if (tm.best) aw.push(api.award(AI.trophy, 'Größte Teamleistung', 'Um ' + clock(tm.best.round) + ' habt ihr „' + esc(r.catalog.EVENTS[tm.best.id].name) + '“ mit ' + tm.best.cards + ' Karten gemeinsam geschafft.'));
+  const fav = x => { const e = Object.entries(x.colors || {}).sort((a, b) => b[1] - a[1])[0]; return e ? '<span style="color:var(--' + e[0] + ');font-weight:700">' + CN[e[0]] + '</span>' : '–'; };
+  const rows = P.slice().sort((a, b) => ((ps[b.id] || {}).points || 0) - ((ps[a.id] || {}).points || 0)).map(p => { const x = ps[p.id] || {}; return '<tr' + (p.id === r.me ? ' class="me"' : '') + '><td>' + esc(p.name) + '</td><td>' + (C[g.chars[p.id]] ? C[g.chars[p.id]].name : '') + '</td><td>' + (x.cards || 0) + '</td><td>' + (x.points || 0) + '</td><td>' + fav(x) + '</td><td>' + ((x.specials || 0) + (x.items || 0)) + '</td><td>' + (x.heals || 0) + '</td></tr>'; }).join('');
+  const rec = (r.records || {}).nt;
+  return '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Im Dorf angekommen!' : g.why === 'dawn' ? 'Die Sonne ging auf' : 'Zu erschöpft') + '</span><span class="muted">' + ({ leicht: 'Leicht', normal: 'Normal', schwer: 'Schwer' })[g.diff] + ' · ' + api.fmtDur((g.ended || Date.now()) - g.started) + '</span></div>' +
+    '<div class="kpis">' + kpi(won ? clock(g.round) : g.pos + '/' + g.goal, won ? 'Ankunft im Dorf' : 'Felder geschafft') + kpi((tm.won || 0) + ' : ' + (tm.lost || 0), 'Ereignisse geschafft : gescheitert') + kpi('-' + (tm.hpLost || 0) + ' / +' + (tm.hpGained || 0), 'Ausdauer verloren / gewonnen') + kpi(tm.items || 0, 'Gegenstände gefunden') + kpi(g.spUsed || 0, 'Sonderkarten eingesetzt') + kpi((tm.rests || 0) + ' / ' + (tm.shortcuts || 0) + ' / ' + (tm.lucky || 0), 'Rasten / Abkürzungen / Glück gehabt') + '</div>' +
+    (aw.length ? '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' : '') +
+    '<div class="label">Eure Gruppe</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Spieler</th><th>Figur</th><th>Karten gelegt</th><th>Punkte</th><th>Lieblings&shy;farbe</th><th>Sonder&shy;karten & Gegen&shy;stände</th><th>geheilt</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="label">Eure Nacht</div><div class="journey" style="justify-content:flex-start">' + g.history.map(h => '<span class="pill ' + (h.ok ? 'live' : 'bad') + '">' + clock(h.round) + ' ' + esc(r.catalog.EVENTS[h.id].name) + '</span>').join('') + '</div>' +
+    (rec ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + rec.nights + (rec.nights === 1 ? ' Nacht' : ' Nächte') + '</span><span class="pill">' + rec.wins + ' im Dorf angekommen</span>' + (rec.best ? '<span class="pill">schnellste Ankunft: ' + clock(rec.best.round) + ' (' + ({ leicht: 'Leicht', normal: 'Normal', schwer: 'Schwer' })[rec.best.diff] + ')</span>' : '') + '<span class="pill">weitestes Feld: ' + rec.far + '</span></div>' : '');
+}
 function spSettings(r, host) {
   const SPC = r.catalog.SPECIALS, on = r.settings.specials || {}, all = Object.keys(SPC).every(k => on[k]);
   return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="sprow">' +
@@ -174,6 +212,7 @@ api = Spieleabend.start({
     '<h3>Gegenstände</h3><ul><li><b>Fackel:</b> löst ein dunkles Ereignis sofort, sonst +2 Mut.</li><li><b>Seil:</b> +3 Geschick.</li><li><b>Heiltrank:</b> +2 Ausdauer.</li><li><b>Kompass:</b> sofort 1 Feld weiter.</li></ul>' +
     '<h3>Sonderkarten</h3><p>Zwischen den normalen Karten liegen Sonderkarten (dunkel mit Symbol). Klick sie an, um sie einzusetzen. Welche mitspielen, legt der Gastgeber fest – auch mitten im Spiel über den Knopf „Sonderkarten“.</p><div class="sprow">' + Object.entries((r && r.catalog && r.catalog.SPECIALS) || {}).map(([k, x]) => '<div class="spx"><span class="ic">' + SPI[k] + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div></div>').join('') + '</div>' +
     '<h3>Figuren</h3><ul><li><b>Jägerin, Ritter, Gelehrte, Akrobat:</b> Karten ihrer Farbe zählen +1.</li><li><b>Heiler:</b> einmal pro Stunde eine Handkarte abwerfen für +1 Ausdauer.</li><li><b>Späherin:</b> Ihr seht das nächste Ereignis vorher. Einmal pro Nacht darf sie ein Ereignis überspringen.</li></ul>',
+  stats: (r, api) => ntStats(r, api),
   livePanel: r => '<p class="muted" style="margin:0">Gilt sofort: Ausgeschaltete Sonderkarten werden ab jetzt nicht mehr gezogen. Karten, die schon auf der Hand sind, bleiben.</p>' + spSettings(r, true),
   lobby: (r, host) => {
     const d = r.settings.diff;

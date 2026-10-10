@@ -58,7 +58,7 @@
     document.title = cfg.title + ' – Spieleabend';
     const app = q('#app');
     app.innerHTML = '<header class="bar"><div class="brand"><a class="homelink" href="/" title="Zurück zum Spieleabend" aria-label="Zurück zum Spieleabend">‹</a>' + cfg.brand + '<span>' + esc(cfg.tagline) + '</span></div><div class="actions" id="actions"></div></header><main id="view"></main>';
-    document.body.insertAdjacentHTML('beforeend', '<div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div><div id="players" class="modal" role="dialog" aria-modal="true" aria-labelledby="playersTitle" hidden></div><div id="live" class="modal" role="dialog" aria-modal="true" aria-labelledby="liveTitle" hidden></div><div id="toast" role="status" aria-live="polite"></div>');
+    document.body.insertAdjacentHTML('beforeend', '<div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div><div id="players" class="modal" role="dialog" aria-modal="true" aria-labelledby="playersTitle" hidden></div><div id="live" class="modal" role="dialog" aria-modal="true" aria-labelledby="liveTitle" hidden></div><div id="stats" class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden></div><div id="toast" role="status" aria-live="polite"></div>');
     const view = q('#view'), actions = q('#actions');
     const hashCode = () => (location.hash || '').replace('#', '').toUpperCase().trim();
 
@@ -84,6 +84,12 @@
           if (location.hash !== '#' + m.room.code) history.replaceState(null, '', '#' + m.room.code);
           render();
           if (cfg.onState) try { cfg.onState(prev, m.room, api); } catch (e) { console.error(e); }
+          // Statistik ploppt nach jeder Runde einmal auf
+          if (cfg.stats && m.room.status === 'over' && m.room.g) {
+            const key = m.room.code + ':' + m.room.round;
+            if (prev && prev.status === 'playing' && S.statsShown !== key) { S.statsShown = key; clearTimeout(S.statsT); S.statsT = setTimeout(() => { if (S.room && S.room.status === 'over') openStats(); }, 2800); }
+            else if (!prev) S.statsShown = key;
+          }
           const n = (m.room.chat || []).length ? m.room.chat[m.room.chat.length - 1].n : 0;
           if (prev && n > S.chatN && m.room.chat[m.room.chat.length - 1].id !== S.me) Snd.play('chat', .7);
           S.chatN = n;
@@ -186,6 +192,7 @@
     function render() {
       renderBar();
       if (!S.everConnected) { S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
+      if (!S.room || S.room.status !== 'over') q('#stats').hidden = true;
       if (!S.room) return renderHome();
       if (S.room.status === 'lobby') return renderLobby();
       renderGame();
@@ -213,7 +220,13 @@
       el.innerHTML = '<div class="panel modalbox wide" style="max-width:600px"><div class="modalhead"><h2 id="liveTitle">Sonderkarten</h2><button class="btn small" data-c="closeModal">Fertig</button></div>' + cfg.livePanel(r, api) + '</div>';
       el.hidden = false;
     }
-    function closeModals() { q('#rules').hidden = true; q('#players').hidden = true; q('#live').hidden = true; }
+    function openStats() {
+      const r = S.room, el = q('#stats'); if (!r || !r.g || !cfg.stats) return;
+      el.innerHTML = '<div class="panel modalbox wide statsbox"><div class="modalhead"><h2 id="statsTitle">Statistik</h2><button class="btn small" data-c="closeModal">Schließen</button></div>' + cfg.stats(r, api) +
+        (r.status === 'over' && isHost() ? '<div class="row" style="justify-content:center"><button class="btn primary" data-c="againStats">' + (cfg.againLabel ? cfg.againLabel(r) : 'Nochmal spielen') + '</button></div>' : '') + '</div>';
+      el.hidden = false;
+    }
+    function closeModals() { q('#rules').hidden = true; q('#players').hidden = true; q('#live').hidden = true; q('#stats').hidden = true; }
 
     /* ---------- Klicks ---------- */
     const C = {
@@ -221,6 +234,8 @@
       rules() { openRules(); },
       players() { openPlayers(); },
       live() { openLive(); },
+      stats() { openStats(); },
+      againStats() { closeModals(); send({ t: 'start' }); },
       closeModal() { closeModals(); },
       create() { const n = (q('#nameInput').value || '').trim(); if (!n) { toast('Bitte gib zuerst deinen Namen ein.'); q('#nameInput').focus(); return; } S.name = n; LS.set('zh.name', n); send({ t: 'create', name: n }); },
       join() {
@@ -255,7 +270,7 @@
       if (s && !s.disabled && s.tagName !== 'SELECT') { let v = s.dataset.val; if (v === 'true') v = true; else if (v === 'false') v = false; send({ t: 'setting', key: s.dataset.set, value: v }); return; }
       const a = e.target.closest('[data-act]');
       if (a && !a.disabled && cfg.actions && cfg.actions[a.dataset.act]) cfg.actions[a.dataset.act](a, e, api);
-      if (e.target.classList && e.target.classList.contains('modal') && (e.target.id === 'rules' || e.target.id === 'players' || e.target.id === 'live')) closeModals();
+      if (e.target.classList && e.target.classList.contains('modal') && (e.target.id === 'rules' || e.target.id === 'players' || e.target.id === 'live' || e.target.id === 'stats')) closeModals();
     });
     document.addEventListener('change', e => {
       const s = e.target.closest && e.target.closest('select[data-set]');
@@ -276,10 +291,17 @@
 
     const api = { S, send, act, toast, esc, pname, isHost, Snd, render, q,
       get room() { return S.room; }, get me() { return S.me; },
+      statsButton: () => cfg.stats ? '<button class="btn big" data-c="stats">Statistik ansehen</button>' : '',
       overButtons(r) {
-        return isHost() ? '<div class="row" style="justify-content:center"><button class="btn primary big" data-c="again">Nochmal spielen</button><button class="btn big" data-c="toLobby">Zur Lobby</button></div>'
-          : '<p class="muted" style="text-align:center">' + esc(pname(r.host)) + ' kann gleich eine neue Runde starten.</p>';
-      }
+        const sb = cfg.stats ? '<button class="btn big" data-c="stats">Statistik ansehen</button>' : '';
+        return isHost() ? '<div class="row" style="justify-content:center"><button class="btn primary big" data-c="again">Nochmal spielen</button>' + sb + '<button class="btn big" data-c="toLobby">Zur Lobby</button></div>'
+          : '<div class="row" style="justify-content:center">' + sb + '</div><p class="muted" style="text-align:center">' + esc(pname(r.host)) + ' kann gleich eine neue Runde starten.</p>';
+      },
+      fmtDur(ms) { if (ms < 1000) return 'unter 1 Sek.'; const t = Math.max(0, Math.round(ms / 1000)), m = Math.floor(t / 60); return m ? m + ' Min. ' + (t % 60) + ' Sek.' : t + ' Sek.'; },
+      // Auszeichnung: wer hat den höchsten Wert? (gleichstand -> alle)
+      best(list, min) { const top = Math.max(...list.map(x => x.n)); if (!isFinite(top) || top < (min || 1)) return null; const who = list.filter(x => x.n === top); return { names: who.map(x => esc(x.name)), n: top }; },
+      award(icon, title, text) { return '<div class="award"><span class="aicon">' + icon + '</span><div><b>' + title + '</b>' + text + '</div></div>'; },
+      names(a) { return a.length > 1 ? a.slice(0, -1).join(', ') + ' & ' + a[a.length - 1] : a[0]; }
     };
     render(); connect();
     return api;

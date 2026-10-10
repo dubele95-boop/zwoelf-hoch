@@ -67,7 +67,7 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
   const humansOnline = r => r.players.some(p => !p.bot && isOnline(p.id));
   const ctx = { broadcast: r => broadcast(r), timer, clearTimer, Err, must, isOnline, humansOnline, rand: n => crypto.randomInt(n),
     shuffle: a => { for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; },
-    finish: (r) => { r.status = 'over'; } };
+    finish: (r) => { r.status = 'over'; r.records = r.records || {}; const G = GAMES[r.game]; if (G.record) try { G.record(r, r.records); } catch (e) { console.error(e); } } };
 
   function viewFor(r, id) {
     const G = GAMES[r.game];
@@ -77,7 +77,7 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
       waiting: (r.waiting || []).map(p => ({ id: p.id, name: p.name })),
       watching: !r.players.some(p => p.id === id),
       settings: r.settings, chat: (r.chat || []).slice(-60), notice: r.notice || null,
-      catalog: G.catalog || null,
+      catalog: G.catalog || null, records: r.records || {},
       g: r.state ? G.view(r, id) : null
     };
   }

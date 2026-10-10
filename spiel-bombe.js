@@ -113,13 +113,13 @@ function boom(r, why, ctx) {
   event(s, { kind: 'boom', why }); ctx.clearTimer(r, 'boom'); ctx.finish(r);
 }
 function strike(r, m, ctx, what) {
-  const s = r.state; s.strikes++;
+  const s = r.state; s.strikes++; if (s.modules[m]) s.modules[m].strikes = (s.modules[m].strikes || 0) + 1;
   s.log.push({ kind: 'strike', m, what, at: Date.now() });
   if (s.strikes >= (s.maxStrikes || MAX_STRIKES)) return boom(r, 'strikes', ctx);
   event(s, { kind: 'strike', m, what });
 }
 function solved(r, mi, ctx) {
-  const s = r.state; s.modules[mi].solved = true;
+  const s = r.state; s.modules[mi].solved = true; s.modules[mi].solvedAt = Date.now() - s.started;
   s.log.push({ kind: 'solved', m: mi, at: Date.now() });
   if (s.modules.every(x => x.solved)) {
     s.phase = 'won'; s.ended = Date.now(); event(s, { kind: 'won' }); ctx.clearTimer(r, 'boom'); ctx.finish(r);
@@ -179,6 +179,7 @@ function view(r, id) {
     phase: s.phase, defuser: s.defuser, role: isDef ? 'defuser' : (r.players.some(p => p.id === id) ? 'expert' : 'watch'),
     strikes: s.strikes, maxStrikes: s.maxStrikes || MAX_STRIKES, level: s.level || null, levels: LEVELS.length, deadline: s.deadline, total: s.total, now: Date.now(), started: s.started, ended: s.ended, why: s.why || null,
     modules: s.modules.map(x => ({ type: x.type, solved: !!x.solved })), ev: s.ev,
+    modStats: over ? s.modules.map(x => ({ type: x.type, solved: !!x.solved, at: x.solvedAt || null, strikes: x.strikes || 0 })) : null,
     manual: s.manual[id] || (over ? Object.keys(R.MODULES) : []), manualOf: s.manual, log: s.log
   };
   if (isDef || over) {
@@ -205,5 +206,16 @@ function removePlayer(r, id, ctx) {
   const experts = Object.keys(s.manual);
   loose.forEach((c, i) => { const e = experts[i % experts.length]; if (e && !s.manual[e].includes(c)) s.manual[e].push(c); });
 }
+function record(r, rec) {
+  const s = r.state, b = rec.bb = rec.bb || { played: 0, won: 0, boom: 0, best: {}, defusers: {}, fastest: null };
+  b.played++; if (s.phase === 'won') b.won++; else b.boom++;
+  const d = b.defusers[s.defuser] = b.defusers[s.defuser] || { won: 0, lost: 0 };
+  if (s.phase === 'won') d.won++; else d.lost++;
+  if (s.phase === 'won') {
+    const key = s.level ? 'L' + s.level : 'frei', used = s.ended - s.started;
+    if (!b.best[key] || used < b.best[key]) b.best[key] = used;
+  }
+  for (const m of s.modules) if (m.solvedAt != null && (!b.fastest || m.solvedAt < b.fastest.ms)) b.fastest = { ms: m.solvedAt, type: m.type };
+}
 const catalog = { LEVELS: LEVELS.map(l => ({ mods: l.mods, secs: l.secs, strikes: l.strikes, types: l.types })) };
-module.exports = { meta, catalog, defaults, setting, start, act, view, resume, removePlayer, timerText, HOLD_MS };
+module.exports = { meta, catalog, record, defaults, setting, start, act, view, resume, removePlayer, timerText, HOLD_MS };

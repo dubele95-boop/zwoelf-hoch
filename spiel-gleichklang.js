@@ -27,7 +27,7 @@ function start(r, ctx) {
     stars: mode === 'schwer' ? 0 : mode === 'leicht' ? 2 : 1,
     phase: 'ready', ready: {}, hands: {}, pile: [], out: [], vote: null,
     seq: 0, ev: null, changed: Date.now(), started: Date.now(), ended: null,
-    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0 },
+    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0, early: {}, bestJump: null, fastest: null, streak: 0, bestStreak: 0, perfect: 0, levelMistakes: 0, starsProposed: {}, specialsBy: {}, levelsDone: 0 },
     cards: {}, shields: 0, dir: 1, ref: 0, pausedUntil: 0, echo: null
   };
   botTick(r, ctx);
@@ -38,7 +38,7 @@ function deal(r, ctx) {
   s.hands = {};
   for (const p of r.players) s.hands[p.id] = deck.splice(0, s.level).sort((a, b) => a - b);
   s.pile = []; s.out = []; s.vote = null; s.phase = 'play'; s.changed = Date.now();
-  s.dir = 1; s.ref = 0; s.pausedUntil = 0; s.echo = null;
+  s.dir = 1; s.ref = 0; s.pausedUntil = 0; s.echo = null; s.stats.levelMistakes = 0;
   // Sonderkarten verteilen
   const on = SPECIALS.filter(k => (r.settings.specials || {})[k]);
   const gifts = [];
@@ -66,6 +66,7 @@ function checkLevel(r, ctx) {
   const s = r.state;
   if (s.lives <= 0) { s.phase = 'lost'; s.ended = Date.now(); ctx.finish(r); return; }
   if (cardsLeft(s) > 0) return;
+  s.stats.levelsDone = s.level; if (!s.stats.levelMistakes) s.stats.perfect++;
   if (s.level >= s.maxLevel) { s.phase = 'won'; s.ended = Date.now(); event(s, { kind: 'won' }); ctx.finish(r); return; }
   const rw = REWARD[s.level];
   let reward = null;
@@ -81,7 +82,7 @@ function play(r, id, ctx) {
   ctx.must(!s.vote, 'Erst über den Stern abstimmen.');
   ctx.must(!(s.pausedUntil > Date.now()), 'Pause! Noch einen Moment warten.');
   const h = s.hands[id]; ctx.must(h && h.length, 'Du hast keine Karten mehr.');
-  const v = takeNext(s, h);
+  const v = takeNext(s, h), prevRef = s.ref, waited = Date.now() - s.changed;
   s.pile.push({ v, pid: id }); s.ref = v;
   s.stats.played[id] = (s.stats.played[id] || 0) + 1;
   // hatte jemand noch eine Zahl, die vorher dran gewesen wäre? -> Fehler: Leben weg, diese Karten fliegen raus
@@ -92,8 +93,15 @@ function play(r, id, ctx) {
     if (shield) { s.shields--; s.stats.shieldsUsed++; } else { s.lives--; s.stats.livesLost++; }
     for (const x of lower) s.stats.mistakes[x.pid] = (s.stats.mistakes[x.pid] || 0) + 1;
     s.out.push(...lower);
+    const st = s.stats; st.early[id] = (st.early[id] || 0) + 1; st.streak = 0; st.levelMistakes++;
     event(s, { kind: 'mistake', pid: id, v, lower, shield });
-  } else event(s, { kind: 'play', pid: id, v });
+  } else {
+    const st = s.stats, gap = Math.abs(v - prevRef);
+    st.streak++; st.bestStreak = Math.max(st.bestStreak, st.streak);
+    if (!st.bestJump || gap > st.bestJump.gap) st.bestJump = { pid: id, gap, from: prevRef, v };
+    if (!st.fastest || waited < st.fastest.ms) st.fastest = { pid: id, ms: waited, v };
+    event(s, { kind: 'play', pid: id, v });
+  }
   s.changed = Date.now();
   checkLevel(r, ctx);
 }
@@ -110,7 +118,7 @@ function act(r, id, m, ctx) {
     ctx.must(s.phase === 'play', 'Einen Stern kannst du nur während des Levels einsetzen.');
     ctx.must(s.stars > 0, 'Ihr habt keinen Stern mehr.');
     ctx.must(!s.vote, 'Es läuft schon eine Abstimmung.');
-    s.vote = { by: id, yes: { [id]: true } };
+    s.vote = { by: id, yes: { [id]: true } }; s.stats.starsProposed[id] = (s.stats.starsProposed[id] || 0) + 1;
     event(s, { kind: 'vote', pid: id });
     resolveVote(r, ctx);
   } else if (m.a === 'special') {
@@ -151,7 +159,7 @@ function useSpecial(r, id, m, ctx) {
     a.push(y); b.push(x); a.sort((p, q) => p - q); b.sort((p, q) => p - q); s.echo = null;
     event(s, { kind: 'sp_tausch', pid: id, target: t.id });
   } else ctx.must(false, 'Unbekannte Sonderkarte.');
-  mine.splice(k, 1); s.stats.specials++;
+  mine.splice(k, 1); s.stats.specials++; s.stats.specialsBy[id] = (s.stats.specialsBy[id] || 0) + 1;
   s.changed = Date.now();
 }
 
@@ -218,6 +226,12 @@ const resume = (r, ctx) => {
   botTick(r, ctx);
 };
 const onPresence = (r, ctx) => botTick(r, ctx);
+function record(r, rec) {
+  const s = r.state, g = rec.gk = rec.gk || { games: 0, wins: 0, bestLevel: 0, bestStreak: 0 };
+  g.games++; if (s.phase === 'won') g.wins++;
+  g.bestLevel = Math.max(g.bestLevel, s.phase === 'won' ? s.maxLevel : s.stats.levelsDone || 0);
+  g.bestStreak = Math.max(g.bestStreak || 0, s.stats.bestStreak || 0);
+}
 const chatAllowed = r => !r.state || r.state.phase !== 'play';
 
 function view(r, id) {
@@ -239,4 +253,4 @@ function view(r, id) {
   };
 }
 
-module.exports = { meta, defaults, setting, liveSetting, start, act, view, removePlayer, resume, onPresence, chatAllowed };
+module.exports = { meta, defaults, setting, liveSetting, record, start, act, view, removePlayer, resume, onPresence, chatAllowed };

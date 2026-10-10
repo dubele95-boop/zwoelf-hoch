@@ -122,6 +122,44 @@ const SHIELD = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 const spCardBig = k => '<div class="gk-sp sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b></div>';
 const spCard = (k, attrs) => '<' + (attrs ? 'button type="button" ' + attrs : 'div') + ' class="spc sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></' + (attrs ? 'button' : 'div') + '>';
 
+const AI = {
+  bolt: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  jump: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18c4-10 10-10 14-4"/><path d="M14 9l4 5-6 1"/></svg>',
+  calm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9.5h.01M15 9.5h.01"/></svg>',
+  fire: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 3 1 4 2 4 0-4-1-6 1-9z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  team: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20c0-4 3-7 6-7s6 3 6 7zM12 20c0-3 2-6 4-7 3 0 6 3 6 7z"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4V5a1 1 0 0 1 1-1z"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 3h10v3h3v2a4 4 0 0 1-4 4 5 5 0 0 1-3 3v3h3v3H8v-3h3v-3a5 5 0 0 1-3-3 4 4 0 0 1-4-4V6h3zm0 5V6H5v2a2 2 0 0 0 2 2zm10 0a2 2 0 0 0 2-2V6h-2z"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l10 18H2zm-1 7v5h2V9zm0 7v2h2v-2z"/></svg>',
+  pack: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4a4 4 0 0 1 8 0h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1zm2 0h4a2 2 0 0 0-4 0zm-2 8v3h8v-3z"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3 4 6.8 4c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3C21 4 23.1 8 21.6 11.6 19.5 16.4 12 21 12 21z"/></svg>',
+  gift: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9h18v4H3zM5 13h14v8H5zM11 9h2v12h-2zM12 9C9 9 7 7 8 5s4 0 4 4zm0 0c3 0 5-2 4-4s-4 0-4 4z"/></svg>',
+  magic: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 4l1.6 3.7 4 .4-3 2.7.9 3.9-3.5-2-3.5 2 .9-3.9-3-2.7 4-.4z"/><path d="M3 21l8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+};
+
+function gkStats(r, api) {
+  const g = r.g, st = g.stats || {}, P = r.players, won = g.phase === 'won';
+  const nm = id => esc(api.pname(id)), dur = (g.ended || Date.now()) - g.started;
+  const sumPlayed = Object.values(st.played || {}).reduce((a, b) => a + b, 0);
+  const levelReached = won ? g.maxLevel : (st.levelsDone || 0);
+  const kpi = (v, t) => '<div class="kpi"><b>' + v + '</b><span>' + t + '</span></div>';
+  const list = f => P.map(p => ({ name: p.name, n: f(p.id) || 0 }));
+  const aw = [];
+  if (st.bestJump && st.bestJump.gap >= 10) aw.push(api.award(AI.jump, 'Großer Sprung', nm(st.bestJump.pid) + ' legte die ' + st.bestJump.v + (st.bestJump.from && st.bestJump.from !== 101 ? ' direkt nach der ' + st.bestJump.from : ' als erste Karte') + ' – ' + st.bestJump.gap + ' Zahlen Abstand, ohne Fehler.'));
+  if (st.fastest) aw.push(api.award(AI.bolt, 'Blitzreaktion', nm(st.fastest.pid) + ' legte die ' + st.fastest.v + ' schon nach ' + (st.fastest.ms / 1000).toFixed(1).replace('.', ',') + ' Sekunden.'));
+  { const calm = P.filter(p => !(st.early || {})[p.id] && (st.played || {})[p.id]).map(p => ({ name: p.name, n: st.played[p.id] })); const b = api.best(calm, 3); if (b) aw.push(api.award(AI.calm, 'Ruhige Hand', api.names(b.names) + (b.names.length > 1 ? ' haben je ' : ' hat ') + b.n + ' Karten gelegt und nie zu früh.')); }
+  { const b = api.best(list(id => (st.early || {})[id])); if (b) aw.push(api.award(AI.fire, 'Draufgänger', api.names(b.names) + (b.names.length > 1 ? ' legten je ' : ' legte ') + b.n + 'x zu früh.')); }
+  { const b = api.best(list(id => (st.mistakes || {})[id])); if (b) aw.push(api.award(AI.clock, 'Zu lange gezögert', 'Bei ' + api.names(b.names) + ' lagen ' + b.n + (b.n === 1 ? ' Karte' : ' Karten') + ' zu lange auf der Hand.')); }
+  { const b = api.best(list(id => ((st.starsProposed || {})[id] || 0) + ((st.specialsBy || {})[id] || 0))); if (b) aw.push(api.award(AI.magic, 'Trickkiste', api.names(b.names) + (b.names.length > 1 ? ' haben je ' : ' hat ') + b.n + 'x einen Stern vorgeschlagen oder eine Sonderkarte gespielt.')); }
+  const rows = P.slice().sort((a, b) => ((st.played || {})[b.id] || 0) - ((st.played || {})[a.id] || 0)).map(p => '<tr' + (p.id === r.me ? ' class="me"' : '') + '><td>' + esc(p.name) + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + '</td><td>' + ((st.played || {})[p.id] || 0) + '</td><td>' + ((st.early || {})[p.id] || 0) + '</td><td>' + ((st.mistakes || {})[p.id] || 0) + '</td><td>' + (((st.specialsBy || {})[p.id] || 0) + ((st.starsProposed || {})[p.id] || 0)) + '</td><td>' + ((g.reveal && g.reveal[p.id]) || []).join(', ') + '</td></tr>').join('');
+  const rec = (r.records || {}).gk;
+  return '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Geschafft!' : 'Verloren') + '</span><span class="muted">Runde ' + r.round + ' · ' + api.fmtDur(dur) + '</span></div>' +
+    '<div class="kpis">' + kpi(levelReached + '/' + g.maxLevel, 'Level geschafft') + kpi(sumPlayed, 'Karten gelegt') + kpi(st.bestStreak || 0, 'längste Serie ohne Fehler') + kpi(st.perfect || 0, 'perfekte Level') + kpi(st.livesLost || 0, 'Leben verloren') + kpi((st.starsUsed || 0) + ' / ' + (st.shieldsUsed || 0) + ' / ' + (st.specials || 0), 'Sterne / Schilde / Sonderkarten') + '</div>' +
+    (aw.length ? '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' : '') +
+    '<div class="label">Spieler</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Spieler</th><th>gelegt</th><th>zu früh</th><th>zu lange gehalten</th><th>Sterne & Sonder&shy;karten</th><th>übrige Karten</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    (rec ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + rec.games + (rec.games === 1 ? ' Spiel' : ' Spiele') + '</span><span class="pill">' + rec.wins + ' gewonnen</span><span class="pill">bestes Level: ' + rec.bestLevel + '</span><span class="pill">längste Serie: ' + (rec.bestStreak || 0) + ' Karten</span></div>' : '');
+}
 function spSettings(r, host) { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
         return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="splist">' +
           Object.keys(SP).map(k => '<div class="spc sp-' + k + '"><div><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></div>' +
@@ -152,6 +190,7 @@ const api = Spieleabend.start({
       spSettings(r, host) +
       '<div class="field"><span class="label">Kurz erklärt</span><p class="muted">Legt eure Zahlen gemeinsam aufsteigend ab, ohne zu reden. Wer zu früh legt oder zu lange wartet, kostet ein Leben.</p></div>';
   },
+  stats: (r, api) => gkStats(r, api),
   livePanel: r => '<p class="muted" style="margin:0">Änderungen gelten ab dem nächsten Level. Bereits verteilte Sonderkarten bleiben auf der Hand.</p>' + spSettings(r, true),
   chatQuiet: r => r.status === 'playing' && r.g && r.g.phase === 'play' ? 'Psst! Während ihr legt, wird nicht geredet.' : null,
   render: renderGame,
