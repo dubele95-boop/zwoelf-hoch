@@ -257,6 +257,7 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .hand .cbtn+.cbtn{margin-left:calc(-1 * var(--hov, 0px))}
 .endrow{min-height:38px}
 .handgrp{flex:1 1 calc(var(--cw) * 5.6);min-width:0}
+.stockpile{position:relative;flex:none}.stockpile > .back{position:absolute;left:3px;top:3px;pointer-events:none}.stockpile > .cbtn{position:relative}
 .stockwrap{display:flex;gap:10px;align-items:flex-end;padding-top:12px}
 .count{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--accent)}
@@ -1506,7 +1507,7 @@ function renderGame(){
     const handH = hand.map((v,i) => '<button class="cbtn' + (sel && sel.src === 'hand' && sel.i === i ? ' sel' : '') + '" data-act="hand" data-i="' + i + '"' + (mine ? '' : ' tabindex="-1"') + ' aria-label="Handkarte ' + cardName(v) + '">' + cardHTML(v) + '</button>').join('');
     me = '<section class="mine' + (mine ? ' turn' : '') + '">' +
       '<div class="grp"><div class="label">Dein Spielerstapel</div><div class="stockwrap">' +
-        (stTop == null ? '<div class="slot">—</div>' : '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + cardName(stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button>') +
+        (stTop == null ? '<div class="slot">—</div>' : '<div class="stockpile">' + (p.stockCount > 1 ? backHTML() : '') + '<button class="cbtn' + (stockSel ? ' sel' : '') + '" data-act="stock" aria-label="Spielerstapel ' + cardName(stTop) + '"' + (mine ? '' : ' tabindex="-1"') + '>' + cardHTML(stTop) + '</button></div>') +
         '<div><div class="count">' + p.stockCount + '</div><div class="muted" style="font-size:12px">übrig</div></div></div>' +
         '<div class="hint"' + (stockFits && !stockSel ? '' : ' style="visibility:hidden"') + '>Deine Stapelkarte passt!</div>' +
       '</div>' +
