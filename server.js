@@ -845,5 +845,5 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 // nur für automatische Tests (im echten Betrieb nie gesetzt)
-if (process.env.ZH_TEST_HOOKS) global.__zh = { games, handlers, setupPiles, botAct: (...a) => botAct(...a) };
+if (process.env.ZH_TEST_HOOKS) global.__zh = { games, handlers, setupPiles, botAct: (...a) => botAct(...a), abend };
 Promise.all([loadGames(), abend.load()]).then(() => server.listen(PORT, () => console.log('Spieleabend läuft auf http://localhost:' + PORT + (store ? ' (mit Speicher)' : ''))));

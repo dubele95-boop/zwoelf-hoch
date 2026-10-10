@@ -3,12 +3,18 @@ const LEVELS = { 2: 12, 3: 10 };               // ab 4 Spielern: 8 Level
 const REWARD = { 2: 'star', 3: 'life', 5: 'star', 6: 'life', 8: 'star', 9: 'life' };   // Belohnung nach geschafftem Level
 const MAX_LIVES = 5, MAX_STARS = 3;
 const BOT_MS_PER_STEP = 360;
+// Sonderkarten: werden ab Level 2 verteilt (ab Level 5 zwei pro Level)
+const SPECIALS = ['echo', 'schild', 'spiegel', 'pause', 'tausch'];
+const MAX_SHIELDS = 2, PAUSE_MS = 10000, ECHO_MS = 6000, ECHO_RANGE = 10;
 
 const meta = { id: 'gleichklang', name: 'Gleichklang', min: 2, max: 6, bots: true, maxBots: 5 };
 
-function defaults() { return { mode: 'normal' }; }
+function defaults() { return { mode: 'normal', specials: { echo: true, schild: true, spiegel: false, pause: false, tausch: false } }; }
 function setting(r, key, value, ctx) {
   if (key === 'mode') { ctx.must(['leicht', 'normal', 'schwer'].includes(value), 'Unbekannte Stufe.'); r.settings.mode = value; return; }
+  r.settings.specials = r.settings.specials || {};
+  if (key === 'allSpecials') { for (const k of SPECIALS) r.settings.specials[k] = !!value; return; }
+  if (key.startsWith('sp_')) { const k = key.slice(3); ctx.must(SPECIALS.includes(k), 'Unbekannte Sonderkarte.'); r.settings.specials[k] = !!value; return; }
   ctx.must(false, 'Unbekannte Einstellung.');
 }
 
@@ -20,7 +26,8 @@ function start(r, ctx) {
     stars: mode === 'schwer' ? 0 : mode === 'leicht' ? 2 : 1,
     phase: 'ready', ready: {}, hands: {}, pile: [], out: [], vote: null,
     seq: 0, ev: null, changed: Date.now(), started: Date.now(), ended: null,
-    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0 }
+    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0 },
+    cards: {}, shields: 0, dir: 1, ref: 0, pausedUntil: 0, echo: null
   };
   botTick(r, ctx);
 }
@@ -30,8 +37,25 @@ function deal(r, ctx) {
   s.hands = {};
   for (const p of r.players) s.hands[p.id] = deck.splice(0, s.level).sort((a, b) => a - b);
   s.pile = []; s.out = []; s.vote = null; s.phase = 'play'; s.changed = Date.now();
-  event(s, { kind: 'deal' });
+  s.dir = 1; s.ref = 0; s.pausedUntil = 0; s.echo = null;
+  // Sonderkarten verteilen
+  const on = SPECIALS.filter(k => (r.settings.specials || {})[k]);
+  const gifts = [];
+  const count = !on.length || s.level < 2 ? 0 : s.level >= 5 ? 2 : 1;
+  const humans = r.players.filter(p => !p.bot);
+  for (let i = 0; i < count; i++) {
+    const kind = on[ctx.rand(on.length)];
+    if (kind === 'schild') { if (s.shields < MAX_SHIELDS) { s.shields++; gifts.push({ kind, pid: null }); } continue; }
+    if (!humans.length) continue;
+    const p = humans[ctx.rand(humans.length)];
+    s.cards = s.cards || {}; (s.cards[p.id] = s.cards[p.id] || []).push(kind);
+    gifts.push({ kind, pid: p.id });
+  }
+  event(s, { kind: 'deal', gifts });
 }
+// welche Karte ist bei diesem Spieler als Nächstes dran? (aufsteigend: kleinste, im Spiegel: größte)
+const nextOf = (s, h) => s.dir === 1 ? h[0] : h[h.length - 1];
+const takeNext = (s, h) => s.dir === 1 ? h.shift() : h.pop();
 function event(s, e) { s.seq++; s.ev = { ...e, seq: s.seq }; }
 const name = (r, id) => (r.players.find(p => p.id === id) || {}).name || 'Jemand';
 const top = s => s.pile.length ? s.pile[s.pile.length - 1].v : 0;
@@ -54,18 +78,20 @@ function play(r, id, ctx) {
   const s = r.state;
   ctx.must(s.phase === 'play', 'Gerade wird nicht gelegt.');
   ctx.must(!s.vote, 'Erst über den Stern abstimmen.');
+  ctx.must(!(s.pausedUntil > Date.now()), 'Pause! Noch einen Moment warten.');
   const h = s.hands[id]; ctx.must(h && h.length, 'Du hast keine Karten mehr.');
-  const v = h.shift();
-  s.pile.push({ v, pid: id });
+  const v = takeNext(s, h);
+  s.pile.push({ v, pid: id }); s.ref = v;
   s.stats.played[id] = (s.stats.played[id] || 0) + 1;
-  // hatte jemand noch eine kleinere Zahl? -> Fehler: Leben weg, diese Karten fliegen raus
+  // hatte jemand noch eine Zahl, die vorher dran gewesen wäre? -> Fehler: Leben weg, diese Karten fliegen raus
   const lower = [];
-  for (const p of r.players) { const hh = s.hands[p.id] || []; while (hh.length && hh[0] < v) lower.push({ v: hh.shift(), pid: p.id }); }
+  for (const p of r.players) { const hh = s.hands[p.id] || []; while (hh.length && (s.dir === 1 ? hh[0] < v : hh[hh.length - 1] > v)) lower.push({ v: takeNext(s, hh), pid: p.id }); }
   if (lower.length) {
-    s.lives--; s.stats.livesLost++;
+    const shield = s.shields > 0;
+    if (shield) { s.shields--; s.stats.shieldsUsed++; } else { s.lives--; s.stats.livesLost++; }
     for (const x of lower) s.stats.mistakes[x.pid] = (s.stats.mistakes[x.pid] || 0) + 1;
     s.out.push(...lower);
-    event(s, { kind: 'mistake', pid: id, v, lower });
+    event(s, { kind: 'mistake', pid: id, v, lower, shield });
   } else event(s, { kind: 'play', pid: id, v });
   s.changed = Date.now();
   checkLevel(r, ctx);
@@ -86,6 +112,8 @@ function act(r, id, m, ctx) {
     s.vote = { by: id, yes: { [id]: true } };
     event(s, { kind: 'vote', pid: id });
     resolveVote(r, ctx);
+  } else if (m.a === 'special') {
+    useSpecial(r, id, m, ctx);
   } else if (m.a === 'vote') {
     ctx.must(s.vote, 'Gerade gibt es keine Abstimmung.');
     if (m.yes) { s.vote.yes[id] = true; resolveVote(r, ctx); }
@@ -94,12 +122,44 @@ function act(r, id, m, ctx) {
   botTick(r, ctx);
 }
 
+function useSpecial(r, id, m, ctx) {
+  const s = r.state, mine = (s.cards && s.cards[id]) || [], k = mine.indexOf(m.kind);
+  ctx.must(k >= 0, 'Diese Sonderkarte hast du nicht.');
+  ctx.must(s.phase === 'play', 'Sonderkarten kannst du nur während des Legens einsetzen.');
+  ctx.must(!s.vote, 'Erst über den Stern abstimmen.');
+  ctx.must(!(s.pausedUntil > Date.now()), 'Gerade ist Pause.');
+  ctx.must(cardsLeft(s) > 0, 'Es liegen keine Karten mehr auf der Hand.');
+  if (m.kind === 'echo') {
+    const near = r.players.filter(p => { const h = s.hands[p.id] || []; if (!h.length) return false; const n = nextOf(s, h); return s.dir === 1 ? n - s.ref <= ECHO_RANGE : (s.ref || 101) - n <= ECHO_RANGE; }).map(p => p.id);
+    s.echo = { pids: near, until: Date.now() + ECHO_MS, by: id };
+    event(s, { kind: 'sp_echo', pid: id, near });
+  } else if (m.kind === 'spiegel') {
+    ctx.must(s.dir === 1, 'Es wird schon rückwärts gelegt.');
+    s.dir = -1; s.ref = 101; s.echo = null;
+    event(s, { kind: 'sp_spiegel', pid: id });
+  } else if (m.kind === 'pause') {
+    s.pausedUntil = Date.now() + PAUSE_MS;
+    event(s, { kind: 'sp_pause', pid: id, until: s.pausedUntil });
+    ctx.timer(r, 'pause', PAUSE_MS, () => { s.changed = Date.now(); s.botPlan = null; event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); });
+  } else if (m.kind === 'tausch') {
+    const t = r.players.find(p => p.id === m.target);
+    ctx.must(t && t.id !== id, 'Wähle einen Mitspieler.');
+    const a = s.hands[id] || [], b = s.hands[t.id] || [];
+    ctx.must(a.length && b.length, 'Ihr braucht beide noch mindestens eine Karte.');
+    const x = takeNext(s, a), y = takeNext(s, b);
+    a.push(y); b.push(x); a.sort((p, q) => p - q); b.sort((p, q) => p - q); s.echo = null;
+    event(s, { kind: 'sp_tausch', pid: id, target: t.id });
+  } else ctx.must(false, 'Unbekannte Sonderkarte.');
+  mine.splice(k, 1); s.stats.specials++;
+  s.changed = Date.now();
+}
+
 function resolveVote(r, ctx) {
   const s = r.state;
   if (!r.players.every(p => s.vote.yes[p.id] || !(s.hands[p.id] || []).length)) return;
   s.vote = null; s.stars--; s.stats.starsUsed++;
   const shown = [];
-  for (const p of r.players) { const h = s.hands[p.id]; if (h && h.length) shown.push({ v: h.shift(), pid: p.id }); }
+  for (const p of r.players) { const h = s.hands[p.id]; if (h && h.length) shown.push({ v: takeNext(s, h), pid: p.id }); }
   s.out.push(...shown);
   event(s, { kind: 'star', shown });
   s.changed = Date.now();
@@ -117,16 +177,17 @@ function botTick(r, ctx) {
     return;
   }
   if (s.phase !== 'play') return;
+  if (s.pausedUntil > Date.now()) { ctx.clearTimer(r, 'bot'); return; }   // nach der Pause stößt der Pausen-Timer die Bots wieder an
   if (s.vote) {
     if (bots.some(b => !s.vote.yes[b.id] && (s.hands[b.id] || []).length)) ctx.timer(r, 'bot', 900, () => { if (!s.vote) return; for (const b of bots) s.vote.yes[b.id] = true; resolveVote(r, ctx); ctx.broadcast(r); botTick(r, ctx); });
     else ctx.clearTimer(r, 'bot');
     return;
   }
-  // jeder Bot "zählt" vom obersten Stapelwert bis zu seiner kleinsten Karte
+  // jeder Bot "zählt" vom obersten Stapelwert bis zu seiner nächsten Karte
   let best = null;
   for (const b of bots) {
     const h = s.hands[b.id]; if (!h || !h.length) continue;
-    const gap = h[0] - top(s);
+    const gap = s.dir === 1 ? h[0] - top(s) : (s.ref || 101) - h[h.length - 1];
     const plan = s.botPlan && s.botPlan[b.id] && s.botPlan[b.id].c === s.changed ? s.botPlan[b.id] : { c: s.changed, ms: gap * BOT_MS_PER_STEP * (0.85 + Math.random() * 0.3) + 500 };
     s.botPlan = s.botPlan || {}; s.botPlan[b.id] = plan;
     const due = s.changed + plan.ms;
@@ -143,14 +204,18 @@ function botTick(r, ctx) {
 
 function removePlayer(r, id, ctx) {
   const s = r.state; if (!s) return;
-  delete s.hands[id]; delete s.ready[id];
+  delete s.hands[id]; delete s.ready[id]; if (s.cards) delete s.cards[id];
   if (s.vote && s.vote.by === id) s.vote = null;
   if (s.phase === 'ready' && r.players.every(p => s.ready[p.id])) deal(r, ctx);
   else if (s.phase === 'play') { if (s.vote) resolveVote(r, ctx); checkLevel(r, ctx); }
   s.changed = Date.now();
   botTick(r, ctx);
 }
-const resume = (r, ctx) => { if (r.state) { r.state.changed = Date.now(); r.state.botPlan = null; } botTick(r, ctx); };
+const resume = (r, ctx) => {
+  const s = r.state;
+  if (s) { s.changed = Date.now(); s.botPlan = null; if (s.pausedUntil > Date.now()) ctx.timer(r, 'pause', s.pausedUntil - Date.now(), () => { s.changed = Date.now(); event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); }); }
+  botTick(r, ctx);
+};
 const onPresence = (r, ctx) => botTick(r, ctx);
 const chatAllowed = r => !r.state || r.state.phase !== 'play';
 
@@ -159,7 +224,11 @@ function view(r, id) {
   return {
     level: s.level, maxLevel: s.maxLevel, lives: s.lives, stars: s.stars, phase: s.phase,
     ready: s.ready, vote: s.vote, ev: s.ev,
-    hand: s.hands[id] || [],
+    hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(),
+    myCards: (s.cards && s.cards[id]) || [], shields: s.shields || 0, maxShields: MAX_SHIELDS,
+    pausedUntil: s.pausedUntil || 0, echo: s.echo && s.echo.until > Date.now() ? s.echo : null,
+    cardCounts: Object.fromEntries(r.players.map(p => [p.id, ((s.cards && s.cards[p.id]) || []).length])),
+    specialsOn: SPECIALS.filter(k => (r.settings.specials || {})[k]),
     counts: Object.fromEntries(r.players.map(p => [p.id, (s.hands[p.id] || []).length])),
     pile: s.pile.slice(-12), pileCount: s.pile.length, out: s.out,
     // am Ende dürfen alle sehen, wer was noch hatte

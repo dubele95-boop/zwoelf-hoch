@@ -20,6 +20,9 @@
 .gk-res .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:6px}
 .heart{color:#ff6b7a}.heart.empty{color:rgba(255,255,255,.14)}
 .star{color:#ffd166}
+.starbtn{border:1px solid rgba(255,209,102,.55);background:rgba(255,209,102,.08);border-radius:10px;padding:4px 10px;display:flex;align-items:center;gap:4px}
+.starbtn:hover{background:rgba(255,209,102,.18);border-color:#ffd166}
+.starhint{font-size:12px;font-weight:700;color:#ffd166;margin-left:4px}
 .gk-players{display:flex;flex-wrap:wrap;gap:10px}
 .gk-p{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.18);min-width:130px}
 .gk-p .nm{font-weight:700;display:flex;gap:6px;align-items:center}
@@ -29,7 +32,7 @@
 .gk-p.flash{animation:pflash .7s ease}
 @keyframes pflash{0%{box-shadow:0 0 0 0 rgba(79,209,197,.0)}30%{box-shadow:0 0 0 4px rgba(79,209,197,.7)}100%{box-shadow:0 0 0 0 rgba(79,209,197,0)}}
 .gk-mid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
-.gk-pile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:270px;position:relative}
+.gk-pile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:270px;position:relative}
 .gk-pile .stack{position:relative;width:132px;aspect-ratio:5/7}
 .gk-pile .stack .gk-card{--w:132px;position:absolute;inset:0}
 .gk-pile .who{color:var(--muted);font-size:14px;min-height:21px}
@@ -63,6 +66,28 @@
 .gk-over td:first-child,.gk-over th:first-child{text-align:left}
 .redflash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,60,60,0),rgba(255,60,60,.35));animation:rf .8s ease forwards;z-index:40}
 @keyframes rf{from{opacity:1}to{opacity:0}}
+/* Sonderkarten */
+.spc{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:12px;border:1px solid var(--sc);background:color-mix(in srgb,var(--sc) 14%,transparent);text-align:left;min-width:0}
+.spc .ico{width:38px;height:52px;border-radius:7px;display:grid;place-items:center;background:var(--sc);color:#14121f;flex:none;box-shadow:0 4px 10px rgba(0,0,0,.3)}
+.spc .ico svg{width:24px;height:24px}
+.spc b{display:block;font-size:15px}
+.spc small{display:block;color:var(--muted);font-size:12.5px;line-height:1.3}
+button.spc:not(:disabled):hover{background:color-mix(in srgb,var(--sc) 26%,transparent)}
+button.spc:disabled{opacity:.55;cursor:default}
+.sp-echo{--sc:#7fd6ff}.sp-schild{--sc:#9be38a}.sp-spiegel{--sc:#ff9ad5}.sp-pause{--sc:#c9b8ff}.sp-tausch{--sc:#ffb86b}
+.spcards{display:flex;flex-wrap:wrap;gap:8px}
+.shield{color:#9be38a}
+.mirror{display:inline-flex;align-items:center;gap:6px;color:#ff9ad5;border-color:rgba(255,154,213,.6)}
+.gk-p.near{border-color:#7fd6ff;box-shadow:0 0 0 3px rgba(127,214,255,.35),0 0 24px rgba(127,214,255,.35)}
+.gk-p .nearlbl{font-size:11px;font-weight:800;color:#7fd6ff;text-transform:uppercase;letter-spacing:.06em}
+.gk-p .spn{font-size:11px;color:#ffd166;font-weight:700}
+.pausebox{position:absolute;inset:0;display:grid;place-items:center;background:rgba(20,16,40,.82);border-radius:14px;text-align:center;z-index:2}
+.pausebox b{display:block;font:900 64px/1 var(--f-display);color:#c9b8ff}
+.pausebox span{color:var(--muted);font-weight:700}
+.splist{display:flex;flex-direction:column;gap:6px}
+.splist .spc{justify-content:space-between}
+.splist .spc > div{display:flex;align-items:center;gap:10px;min-width:0}
+.pick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 @media (max-width:760px){.gk-mid{grid-template-columns:minmax(0,1fr)}.gk-hand .cards .gk-card{--w:70px}}
 </style></head><body>
 <div id="app"></div>
@@ -74,7 +99,16 @@ const HEART = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><
 const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>';
 const hue = v => { const t = (v - 1) / 99; const h = 175 + t * 205; return 'hsl(' + (h % 360) + ' 62% 38%)'; };
 const card = (v, extra) => '<div class="gk-card' + (extra || '') + '" style="--h:' + hue(v) + '"><small>' + v + '</small>' + v + '<small class="b">' + v + '</small></div>';
-let local = { lastSeq: 0, lastLevelEv: null };
+let local = { lastSeq: 0, lastLevelEv: null, pick: false, tick: 0 };
+const SP = {
+  echo: { name: 'Echo', text: 'Zeigt allen, wer eine Karte nah an der obersten Zahl hat (bis 10 entfernt).', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="2" fill="currentColor"/><path d="M9.5 8a6 6 0 0 1 0 8M13.5 5a10 10 0 0 1 0 14M17.5 2.5a14 14 0 0 1 0 19"/></svg>' },
+  schild: { name: 'Schutzschild', text: 'Fängt automatisch den nächsten Fehler ab – kein Leben weg.', ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>' },
+  spiegel: { name: 'Spiegel', text: 'Ab jetzt wird rückwärts gelegt: die größte Zahl zuerst.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>' },
+  pause: { name: 'Pause', text: '10 Sekunden lang kann niemand legen. Durchatmen!', ico: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.2"/><rect x="14" y="4" width="4" height="16" rx="1.2"/></svg>' },
+  tausch: { name: 'Tausch', text: 'Du tauschst deine nächste Karte mit der eines Mitspielers.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>' }
+};
+const SHIELD = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>';
+const spCard = (k, attrs) => '<' + (attrs ? 'button type="button" ' + attrs : 'div') + ' class="spc sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></' + (attrs ? 'button' : 'div') + '>';
 
 const api = Spieleabend.start({
   game: 'gleichklang', title: 'Gleichklang', tagline: 'Gemeinsam aufsteigend – ohne Worte',
@@ -87,9 +121,10 @@ const api = Spieleabend.start({
     '<h3>Ablauf</h3><ol><li>In Level 1 bekommt jeder 1 Karte, in Level 2 zwei Karten und so weiter. Die Zahlen gehen von 1 bis 100.</li>' +
     '<li>Ihr legt alle Karten zusammen auf einen Stapel – <b>aufsteigend</b>. Es gibt keine Reihenfolge, wer dran ist: Wer meint, jetzt sei seine Zahl dran, legt sie.</li>' +
     '<li>Während gelegt wird, darf <b>nicht geredet</b> werden (der Chat ist dann aus). Ihr müsst ein Gefühl für die Zeit entwickeln: Wer eine 3 hat, legt schnell – wer eine 90 hat, wartet lange.</li>' +
-    '<li>Du legst immer deine kleinste Karte.</li></ol>' +
+    '<li>Du legst immer deine kleinste Karte (nach einem Spiegel: deine größte).</li></ol>' +
     '<h3>Fehler</h3><ul><li>Hatte jemand noch eine kleinere Zahl, als gerade gelegt wurde, verliert das Team <b>ein Leben</b>. Alle kleineren Karten werden aufgedeckt und abgeworfen, dann geht es weiter.</li><li>Sind alle Leben weg, ist das Spiel verloren.</li></ul>' +
     '<h3>Sterne</h3><ul><li>Steckt ihr fest, kann jemand einen <b>Stern</b> vorschlagen. Sind alle einverstanden, wirft jeder seine kleinste Karte offen ab – das gibt euch Hinweise.</li></ul>' +
+    '<h3>Sonderkarten</h3><p>Ab Level 2 werden zusätzlich Sonderkarten verteilt (ab Level 5 zwei pro Level). Welche mitspielen, legt der Gastgeber in der Lobby fest. Einsetzen kannst du sie, während gelegt wird – einfach anklicken.</p><div class="splist">' + Object.keys(SP).map(k => spCard(k)).join('') + '</div><p class="muted">Das Schutzschild bekommt das ganze Team; es wird beim nächsten Fehler automatisch verbraucht (höchstens 2 gleichzeitig).</p>' +
     '<h3>Belohnungen</h3><ul><li>Nach Level 2, 5 und 8 gibt es einen Stern, nach Level 3, 6 und 9 ein Leben dazu.</li><li>Gewonnen habt ihr, wenn ihr das letzte Level schafft (2 Spieler: 12 Level, 3 Spieler: 10, ab 4 Spielern: 8).</li></ul>' +
     '<h3>Vor jedem Level</h3><ul><li>Alle drücken „Bereit“. Erst dann werden die Karten verteilt. Kurz durchatmen, konzentrieren – los.</li></ul>',
   lobby: (r, host) => {
@@ -97,6 +132,11 @@ const api = Spieleabend.start({
     const opt = (v, t) => '<button type="button" data-set="mode" data-val="' + v + '" aria-pressed="' + (m === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
     return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
       '<small class="muted">' + (m === 'leicht' ? 'Ein Leben und ein Stern mehr zum Start.' : m === 'schwer' ? 'Ein Leben weniger und kein Stern zum Start.' : 'So viele Leben wie Spieler und ein Stern.') + '</small></div>' +
+      (() => { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
+        return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="splist">' +
+          Object.keys(SP).map(k => '<div class="spc sp-' + k + '"><div><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></div>' +
+            (host ? '<button type="button" class="toggle" role="switch" aria-checked="' + !!on[k] + '" aria-label="' + SP[k].name + '" data-set="sp_' + k + '" data-val="' + !on[k] + '"><i></i></button>' : '<span class="pill' + (on[k] ? ' live' : '') + '">' + (on[k] ? 'an' : 'aus') + '</span>') + '</div>').join('') +
+          '</div><small class="muted">Werden ab Level 2 verteilt. Bots bekommen keine Sonderkarten.</small></div>'; })() +
       '<div class="field"><span class="label">Kurz erklärt</span><p class="muted">Legt eure Zahlen gemeinsam aufsteigend ab, ohne zu reden. Wer zu früh legt oder zu lange wartet, kostet ein Leben.</p></div>';
   },
   chatQuiet: r => r.status === 'playing' && r.g && r.g.phase === 'play' ? 'Psst! Während ihr legt, wird nicht geredet.' : null,
@@ -107,11 +147,20 @@ const api = Spieleabend.start({
     play: () => api.act('play'),
     star: () => api.act('star'),
     yes: () => api.act('vote', { yes: true }),
-    no: () => api.act('vote', { yes: false })
+    no: () => api.act('vote', { yes: false }),
+    sp: el => { const k = el.dataset.k; if (k === 'tausch') { local.pick = true; api.render(); return; } api.act('special', { kind: k }); },
+    swap: el => { local.pick = false; api.act('special', { kind: 'tausch', target: el.dataset.pid }); },
+    swapCancel: () => { local.pick = false; api.render(); }
   },
+  onEscape: () => { if (local.pick) { local.pick = false; api.render(); } },
   sounds: {
     play: (S, t, v) => S.tone(520, t, .22, 'triangle', .14 * v),
     lvl: (S, t, v) => [523, 659, 784, 1047, 1319].forEach((f, i) => S.tone(f, t + i * .08, .35, 'triangle', .14 * v)),
+    echo: (S, t, v) => [0, .18, .36].forEach((d, i) => S.tone(880, t + d, .5 - i * .1, 'sine', (.12 - i * .03) * v)),
+    shield: (S, t, v) => { S.tone(440, t, .3, 'triangle', .14 * v); S.tone(880, t + .05, .5, 'sine', .1 * v); },
+    mirror: (S, t, v) => [1319, 1047, 784, 523].forEach((f, i) => S.tone(f, t + i * .07, .3, 'triangle', .12 * v)),
+    pausefx: (S, t, v) => { S.tone(330, t, .6, 'sine', .14 * v); S.tone(247, t + .3, .8, 'sine', .12 * v); },
+    swapfx: (S, t, v) => { S.tone(523, t, .15, 'triangle', .12 * v); S.tone(784, t + .12, .15, 'triangle', .12 * v); S.tone(523, t + .24, .2, 'triangle', .12 * v); },
     starfx: (S, t, v) => [1568, 1976, 2349, 2637].forEach((f, i) => S.tone(f, t + i * .06, .45, 'sine', .08 * v))
   }
 });
@@ -120,13 +169,22 @@ function renderGame(r, el) {
   const g = r.g; if (!g) { el.innerHTML = ''; return; }
   const me = r.me, mine = r.players.some(p => p.id === me);
   const hearts = Array.from({ length: Math.max(g.lives, 0) }, () => '<span class="heart">' + HEART + '</span>').join('') || '<span class="muted">keine</span>';
+  const canStar = mine && r.status === 'playing' && g.phase === 'play' && g.stars > 0 && !g.vote && Object.values(g.counts).some(n => n > 0);
+  local.off = (g.now || Date.now()) - Date.now();
+  const paused = g.pausedUntil > Date.now() + local.off;
+  const echoOn = g.echo && g.echo.until > Date.now() + local.off ? g.echo : null;
+  const shields = g.shields ? '<div class="grp" title="Schutzschild: fängt den nächsten Fehler ab"><span class="lbl">Schild</span>' + Array.from({ length: g.shields }, () => '<span class="shield">' + SHIELD + '</span>').join('') + '</div>' : '';
   const stars = Array.from({ length: g.stars }, () => '<span class="star">' + STAR + '</span>').join('') || '<span class="muted">keine</span>';
   const top = '<div class="panel gk-top"><div class="gk-level"><b>Level ' + g.level + '</b><span>von ' + g.maxLevel + '</span></div>' +
-    '<div class="gk-res"><div class="grp" title="Leben"><span class="lbl">Leben</span>' + hearts + '</div><div class="grp" title="Sterne"><span class="lbl">Sterne</span>' + stars + '</div>' +
+    '<div class="gk-res"><div class="grp" title="Leben"><span class="lbl">Leben</span>' + hearts + '</div>' + shields + (canStar ? '<button type="button" class="grp starbtn" data-act="star" title="Stern einsetzen: Jeder wirft seine kleinste Karte offen ab"><span class="lbl">Sterne</span>' + stars + '<span class="starhint">einsetzen</span></button>'
+      : '<div class="grp" title="' + (g.stars ? (g.phase === 'play' ? (g.vote ? 'Abstimmung läuft' : 'Sterne') : 'Sterne kannst du einsetzen, sobald die Karten verteilt sind') : 'Keine Sterne') + '"><span class="lbl">Sterne</span>' + stars + '</div>') +
+    (g.dir === -1 && g.phase === 'play' ? '<span class="pill mirror">' + SP.spiegel.ico.replace('<svg', '<svg style="width:14px;height:14px"') + ' Rückwärts: größte Zahl zuerst</span>' : '') +
     (g.nextReward && r.status === 'playing' ? '<span class="pill">Belohnung nach diesem Level: ' + (g.nextReward === 'life' ? 'Leben' : 'Stern') + '</span>' : '') + '</div></div>';
   const players = '<div class="gk-players">' + r.players.map(p => {
     const n = g.counts[p.id] || 0;
-    return '<div class="gk-p' + (p.id === me ? ' me' : '') + '" data-pid="' + esc(p.id) + '"><div class="nm">' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.online ? '' : '<span class="pill">offline</span>') + '</div>' +
+    const near = echoOn && echoOn.pids.includes(p.id) && g.phase === 'play';
+    return '<div class="gk-p' + (p.id === me ? ' me' : '') + (near ? ' near' : '') + '" data-pid="' + esc(p.id) + '"><div class="nm">' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.online ? '' : '<span class="pill">offline</span>') + '</div>' +
+      (near ? '<span class="nearlbl">nah dran</span>' : '') + ((g.cardCounts || {})[p.id] ? '<span class="spn">' + g.cardCounts[p.id] + ' Sonderkarte' + (g.cardCounts[p.id] > 1 ? 'n' : '') + '</span>' : '') +
       (g.phase === 'ready' ? '<div class="backs">' + (g.ready[p.id] ? '<span class="pill live">bereit</span>' : '<span class="pill">wartet</span>') + '</div>'
         : '<div class="backs" title="' + n + ' Karten">' + (n ? Array.from({ length: n }, () => '<div class="gk-back"></div>').join('') : '<span class="muted" style="font-size:13px">fertig</span>') + '</div>') + '</div>';
   }).join('') + '</div>';
@@ -143,18 +201,25 @@ function renderGame(r, el) {
     return;
   }
   const last = g.pile[g.pile.length - 1];
-  const pile = '<div class="panel gk-pile"><div class="label">Stapel in der Mitte</div>' +
-    (last ? '<div class="stack" id="stack">' + g.pile.slice(-3).map((x, i, a) => '<div style="position:absolute;inset:0;transform:rotate(' + ((i - a.length + 1) * 4) + 'deg)">' + card(x.v, i === a.length - 1 ? ' toppile' : '') + '</div>').join('') + '</div>' : '<div class="empty" id="stack">Noch keine Karte.<br>Wer hat die kleinste?</div>') +
+  const pauseLeft = Math.ceil((g.pausedUntil - Date.now() - local.off) / 1000);
+  const pile = '<div class="panel gk-pile">' + (paused ? '<div class="pausebox"><div><b data-pause>' + pauseLeft + '</b><span>Pause – niemand legt</span></div></div>' : '') + '<div class="label">Stapel in der Mitte' + (g.dir === -1 ? ' · rückwärts' : '') + '</div>' +
+    (last ? '<div class="stack" id="stack">' + g.pile.slice(-3).map((x, i, a) => '<div style="position:absolute;inset:0;transform:rotate(' + ((i - a.length + 1) * 4) + 'deg)">' + card(x.v, i === a.length - 1 ? ' toppile' : '') + '</div>').join('') + '</div>' : '<div class="empty" id="stack">Noch keine Karte.<br>Wer hat ' + (g.dir === -1 ? 'die größte' : 'die kleinste') + '?</div>') +
     '<div class="who">' + (last ? 'zuletzt: <b>' + esc(api.pname(last.pid)) + '</b> · ' + g.pileCount + ' gelegt' : '') + '</div></div>';
   const out = '<div class="panel gk-out"><div class="label">Abgeworfen</div>' + (g.out.length ? '<div class="list">' + g.out.map(x => '<div class="x">' + card(x.v) + '<span>' + esc(api.pname(x.pid)) + '</span></div>').join('') + '</div>' : '<p class="muted">Noch nichts. Fehler und Sterne decken hier Karten auf.</p>') + '</div>';
   const vote = g.vote ? '<div class="panel gk-vote"><div><b>' + esc(api.pname(g.vote.by)) + '</b> schlägt einen Stern vor: Jeder wirft seine kleinste Karte offen ab.<br><span class="muted">Einverstanden: ' + r.players.filter(p => g.vote.yes[p.id]).map(p => esc(p.name)).join(', ') + '</span></div>' +
     (mine && !g.vote.yes[me] ? '<div class="row"><button class="btn primary" data-act="yes">Ja, Stern einsetzen</button><button class="btn" data-act="no">Nein</button></div>' : '<span class="pill wait">Warte auf die anderen …</span>') + '</div>' : '';
-  const hand = g.hand || [];
+  const hand = g.hand || [], ni = g.dir === -1 ? hand.length - 1 : 0, blocked = !!g.vote || paused;
+  const anyCards = Object.values(g.counts).some(n => n > 0);
+  const myCards = g.myCards || [];
+  const spRow = myCards.length ? '<div class="field"><span class="label">Deine Sonderkarten</span><div class="spcards">' + myCards.map(k => spCard(k, 'data-act="sp" data-k="' + k + '"' + (blocked || !anyCards || (k === 'spiegel' && g.dir === -1) || (k === 'tausch' && !hand.length) ? ' disabled' : ''))).join('') + '</div></div>' : '';
   const myHand = mine ? '<div class="panel gk-hand"><div class="row" style="justify-content:space-between"><div class="label">Deine Karten</div>' +
     (g.stars > 0 && !g.vote ? '<button class="btn small" data-act="star">' + STAR.replace('<svg', '<svg style="color:#ffd166"') + ' Stern vorschlagen</button>' : '') + '</div>' +
-    '<div class="cards">' + (hand.length ? hand.map((v, i) => '<button type="button" ' + (i === 0 && !g.vote ? 'class="lowest" data-act="play" aria-label="' + v + ' legen"' : 'disabled aria-label="' + v + '"') + '>' + card(v) + '</button>').join('') : '<p class="muted">Du hast keine Karten mehr. Drück den anderen die Daumen!</p>') + '</div>' +
-    (hand.length && !g.vote ? '<div class="row"><button class="btn primary big" data-act="play">' + hand[0] + ' jetzt legen</button><small class="muted">Du legst immer deine kleinste Karte.</small></div>' : '') + '</div>' : '';
-  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + vote + '<div class="gk-mid">' + pile + out + '</div>' + myHand + players + '</div>';
+    '<div class="cards">' + (hand.length ? hand.map((v, i) => '<button type="button" ' + (i === ni && !blocked ? 'class="lowest" data-act="play" aria-label="' + v + ' legen"' : 'disabled aria-label="' + v + '"') + '>' + card(v) + '</button>').join('') : '<p class="muted">Du hast keine Karten mehr. Drück den anderen die Daumen!</p>') + '</div>' +
+    (hand.length && !blocked ? '<div class="row"><button class="btn primary big" data-act="play">' + hand[ni] + ' jetzt legen</button><small class="muted">' + (g.dir === -1 ? 'Rückwärts: Du legst deine größte Karte.' : 'Du legst immer deine kleinste Karte.') + '</small></div>' : '') + spRow + '</div>' : '';
+  const picker = local.pick && mine && myCards.includes('tausch') ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:360px;border:2px solid #ffb86b"><h2 style="font-size:24px">Mit wem tauschen?</h2><p class="muted" style="margin:0">Du gibst deine nächste Karte ab und bekommst seine.</p><div class="pick">' +
+    r.players.filter(p => p.id !== me && g.counts[p.id] > 0).map(p => '<button class="btn" data-act="swap" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="swapCancel">Abbrechen</button></div></div>' : '';
+  if (!(local.pick && mine && myCards.includes('tausch'))) local.pick = false;
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + vote + '<div class="gk-mid">' + pile + out + '</div>' + myHand + players + '</div>' + picker;
   if (g.ev && g.ev.seq !== local.renderedSeq && (g.ev.kind === 'play' || g.ev.kind === 'mistake')) {
     local.renderedSeq = g.ev.seq;
     const t = el.querySelector('.toppile'); if (t) t.classList.add('pop');
@@ -178,16 +243,38 @@ function onState(prev, r) {
   local.lastSeq = g.ev.seq;
   const e = g.ev, S = api.Snd;
   if (e.kind === 'play') S.play('play', .8 + Math.min(.4, e.v / 250));
-  if (e.kind === 'mistake') {
+  if (e.kind === 'mistake' && e.shield) {
+    S.play('shield');
+    api.toast('Das Schutzschild fängt den Fehler ab! ' + e.lower.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ') + ' wurde abgeworfen – kein Leben weg.', 5000);
+  } else if (e.kind === 'mistake') {
     S.play('bad'); document.body.insertAdjacentHTML('beforeend', '<div class="redflash"></div>'); setTimeout(() => { const f = document.querySelector('.redflash'); if (f) f.remove(); }, 900);
     api.toast(e.lower.length === 1 ? 'Oh nein! ' + api.pname(e.lower[0].pid) + ' hatte noch die ' + e.lower[0].v + '. Ein Leben weg.' : 'Oh nein! Da lagen noch kleinere Karten: ' + e.lower.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ') + '. Ein Leben weg.', 5000);
   }
   if (e.kind === 'level') S.play('lvl');
+  if (e.kind === 'deal' && e.gifts && e.gifts.length) {
+    const mineG = e.gifts.filter(x => x.pid === r.me).map(x => SP[x.kind].name), sh = e.gifts.some(x => x.kind === 'schild');
+    const msg = [mineG.length ? 'Du bekommst: ' + mineG.join(', ') : '', sh ? 'Euer Team bekommt ein Schutzschild' : ''].filter(Boolean).join(' · ');
+    if (msg) { api.toast(msg + '.', 4500); S.play('starfx', .6); }
+  }
+  if (e.kind === 'sp_echo') { S.play('echo'); api.toast(api.pname(e.pid) + ' ruft ein Echo: ' + (e.near.length ? e.near.map(id => id === r.me ? 'du' : api.pname(id)).join(', ') + (e.near.length > 1 ? ' sind' : (e.near[0] === r.me ? ' bist' : ' ist')) + ' nah dran.' : 'Niemand ist nah dran.'), 5000); }
+  if (e.kind === 'sp_spiegel') { S.play('mirror'); api.toast(api.pname(e.pid) + ' spielt den Spiegel: Ab jetzt wird rückwärts gelegt – die größte Zahl zuerst!', 5000); }
+  if (e.kind === 'sp_pause') { S.play('pausefx'); api.toast(api.pname(e.pid) + ' macht Pause: 10 Sekunden durchatmen.'); }
+  if (e.kind === 'pauseEnd') { S.play('click'); api.toast('Weiter geht\'s!'); }
+  if (e.kind === 'sp_tausch') { S.play('swapfx'); api.toast(e.target === r.me ? api.pname(e.pid) + ' tauscht seine nächste Karte mit deiner.' : (e.pid === r.me ? 'Du tauschst' : api.pname(e.pid) + ' tauscht') + ' die nächste Karte mit ' + api.pname(e.target) + '.', 5000); }
   if (e.kind === 'star') { S.play('starfx'); api.toast('Stern eingesetzt: ' + e.shown.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ')); }
   if (e.kind === 'vote' && e.pid !== r.me) { S.play('chat'); }
   if (e.kind === 'voteNo') api.toast(api.pname(e.pid) + ' möchte keinen Stern einsetzen.');
   if (r.status === 'over' && prev && prev.status !== 'over') S.play(g.phase === 'won' ? 'win' : 'lose');
 }
+// Pausen-Countdown und Echo-Leuchten aktuell halten
+setInterval(() => {
+  const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
+  const g = r.g, now = Date.now() + (local.off || 0);
+  const b = document.querySelector('[data-pause]');
+  if (b) { const left = Math.ceil((g.pausedUntil - now) / 1000); if (left > 0) b.textContent = left; }
+  const state = (g.pausedUntil > now ? 'p' : '') + (g.echo && g.echo.until > now ? 'e' : '');
+  if (state !== local.tick) { const first = local.tick === 0; local.tick = state; if (!first) api.render(); }
+}, 250);
 })();
 </script>
 </body></html>
