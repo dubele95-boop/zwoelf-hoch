@@ -4,12 +4,28 @@ const R = require('./bombe-regeln');
 const meta = { id: 'bombe', name: 'Bombe entschärfen', min: 2, max: 6, bots: false };
 const DIFF = { leicht: { modules: 3, wires: [3, 4], simon: 3 }, normal: { modules: 4, wires: [3, 6], simon: 4 }, schwer: { modules: 5, wires: [4, 6], simon: 5 } };
 const MAX_STRIKES = 3;
+// Level-Modus: je höher, desto mehr Module, weniger Zeit pro Modul, längere Folgen und weniger erlaubte Fehler
+const ALL = ['kabel', 'knopf', 'symbole', 'farben', 'wort'];
+const LEVELS = [
+  { mods: 2, secs: 300, wires: [3, 4], simon: 3, strikes: 3, types: ['kabel', 'knopf'] },
+  { mods: 3, secs: 300, wires: [3, 5], simon: 3, strikes: 3, types: ['kabel', 'knopf', 'symbole'] },
+  { mods: 3, secs: 270, wires: [3, 5], simon: 3, strikes: 3, types: ['kabel', 'knopf', 'symbole', 'wort'] },
+  { mods: 4, secs: 300, wires: [3, 6], simon: 3, strikes: 3, types: ALL },
+  { mods: 4, secs: 240, wires: [3, 6], simon: 4, strikes: 3, types: ALL },
+  { mods: 5, secs: 300, wires: [4, 6], simon: 4, strikes: 3, types: ALL },
+  { mods: 5, secs: 255, wires: [4, 6], simon: 5, strikes: 3, types: ALL },
+  { mods: 6, secs: 300, wires: [4, 6], simon: 5, strikes: 3, types: ALL },
+  { mods: 7, secs: 315, wires: [5, 6], simon: 5, strikes: 2, types: ALL },
+  { mods: 8, secs: 330, wires: [5, 6], simon: 6, strikes: 2, types: ALL }
+];
 const HOLD_MS = 650;      // ab so langem Drücken gilt der Knopf als "gehalten"
 
-function defaults() { return { diff: 'normal', minutes: 5, defuser: 'zufall', split: true }; }
+function defaults() { return { mode: 'level', level: 1, best: 0, diff: 'normal', minutes: 5, defuser: 'zufall', split: true }; }
 function setting(r, key, value, ctx) {
   const s = r.settings;
-  if (key === 'diff') { ctx.must(DIFF[value], 'Unbekannte Stufe.'); s.diff = value; }
+  if (key === 'mode') { ctx.must(value === 'level' || value === 'frei', 'Unbekannter Modus.'); s.mode = value; }
+  else if (key === 'level') { const n = +value; ctx.must(Number.isInteger(n) && n >= 1 && n <= LEVELS.length, 'Dieses Level gibt es nicht.'); ctx.must(n <= (s.best || 0) + 1, 'Dieses Level ist noch gesperrt. Schafft erst Level ' + ((s.best || 0) + 1) + '.'); s.level = n; }
+  else if (key === 'diff') { ctx.must(DIFF[value], 'Unbekannte Stufe.'); s.diff = value; }
   else if (key === 'minutes') { ctx.must([3, 4, 5, 6, 8].includes(+value), 'Ungültige Zeit.'); s.minutes = +value; }
   else if (key === 'defuser') { ctx.must(value === 'zufall' || r.players.some(p => p.id === value), 'Diesen Spieler gibt es nicht.'); s.defuser = value; }
   else if (key === 'split') s.split = !!value;
@@ -25,9 +41,9 @@ function makeBomb(ctx) {
   const labels = ctx.shuffle(R.LABELS.slice()).slice(0, ctx.rand(3));
   return { serial, batteries: ctx.rand(5), indicators: labels.map(l => ({ label: l, lit: ctx.rand(2) === 1 })) };
 }
-function makeModule(type, bomb, diff, ctx) {
+function makeModule(type, bomb, cfg, ctx) {
   if (type === 'kabel') {
-    const [a, b] = DIFF[diff].wires, n = a + ctx.rand(b - a + 1);
+    const [a, b] = cfg.wires, n = a + ctx.rand(b - a + 1);
     const wires = Array.from({ length: n }, () => pick(['rot', 'blau', 'gelb', 'weiss', 'schwarz'], ctx));
     return { type, wires, cut: [], answer: R.wireAnswer(wires, bomb) };
   }
@@ -42,7 +58,7 @@ function makeModule(type, bomb, diff, ctx) {
     return { type, symbols: chosen, order, done: [] };
   }
   if (type === 'farben') {
-    const len = DIFF[diff].simon;
+    const len = cfg.simon;
     return { type, seq: Array.from({ length: len }, () => pick(R.SIMON_COLORS, ctx)), stage: 1, input: 0 };
   }
   if (type === 'wort') {
@@ -56,19 +72,35 @@ function makeModule(type, bomb, diff, ctx) {
 }
 
 function start(r, ctx) {
-  const st = r.settings, d = DIFF[st.diff] || DIFF.normal;
+  const st = r.settings;
+  if (!st.mode) { st.mode = 'level'; st.level = st.level || 1; st.best = st.best || 0; }
+  const lv = st.mode === 'level' ? Math.min(LEVELS.length, Math.max(1, st.level || 1)) : null;
+  let cfg, types;
+  if (lv) {
+    cfg = LEVELS[lv - 1];
+    // erst jede erlaubte Modulsorte einmal, dann mit Wiederholungen auffüllen
+    types = ctx.shuffle(cfg.types.slice()).slice(0, cfg.mods);
+    while (types.length < cfg.mods) types.push(pick(cfg.types, ctx));
+  } else {
+    const d = DIFF[st.diff] || DIFF.normal;
+    cfg = { ...d, secs: st.minutes * 60, strikes: MAX_STRIKES };
+    types = ['kabel', 'knopf', ...ctx.shuffle(['symbole', 'farben', 'wort'])].slice(0, d.modules);
+  }
   const bomb = makeBomb(ctx);
-  const types = ['kabel', 'knopf', ...ctx.shuffle(['symbole', 'farben', 'wort'])].slice(0, d.modules);
-  const modules = ctx.shuffle(types).map(t => makeModule(t, bomb, st.diff, ctx));
+  const modules = ctx.shuffle(types).map(t => makeModule(t, bomb, cfg, ctx));
   let defuser = st.defuser !== 'zufall' && r.players.some(p => p.id === st.defuser) ? st.defuser : pick(r.players, ctx).id;
-  // Handbuch aufteilen: jeder Experte bekommt einen Teil der Kapitel
+  // Handbuch aufteilen: jeder Experte bekommt einen Teil der Kapitel, die auf dieser Bombe vorkommen
   const experts = r.players.filter(p => p.id !== defuser).map(p => p.id);
-  const chapters = ctx.shuffle(Object.keys(R.MODULES));
+  const present = ALL.filter(t => types.includes(t));
+  const chapters = ctx.shuffle(present.slice());
   const manual = {};
   for (const e of experts) manual[e] = [];
-  chapters.forEach((c, i) => { if (st.split && experts.length > 1) manual[experts[i % experts.length]].push(c); else for (const e of experts) manual[e].push(c); });
-  const ms = st.minutes * 60000;
-  r.state = { bomb, modules, defuser, manual, strikes: 0, phase: 'play', started: Date.now(), deadline: Date.now() + ms, total: ms, ended: null, seq: 0, ev: null, log: [] };
+  if (st.split && experts.length > 1) {
+    for (let i = 0; i < Math.max(experts.length, chapters.length); i++) { const e = experts[i % experts.length], c = chapters[i % chapters.length]; if (!manual[e].includes(c)) manual[e].push(c); }
+  } else for (const e of experts) manual[e] = chapters.slice();
+  const ms = cfg.secs * 1000;
+  r.state = { bomb, modules, defuser, manual, strikes: 0, maxStrikes: cfg.strikes || MAX_STRIKES, level: lv, levels: LEVELS.length,
+    phase: 'play', started: Date.now(), deadline: Date.now() + ms, total: ms, ended: null, seq: 0, ev: null, log: [] };
   arm(r, ctx);
 }
 function arm(r, ctx) {
@@ -83,7 +115,7 @@ function boom(r, why, ctx) {
 function strike(r, m, ctx, what) {
   const s = r.state; s.strikes++;
   s.log.push({ kind: 'strike', m, what, at: Date.now() });
-  if (s.strikes >= MAX_STRIKES) return boom(r, 'strikes', ctx);
+  if (s.strikes >= (s.maxStrikes || MAX_STRIKES)) return boom(r, 'strikes', ctx);
   event(s, { kind: 'strike', m, what });
 }
 function solved(r, mi, ctx) {
@@ -91,6 +123,7 @@ function solved(r, mi, ctx) {
   s.log.push({ kind: 'solved', m: mi, at: Date.now() });
   if (s.modules.every(x => x.solved)) {
     s.phase = 'won'; s.ended = Date.now(); event(s, { kind: 'won' }); ctx.clearTimer(r, 'boom'); ctx.finish(r);
+    if (s.level) { r.settings.best = Math.max(r.settings.best || 0, s.level); if (s.level < LEVELS.length) r.settings.level = s.level + 1; }
   } else event(s, { kind: 'solved', m: mi });
 }
 // Ziffern, die der Timer gerade anzeigt (z. B. "3:41")
@@ -144,7 +177,7 @@ function view(r, id) {
   const s = r.state, over = r.status === 'over', isDef = id === s.defuser;
   const base = {
     phase: s.phase, defuser: s.defuser, role: isDef ? 'defuser' : (r.players.some(p => p.id === id) ? 'expert' : 'watch'),
-    strikes: s.strikes, maxStrikes: MAX_STRIKES, deadline: s.deadline, total: s.total, now: Date.now(), started: s.started, ended: s.ended, why: s.why || null,
+    strikes: s.strikes, maxStrikes: s.maxStrikes || MAX_STRIKES, level: s.level || null, levels: LEVELS.length, deadline: s.deadline, total: s.total, now: Date.now(), started: s.started, ended: s.ended, why: s.why || null,
     modules: s.modules.map(x => ({ type: x.type, solved: !!x.solved })), ev: s.ev,
     manual: s.manual[id] || (over ? Object.keys(R.MODULES) : []), manualOf: s.manual, log: s.log
   };
@@ -172,4 +205,5 @@ function removePlayer(r, id, ctx) {
   const experts = Object.keys(s.manual);
   loose.forEach((c, i) => { const e = experts[i % experts.length]; if (e && !s.manual[e].includes(c)) s.manual[e].push(c); });
 }
-module.exports = { meta, defaults, setting, start, act, view, resume, removePlayer, timerText, HOLD_MS };
+const catalog = { LEVELS: LEVELS.map(l => ({ mods: l.mods, secs: l.secs, strikes: l.strikes, types: l.types })) };
+module.exports = { meta, catalog, defaults, setting, start, act, view, resume, removePlayer, timerText, HOLD_MS };

@@ -6,6 +6,14 @@
 <link rel="stylesheet" href="/common.css">
 <style>
 :root{--accent:#ff7a5c;--accent-ink:#2a0d05}
+.lvgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;max-width:360px}
+.lv{position:relative;height:44px;border-radius:9px;border:1px solid var(--line-2);background:var(--table-3);font:800 20px/1 var(--f-display);display:grid;place-items:center;color:var(--ink)}
+.lv.done{border-color:rgba(87,194,154,.55)}
+.lv.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.lv:disabled{cursor:default}.lv:disabled:not(.on){opacity:.55}
+.lv i{position:absolute;top:2px;right:5px;font:700 11px/1 var(--f-body);font-style:normal;color:var(--ok)}
+.lv.on i{color:var(--accent-ink)}
+.lv svg{width:16px;height:16px;color:var(--muted)}
 .bb-head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
 .bb-role{font:900 30px/1 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
 .bb-role em{font-style:normal;color:var(--accent)}
@@ -147,6 +155,7 @@ const SY = [
   '<path d="M7 34 H15 Q6 26 8 16 Q12 6 20 6 Q28 6 32 16 Q34 26 25 34 H33"/>'
 ];
 const sym = i => '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + SY[i] + '</svg>';
+const LOCK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>';
 const L = { off: 0, bombKey: null, pw: {}, pressing: null, simonPause: {}, lastSeq: 0, tab: null, tick: -1 };
 
 const api = Spieleabend.start({
@@ -157,14 +166,22 @@ const api = Spieleabend.start({
     '<div class="art row" aria-hidden="true"><div class="timer">4:59</div><div class="strikes"><span class="on">X</span><span>X</span><span>X</span></div></div>' +
     '<ol class="steps"><li>Startet einen Anruf (z. B. WhatsApp, Discord, Telefon) – reden geht am schnellsten.</li><li>Tisch erstellen, Link verschicken, mindestens 2 Spieler.</li><li>Wer die Bombe hat, beschreibt. Wer das Handbuch hat, sagt, was zu tun ist.</li></ol>',
   rules: () => '<h3>Rollen</h3><ul><li><b>Entschärfer:</b> sieht die Bombe mit allen Modulen, aber kein Handbuch. Nur er kann Kabel schneiden und Knöpfe drücken.</li><li><b>Experten:</b> haben das Handbuch, sehen die Bombe aber nicht. Wenn ihr mehrere seid, bekommt jeder nur einen Teil der Kapitel.</li></ul>' +
-    '<h3>Ziel</h3><ul><li>Löst alle Module, bevor der Timer abläuft. Jedes gelöste Modul bekommt ein grünes Licht.</li><li>Jeder Fehler gibt ein <b>X</b>. Beim dritten X fliegt die Bombe in die Luft.</li></ul>' +
+    '<h3>Ziel</h3><ul><li>Löst alle Module, bevor der Timer abläuft. Jedes gelöste Modul bekommt ein grünes Licht.</li><li>Jeder Fehler gibt ein <b>X</b>. Sind alle X voll, fliegt die Bombe in die Luft.</li></ul>' +
+    '<h3>Level-Modus</h3><ul><li>Es gibt 10 Level. Schafft ihr eins, wird das nächste freigeschaltet.</li><li>Je höher das Level, desto <b>mehr Module</b> (bis zu 8, manche Sorten kommen doppelt vor), desto <b>weniger Zeit pro Modul</b>, längere Farbfolgen und mehr Kabel.</li><li>Ab Level 9 sind nur noch <b>2 Fehler</b> erlaubt.</li><li>Im <b>freien Spiel</b> stellt ihr Schwierigkeit und Zeit selbst ein.</li></ul>' +
     '<h3>Reden</h3><ul><li>Am besten telefoniert ihr nebenbei. Im Spiel gibt es zusätzlich einen kleinen Chat.</li><li>Der Entschärfer sollte genau beschreiben: Farben, Reihenfolge, Aufschriften, die Seriennummer, Batterien und leuchtende Anzeigen auf dem Gehäuse.</li></ul>',
   lobby: (r, host) => {
     const s = r.settings;
     const seg = (key, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button type="button" data-set="' + key + '" data-val="' + v + '" aria-pressed="' + (String(s[key]) === String(v)) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>').join('') + '</div>';
-    return '<div class="field"><span class="label">Schwierigkeit</span>' + seg('diff', [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']]) +
+    const mode = s.mode || 'level', best = s.best || 0, lv = s.level || 1, L = (r.catalog && r.catalog.LEVELS) || [];
+    const lvInfo = n => { const x = L[n - 1]; return x ? x.mods + ' Module · ' + fmt(x.secs * 1000) + ' Min. · ' + x.strikes + ' Fehler erlaubt' : ''; };
+    const levelBox = '<div class="field"><span class="label">Level</span><div class="lvgrid">' + L.map((x, i) => { const n = i + 1, open = n <= best + 1;
+        return '<button type="button" class="lv' + (n === lv ? ' on' : '') + (n <= best ? ' done' : '') + '" data-set="level" data-val="' + n + '"' + (host && open ? '' : ' disabled') + ' title="' + (open ? lvInfo(n) : 'Noch gesperrt') + '">' + (open ? n : LOCK) + (n <= best ? '<i>✓</i>' : '') + '</button>'; }).join('') + '</div>' +
+      '<small class="muted"><b>Level ' + lv + ':</b> ' + lvInfo(lv) + '. ' + (best ? 'Geschafft bis Level ' + best + '.' : 'Schafft ein Level, um das nächste freizuschalten.') + '</small></div>';
+    const freeBox = '<div class="field"><span class="label">Schwierigkeit</span>' + seg('diff', [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']]) +
         '<small class="muted">' + (s.diff === 'leicht' ? '3 Module, wenige Kabel.' : s.diff === 'schwer' ? '5 Module, lange Farbfolgen.' : '4 Module.') + '</small></div>' +
-      '<div class="field"><span class="label">Zeit</span>' + seg('minutes', [[3, '3 Min.'], [4, '4 Min.'], [5, '5 Min.'], [6, '6 Min.'], [8, '8 Min.']]) + '</div>' +
+      '<div class="field"><span class="label">Zeit</span>' + seg('minutes', [[3, '3 Min.'], [4, '4 Min.'], [5, '5 Min.'], [6, '6 Min.'], [8, '8 Min.']]) + '</div>';
+    return '<div class="field"><span class="label">Spielart</span>' + seg('mode', [['level', 'Level-Modus'], ['frei', 'Freies Spiel']]) + '<small class="muted">' + (mode === 'level' ? 'Level für Level: Je höher, desto mehr Module, weniger Zeit und weniger erlaubte Fehler.' : 'Schwierigkeit und Zeit selbst einstellen.') + '</small></div>' +
+      (mode === 'level' ? levelBox : freeBox) +
       '<div class="field"><label class="label" for="defSel">Wer entschärft?</label>' + (host ? '<select id="defSel" data-set="defuser"><option value="zufall"' + (s.defuser === 'zufall' ? ' selected' : '') + '>Zufall</option>' + r.players.map(p => '<option value="' + esc(p.id) + '"' + (s.defuser === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>' : '<div>' + (s.defuser === 'zufall' ? 'Zufall' : esc(api.pname(s.defuser))) + '</div>') + '</div>' +
       '<div class="field"><span class="label">Handbuch aufteilen</span><div class="row"><button type="button" class="toggle" role="switch" aria-checked="' + !!s.split + '" aria-label="Handbuch aufteilen" data-set="split" data-val="' + !s.split + '"' + (host ? '' : ' disabled') + '><i></i></button><small class="muted" style="flex:1">Bei mehreren Experten bekommt jeder nur einige Kapitel. Dann müsst ihr euch auch untereinander absprechen.</small></div></div>';
   },
@@ -176,7 +193,8 @@ const api = Spieleabend.start({
     up: el => { pwStep(+el.dataset.m, +el.dataset.k, -1); },
     down: el => { pwStep(+el.dataset.m, +el.dataset.k, 1); },
     word: el => { const m = +el.dataset.m, d = api.room.g.detail[m], pos = L.pw[m] || [0, 0, 0, 0, 0]; api.act('word', { m, word: d.cols.map((c, i) => c[pos[i]]).join('') }); },
-    tab: el => { L.tab = el.dataset.k; api.render(); }
+    tab: el => { L.tab = el.dataset.k; api.render(); },
+    replay: () => { const g = api.room.g; api.send({ t: 'setting', key: 'level', value: g.level }); api.send({ t: 'start' }); }
   },
   sounds: {
     tick: (S, t, v) => S.tone(1800, t, .03, 'square', .03 * v),
@@ -209,7 +227,7 @@ const fmt = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.flo
 function head(r, g) {
   const role = g.role === 'defuser' ? 'Du hast die <em>Bombe</em>' : g.role === 'expert' ? 'Du hast das <em>Handbuch</em>' : 'Du schaust <em>zu</em>';
   const left = r.status === 'over' ? (g.ended ? g.deadline - g.ended : 0) : g.deadline - now();
-  return '<div class="panel bb-head"><div><div class="bb-role">' + role + '</div><div class="muted">' + (g.role === 'defuser' ? 'Beschreibe den anderen, was du siehst.' : 'Entschärfer: <b>' + esc(api.pname(g.defuser)) + '</b>') + '</div></div>' +
+  return '<div class="panel bb-head"><div>' + (g.level ? '<span class="pill wait" style="margin-bottom:6px">Level ' + g.level + ' von ' + g.levels + '</span>' : '') + '<div class="bb-role">' + role + '</div><div class="muted">' + (g.role === 'defuser' ? 'Beschreibe den anderen, was du siehst.' : 'Entschärfer: <b>' + esc(api.pname(g.defuser)) + '</b>') + '</div></div>' +
     '<div class="row" style="gap:16px"><div class="timer' + (left < 30000 && r.status !== 'over' ? ' low' : '') + '" data-timer>' + fmt(left) + '</div>' +
     '<div class="strikes" aria-label="' + g.strikes + ' von ' + g.maxStrikes + ' Fehlern">' + Array.from({ length: g.maxStrikes }, (_, i) => '<span class="' + (i < g.strikes ? 'on' : '') + '">X</span>').join('') + '</div></div>' +
     '<div class="modlist">' + g.modules.map(m => '<span class="pill ' + (m.solved ? 'done' : '') + '">' + R.MODULES[m.type] + (m.solved ? ' ✓' : '') + '</span>').join('') + '</div></div>';
@@ -244,7 +262,7 @@ function manualHTML(r, g) {
     body = '<section><h3>Allgemein</h3><p>Willkommen beim Bombenentschärfungs-Handbuch. Fragt den Entschärfer nach allem, was ihr braucht:</p><ul>' +
       '<li><b>Seriennummer:</b> steht auf dem weißen Schild am Gehäuse. Wichtig sind die <b>letzte Ziffer</b> (gerade oder ungerade) und ob ein <b>Vokal</b> (A, E, I, U) darin vorkommt.</li>' +
       '<li><b>Batterien:</b> Anzahl der goldenen Batterien am Gehäuse.</li><li><b>Anzeigen:</b> kleine Schilder mit drei Buchstaben. Sie können <b>leuchten</b> oder aus sein.</li>' +
-      '<li>Jeder Fehler gibt ein <b>X</b>. Beim dritten X explodiert die Bombe.</li><li>Ein grünes Licht oben rechts bedeutet: Modul gelöst.</li></ul>' +
+      '<li>Jeder Fehler gibt ein <b>X</b>. Sind alle X voll, explodiert die Bombe (meist nach 3, in hohen Leveln schon nach 2 Fehlern).</li><li>Ein grünes Licht oben rechts bedeutet: Modul gelöst.</li></ul>' +
       '<p><b>Deine Kapitel:</b> ' + (mine.length ? mine.map(c => R.MODULES[c]).join(', ') : 'keine') + '</p>' +
       (others.length && mine.length < all.length ? '<p><b>Die anderen Kapitel haben:</b> ' + others.map(o => esc(o.name) + ' (' + o.ch.map(c => R.MODULES[c]).join(', ') + ')').join(' · ') + '</p>' : '') + '</section>';
   } else if (L.tab === 'kabel') {
@@ -267,6 +285,13 @@ function manualHTML(r, g) {
   return '<div class="manual"><h2>Handbuch</h2>' + tabs + body + '</div>';
 }
 
+function endButtons(r, g, won) {
+  if (!g.level) return api.overButtons(r);
+  if (!api.isHost()) return '<p class="muted" style="text-align:center">' + esc(api.pname(r.host)) + ' startet gleich ' + (won && g.level < g.levels ? 'Level ' + (g.level + 1) : 'die nächste Runde') + '.</p>';
+  const next = won && g.level < g.levels;
+  return '<div class="row" style="justify-content:center">' + (next ? '<button class="btn primary big" data-c="again">Weiter zu Level ' + (g.level + 1) + '</button><button class="btn big" data-act="replay">Level ' + g.level + ' nochmal</button>'
+    : '<button class="btn primary big" data-' + (won ? 'act="replay"' : 'c="again"') + '>' + (won ? 'Level ' + g.level + ' nochmal' : 'Nochmal versuchen') + '</button>') + '<button class="btn big" data-c="toLobby">Zur Lobby</button></div>';
+}
 function renderGame(r, el) {
   const g = r.g; if (!g) { el.innerHTML = ''; return; }
   L.off = g.now - Date.now();
@@ -276,7 +301,7 @@ function renderGame(r, el) {
   if (over) {
     const won = g.phase === 'won', left = g.deadline - g.ended;
     main = '<div class="panel result ' + (won ? 'won' : 'lost') + '"><h2>' + (won ? 'Entschärft!' : 'BOOM!') + '</h2><p class="muted" style="font-size:17px">' +
-      (won ? 'Geschafft mit ' + fmt(left) + ' auf der Uhr und ' + g.strikes + ' Fehler' + (g.strikes === 1 ? '' : 'n') + '.' : g.why === 'time' ? 'Die Zeit ist abgelaufen.' : 'Drei Fehler – das war einer zu viel.') + '</p>' + api.overButtons(r) + '</div>' + bombHTML(g, true);
+      (won ? (g.level ? '<b>Level ' + g.level + '</b> geschafft – ' : 'Geschafft ') + 'mit ' + fmt(left) + ' auf der Uhr und ' + g.strikes + ' Fehler' + (g.strikes === 1 ? '' : 'n') + '.' + (g.level === g.levels ? '<br><b>Ihr habt alle ' + g.levels + ' Level geschafft – ihr seid Profis!</b>' : '') : (g.why === 'time' ? 'Die Zeit ist abgelaufen.' : g.maxStrikes + ' Fehler – das war einer zu viel.') + (g.level ? ' Level ' + g.level + ' nochmal?' : '')) + '</p>' + endButtons(r, g, won) + '</div>' + bombHTML(g, true);
   } else if (g.role === 'defuser') main = bombHTML(g, false);
   else main = manualHTML(r, g);
   el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + head(r, g) + main + '</div>';
