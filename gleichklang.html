@@ -76,6 +76,17 @@ button.spc:not(:disabled):hover{background:color-mix(in srgb,var(--sc) 26%,trans
 button.spc:disabled{opacity:.55;cursor:default}
 .sp-echo{--sc:#7fd6ff}.sp-schild{--sc:#9be38a}.sp-spiegel{--sc:#ff9ad5}.sp-pause{--sc:#c9b8ff}.sp-tausch{--sc:#ffb86b}
 .spcards{display:flex;flex-wrap:wrap;gap:8px}
+.gk-sp{--w:92px;width:var(--w);aspect-ratio:5/7;border-radius:12px;background:linear-gradient(165deg,color-mix(in srgb,var(--sc) 92%,#fff),color-mix(in srgb,var(--sc) 70%,#1a1530));color:#16122a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px 6px;text-align:center;box-shadow:0 2px 0 rgba(0,0,0,.25),0 10px 22px rgba(0,0,0,.3);border:2px solid color-mix(in srgb,var(--sc) 60%,#fff);position:relative}
+.gk-sp .ico{width:46%;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.55);display:grid;place-items:center}
+.gk-sp .ico svg{width:62%;height:62%}
+.gk-sp b{font:800 calc(var(--w) * .135)/1.1 var(--f-body);hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+.gk-sp::after{content:"";position:absolute;inset:5px;border-radius:8px;border:1px dashed rgba(22,18,42,.35);pointer-events:none}
+.gk-hand .cards .spbtn{padding:0;border:0;background:none;border-radius:12px}
+.gk-hand .cards .spbtn .gk-sp{transition:transform .15s ease}
+.gk-hand .cards .spbtn:not(:disabled):hover .gk-sp{transform:translateY(-8px)}
+.gk-hand .cards .spbtn:disabled{cursor:default}
+.gk-hand .cards .spbtn:disabled .gk-sp{filter:grayscale(.5) brightness(.8)}
+.handgap{width:6px;align-self:stretch;border-left:2px dashed var(--line-2);margin:0 4px}
 .shield{color:#9be38a}
 .mirror{display:inline-flex;align-items:center;gap:6px;color:#ff9ad5;border-color:rgba(255,154,213,.6)}
 .gk-p.near{border-color:#7fd6ff;box-shadow:0 0 0 3px rgba(127,214,255,.35),0 0 24px rgba(127,214,255,.35)}
@@ -88,7 +99,7 @@ button.spc:disabled{opacity:.55;cursor:default}
 .splist .spc{justify-content:space-between}
 .splist .spc > div{display:flex;align-items:center;gap:10px;min-width:0}
 .pick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-@media (max-width:760px){.gk-mid{grid-template-columns:minmax(0,1fr)}.gk-hand .cards .gk-card{--w:70px}}
+@media (max-width:760px){.gk-mid{grid-template-columns:minmax(0,1fr)}.gk-hand .cards .gk-card,.gk-hand .cards .gk-sp{--w:70px}}
 </style></head><body>
 <div id="app"></div>
 <script src="/common.js"></script>
@@ -108,6 +119,7 @@ const SP = {
   tausch: { name: 'Tausch', text: 'Du tauschst deine nächste Karte mit der eines Mitspielers.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>' }
 };
 const SHIELD = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>';
+const spCardBig = k => '<div class="gk-sp sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b></div>';
 const spCard = (k, attrs) => '<' + (attrs ? 'button type="button" ' + attrs : 'div') + ' class="spc sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></' + (attrs ? 'button' : 'div') + '>';
 
 function spSettings(r, host) { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
@@ -213,11 +225,12 @@ function renderGame(r, el) {
   const hand = g.hand || [], ni = g.dir === -1 ? hand.length - 1 : 0, blocked = !!g.vote || paused;
   const anyCards = Object.values(g.counts).some(n => n > 0);
   const myCards = g.myCards || [];
-  const spRow = myCards.length ? '<div class="field"><span class="label">Deine Sonderkarten</span><div class="spcards">' + myCards.map(k => spCard(k, 'data-act="sp" data-k="' + k + '"' + (blocked || !anyCards || (k === 'spiegel' && g.dir === -1) || (k === 'tausch' && !hand.length) ? ' disabled' : ''))).join('') + '</div></div>' : '';
+  const spHand = myCards.map(k => { const off = blocked || !anyCards || (k === 'spiegel' && g.dir === -1) || (k === 'tausch' && !hand.length);
+    return '<button type="button" class="spbtn" data-act="sp" data-k="' + k + '"' + (off ? ' disabled' : '') + ' title="' + esc(SP[k].name + ': ' + SP[k].text) + '" aria-label="Sonderkarte ' + SP[k].name + ' einsetzen">' + spCardBig(k) + '</button>'; }).join('');
   const myHand = mine ? '<div class="panel gk-hand"><div class="row" style="justify-content:space-between"><div class="label">Deine Karten</div>' +
     (g.stars > 0 && !g.vote ? '<button class="btn small" data-act="star">' + STAR.replace('<svg', '<svg style="color:#ffd166"') + ' Stern vorschlagen</button>' : '') + '</div>' +
-    '<div class="cards">' + (hand.length ? hand.map((v, i) => '<button type="button" ' + (i === ni && !blocked ? 'class="lowest" data-act="play" aria-label="' + v + ' legen"' : 'disabled aria-label="' + v + '"') + '>' + card(v) + '</button>').join('') : '<p class="muted">Du hast keine Karten mehr. Drück den anderen die Daumen!</p>') + '</div>' +
-    (hand.length && !blocked ? '<div class="row"><button class="btn primary big" data-act="play">' + hand[ni] + ' jetzt legen</button><small class="muted">' + (g.dir === -1 ? 'Rückwärts: Du legst deine größte Karte.' : 'Du legst immer deine kleinste Karte.') + '</small></div>' : '') + spRow + '</div>' : '';
+    '<div class="cards">' + (hand.length ? hand.map((v, i) => '<button type="button" ' + (i === ni && !blocked ? 'class="lowest" data-act="play" aria-label="' + v + ' legen"' : 'disabled aria-label="' + v + '"') + '>' + card(v) + '</button>').join('') : (myCards.length ? '' : '<p class="muted">Du hast keine Karten mehr. Drück den anderen die Daumen!</p>')) + (myCards.length && hand.length ? '<span class="handgap" aria-hidden="true"></span>' : '') + spHand + '</div>' +
+    (hand.length && !blocked ? '<div class="row"><button class="btn primary big" data-act="play">' + hand[ni] + ' jetzt legen</button><small class="muted">' + (g.dir === -1 ? 'Rückwärts: Du legst deine größte Karte.' : 'Du legst immer deine kleinste Karte.') + '</small></div>' : '') + (myCards.length ? '<small class="muted">Die farbigen Karten mit Symbol sind Sonderkarten – anklicken zum Einsetzen.</small>' : '') + '</div>' : '';
   const picker = local.pick && mine && myCards.includes('tausch') ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:360px;border:2px solid #ffb86b"><h2 style="font-size:24px">Mit wem tauschen?</h2><p class="muted" style="margin:0">Du gibst deine nächste Karte ab und bekommst seine.</p><div class="pick">' +
     r.players.filter(p => p.id !== me && g.counts[p.id] > 0).map(p => '<button class="btn" data-act="swap" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="swapCancel">Abbrechen</button></div></div>' : '';
   if (!(local.pick && mine && myCards.includes('tausch'))) local.pick = false;
