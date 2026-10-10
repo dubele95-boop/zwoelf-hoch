@@ -1,0 +1,107 @@
+/* Spieleabend – gemeinsames Aussehen für alle Spiele (dunkler Spieltisch, goldene Akzente) */
+:root{
+  --table:#1c1a29; --table-2:#252236; --table-3:#2f2b44;
+  --line:rgba(236,228,255,.10); --line-2:rgba(236,228,255,.22);
+  --ink:#f1ece2; --muted:#a6a0bb; --accent:#f2b84b; --accent-ink:#2a1f05;
+  --card:#f6f0e4; --card-ink:#26233a;
+  --danger:#ef6b5b; --ok:#57c29a; --info:#8fb4ff;
+  --f-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:var(--table);background-image:radial-gradient(ellipse 90% 60% at 50% 45%,var(--table-2),var(--table) 70%);background-attachment:fixed;color:var(--ink);font:15px/1.5 var(--f-body)}
+[hidden]{display:none!important}
+#app{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:flex;flex-direction:column;gap:16px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+a{color:var(--accent)}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font:900 30px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.brand b i{font-style:normal;color:var(--accent)}
+.brand span{color:var(--muted);font-size:13px}
+.homelink{align-self:center;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);color:var(--muted);text-decoration:none;font:700 22px/1 system-ui;margin-right:2px;flex:none}
+.homelink:hover{color:var(--ink);border-color:var(--accent)}
+.bar .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line-2);background:var(--table-3);padding:8px 14px;border-radius:8px;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{border-color:rgba(239,107,91,.5);color:#ffb3a8}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.big{padding:12px 22px;font-size:17px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{width:16px;height:16px}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.panel{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:16px}
+.muted{color:var(--muted)}
+input[type=text],select{background:var(--table);border:1px solid var(--line-2);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:99px;border:1px solid var(--line-2);color:var(--muted);white-space:nowrap}
+.pill.live{color:var(--ok);border-color:rgba(87,194,154,.45)}
+.pill.wait{color:var(--accent);border-color:rgba(242,184,75,.45)}
+.pill.bad{color:#ffb3a8;border-color:rgba(239,107,91,.5)}
+.pill.bot{color:#9ec3ff;border-color:rgba(143,180,255,.45);font-size:10px;padding:1px 6px}
+.count{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.big-title{font:900 32px/1 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+
+/* Startseite eines Spiels */
+.home{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;align-items:start}
+.hero h1{font:900 clamp(40px,6vw,72px)/.92 var(--f-display);text-transform:uppercase;letter-spacing:.01em}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{max-width:60ch;color:var(--muted);margin:10px 0 0}
+.hero .art{margin:18px 0 6px}
+.steps{margin:14px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:62ch}
+
+/* Lobby */
+.lobby{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.bigcode{font:900 clamp(56px,9vw,96px)/1 var(--f-display);letter-spacing:.12em;color:var(--accent)}
+.plist{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.18);min-width:0}
+.plist li > span:first-child{min-width:0;overflow-wrap:anywhere}
+.notice{border-color:rgba(242,184,75,.55);background:rgba(242,184,75,.08)}
+.seg{align-self:flex-start;display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:8px 14px;font-weight:700;font-size:14px;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:disabled{cursor:default}
+.toggle{flex:none;width:48px;height:28px;border-radius:99px;border:1px solid var(--line-2);background:var(--table);position:relative;padding:0}
+.toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s ease}
+.toggle[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.toggle[aria-checked="true"] i{transform:translateX(20px);background:var(--accent-ink)}
+
+/* Spielbereich + Chat */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.stage.nochat{grid-template-columns:minmax(0,1fr)}
+.chat{display:flex;flex-direction:column;gap:8px;position:sticky;top:12px;max-height:calc(100vh - 24px)}
+.chat .msgs{flex:1;min-height:160px;max-height:min(60vh,520px);overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px}
+.chat .msg{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.chat .msg b{color:var(--accent)}
+.chat .msg.me b{color:var(--ok)}
+.chat .msg.sys{color:var(--muted);font-style:italic;font-size:13px}
+.chat form{display:flex;gap:6px}
+.chat input{flex:1}
+.chat .quiet{font-size:13px;color:var(--muted);text-align:center;padding:6px;border:1px dashed var(--line-2);border-radius:8px}
+.watchbar{border-color:rgba(143,180,255,.4);background:rgba(143,180,255,.07)}
+
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
+.modalbox{background:var(--table-2);max-width:440px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modalbox h2{font:900 32px/1 var(--f-display);text-transform:uppercase}
+.modalbox.wide{max-width:680px;max-height:min(88vh,860px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
+.modalhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.rulebody{display:flex;flex-direction:column;gap:10px}
+.rulebody ol,.rulebody ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+.rulebody h3{font:800 20px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:var(--accent);margin-top:6px}
+
+#toast{position:fixed;text-align:center;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--table);padding:10px 16px;border-radius:10px;font-weight:700;max-width:min(92vw,520px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:60;transition:opacity .2s}
+#toast:empty{display:none}
+
+@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}.chat{position:static;max-height:none}.chat .msgs{max-height:240px}}
+@media (max-width:760px){.home,.lobby{grid-template-columns:minmax(0,1fr)}.brand span{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}

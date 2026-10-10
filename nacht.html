@@ -1,0 +1,248 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Durch die Nacht</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="/common.css">
+<style>
+:root{--accent:#b9a2ff;--accent-ink:#1a1033;--kraft:#e5533d;--mut:#4c7cf0;--wissen:#3fae6b;--geschick:#e9b532}
+body{background:#141224;background-image:radial-gradient(ellipse 90% 60% at 50% 20%,#272247,#141224 70%)}
+.nt-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px 22px;align-items:center}
+.clock{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.clock b{font:900 46px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.clock span{color:var(--muted);font-size:13px;font-weight:700}
+.sky{height:10px;border-radius:99px;background:linear-gradient(90deg,#1c1a3a,#3b2f6e 55%,#d97a4a 85%,#ffd27a);position:relative;margin-top:8px}
+.sky i{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:#f5e6b8;box-shadow:0 0 12px #f5e6b8;transform:translate(-50%,-50%)}
+.track{display:flex;align-items:center;gap:0;min-width:0}
+.track .f{flex:1;display:flex;align-items:center;min-width:0}
+.track .f::before{content:"";flex:1;height:4px;background:rgba(255,255,255,.12)}
+.track .f:first-child{flex:0 0 auto}.track .f:first-child::before{display:none}
+.track .f.done::before{background:linear-gradient(90deg,#b9a2ff,#ffd27a)}
+.track .dot{width:16px;height:16px;border-radius:50%;background:#2b2650;border:2px solid rgba(255,255,255,.2);flex:none;display:grid;place-items:center;position:relative}
+.track .f.done .dot{background:#6b5bb5;border-color:#b9a2ff}
+.track .dot.here{width:34px;height:34px;background:#ffb347;border-color:#fff3d6;box-shadow:0 0 18px #ffb347}
+.track .dot.here svg{width:20px;height:20px;color:#3a1d00}
+.track .dot.end{width:34px;height:34px;border-radius:8px;background:#3a3466}
+.track .dot.end svg{width:22px;height:22px;color:#ffd27a}
+.hp{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end}
+.hp svg{width:22px;height:22px;color:#ff6b7a}.hp .e svg{color:rgba(255,255,255,.14)}
+.lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.nt-main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:16px;align-items:start}
+.event{border-radius:16px;padding:20px;background:linear-gradient(160deg,#2c2650,#1d1a36);border:1px solid rgba(185,162,255,.35);display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+.event.flip{animation:flip .5s ease}
+@keyframes flip{from{transform:rotateY(70deg);opacity:.2}to{transform:none;opacity:1}}
+.event h2{font:900 clamp(30px,4vw,44px)/1 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+.event .story{color:#d9d3f0;font-style:italic;font-size:16px}
+.needs{display:flex;flex-direction:column;gap:10px}
+.need{display:grid;grid-template-columns:110px minmax(0,1fr) 64px;gap:10px;align-items:center}
+.need .nm{display:flex;align-items:center;gap:6px;font-weight:700}
+.need .nm svg{width:20px;height:20px;flex:none}
+.need .bar{height:14px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.need .bar i{display:block;height:100%;border-radius:99px;background:var(--c);transition:width .3s ease}
+.need .val{font:800 20px/1 var(--f-display);text-align:right;font-variant-numeric:tabular-nums}
+.need.ok .val{color:#7dffb0}
+.conseq{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conseq div{border-radius:10px;padding:8px 10px;font-size:14px;background:rgba(0,0,0,.2)}
+.conseq .w{border:1px solid rgba(125,255,176,.35)}.conseq .l{border:1px solid rgba(255,107,122,.35)}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px}
+.verdict{font-weight:700;padding:8px 12px;border-radius:10px;text-align:center}
+.verdict.ok{background:rgba(87,194,154,.15);color:#7dffb0;border:1px solid rgba(87,194,154,.4)}
+.verdict.no{background:rgba(255,107,122,.1);color:#ffb3bc;border:1px solid rgba(255,107,122,.35)}
+.ccard{--c:#888;width:62px;aspect-ratio:5/7;border-radius:9px;background:linear-gradient(170deg,color-mix(in srgb,var(--c) 85%,#fff),var(--c));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 6px 14px rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.25);flex:none;position:relative}
+.ccard b{font:900 28px/1 var(--f-display);text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.ccard svg{width:22px;height:22px}
+.ccard .bonus{position:absolute;top:-6px;right:-6px;background:#fff;color:#1a1033;border-radius:99px;font:800 11px/1 var(--f-body);padding:3px 5px}
+.c-kraft{--c:var(--kraft)}.c-mut{--c:var(--mut)}.c-wissen{--c:var(--wissen)}.c-geschick{--c:var(--geschick)}
+.cards{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.cards button{padding:0;border:0;background:none;border-radius:9px}
+.cards button .ccard{transition:transform .15s ease}
+.cards button:not(:disabled):hover .ccard{transform:translateY(-6px)}
+.cards button:disabled{cursor:default}
+.contrib .who{font-size:11px;color:var(--muted);text-align:center;margin-top:3px;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.items{display:flex;flex-wrap:wrap;gap:8px}
+.item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line-2);background:rgba(0,0,0,.2);text-align:left}
+.item svg{width:22px;height:22px;color:#ffd27a;flex:none}
+.item small{display:block;color:var(--muted);font-size:12px}
+.item.used{border-color:#ffd27a;background:rgba(255,210,122,.12)}
+.party{display:flex;flex-direction:column;gap:6px}
+.party .p{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.2)}
+.party .p small{color:var(--muted)}
+.char{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.18)}
+.char .ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#3a3466;flex:none}
+.char .ic svg{width:20px;height:20px}
+.char.mine{border-color:var(--accent)}
+.char.taken{opacity:.55}
+.result{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.result h2{font:900 40px/1 var(--f-display);text-transform:uppercase}
+.result.ok h2{color:#7dffb0}.result.no h2{color:#ff8f9c}
+.fx{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.over{text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center;padding:24px 16px}
+.over h2{font:900 clamp(44px,7vw,84px)/.9 var(--f-display);text-transform:uppercase}
+.journey{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:760px}
+.healmode .cards button .ccard{outline:2px dashed #ff8f9c;outline-offset:2px}
+.preview{border:1px dashed rgba(185,162,255,.45);border-radius:12px;padding:10px 12px;font-size:14px}
+@media (max-width:900px){.nt-main{grid-template-columns:minmax(0,1fr)}.nt-top{grid-template-columns:minmax(0,1fr)}.hp{justify-content:flex-start}}
+</style></head><body>
+<div id="app"></div>
+<script src="/common.js"></script>
+<script>
+(function(){
+const esc = Spieleabend.esc;
+const IC = {
+  kraft: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="14" height="7" rx="1.5"/><rect x="8.5" y="10" width="3.5" height="11" rx="1.2"/></svg>',
+  mut: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>',
+  wissen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5c3-1 6-1 9 1 3-2 6-2 9-1v14c-3-1-6-1-9 1-3-2-6-2-9-1z"/><path d="M12 6v14"/></svg>',
+  geschick: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 3C10 4 5 10 5 18l-2 3 1 1 3-2c8 0 13-6 13-17z"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3 4 6.8 4c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3C21 4 23.1 8 21.6 11.6 19.5 16.4 12 21 12 21z"/></svg>',
+  lantern: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6v2H9zM7 5h10l-1 3H8zM8 9h8v9a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3z"/></svg>',
+  house: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg>',
+  fackel: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c3 3 4 5 2 8h-4c-2-3-1-5 2-8z"/><path d="M10 11h4l-1 11h-2z"/></svg>',
+  seil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M20 12c0 6-4 9-8 10"/></svg>',
+  trank: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 2h4v2h-1v4.5l5 7.5a4 4 0 0 1-3.3 6H9.3A4 4 0 0 1 6 16l5-7.5V4h-1z"/></svg>',
+  kompass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="currentColor"/></svg>',
+  heiler: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
+  spaeherin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>'
+};
+const CHAR_IC = { jaegerin: 'kraft', ritter: 'mut', gelehrte: 'wissen', akrobat: 'geschick', heiler: 'heiler', spaeherin: 'spaeherin' };
+const CN = { kraft: 'Kraft', mut: 'Mut', wissen: 'Wissen', geschick: 'Geschick' };
+const L = { lastSeq: 0, heal: false, eventKey: null };
+const cardHTML = (c, bonus) => '<div class="ccard c-' + c.c + '" title="' + CN[c.c] + ' ' + c.v + '">' + IC[c.c] + '<b>' + c.v + '</b>' + (bonus ? '<span class="bonus">+1</span>' : '') + '</div>';
+function effText(e) {
+  if (!e) return 'nichts passiert';
+  const out = [];
+  if (e.move > 0) out.push(e.move + ' Feld weiter extra'); if (e.move < 0) out.push(-e.move + ' Feld zurück');
+  if (e.stop) out.push('ihr kommt diese Stunde nicht voran');
+  if (e.hp > 0) out.push('+' + e.hp + ' Ausdauer'); if (e.hp < 0) out.push(e.hp + ' Ausdauer');
+  if (e.item) out.push('ihr findet einen Gegenstand'); if (e.loseItem) out.push('ihr verliert einen Gegenstand');
+  if (e.discard) out.push('jeder verliert ' + e.discard + ' Handkarte'); if (e.draw) out.push('jeder zieht ' + e.draw + ' Karte mehr');
+  return out.length ? out.join(', ') : 'nichts passiert';
+}
+const clock = round => ((19 + round) % 24) + ':00';
+
+const api = Spieleabend.start({
+  game: 'nacht', title: 'Durch die Nacht', tagline: 'Ein gemeinsames Abenteuer bis zum Morgengrauen',
+  brand: '<b>Durch die <i>Nacht</i></b>',
+  meta: { min: 1, max: 6, bots: false },
+  hero: '<h1>Durch die <em>Nacht</em></h1><p>Eure Gruppe sitzt am Lagerfeuer, das Dorf liegt hinter dem dunklen Wald. Ihr habt bis zum Morgengrauen Zeit. Jede Stunde wartet ein neues Ereignis – Wölfe, Nebel, reißende Bäche. Legt gemeinsam die richtigen Karten, sonst kostet es Kraft oder Zeit.</p>' +
+    '<div class="art row" aria-hidden="true">' + cardHTML({ c: 'kraft', v: 3 }) + cardHTML({ c: 'mut', v: 4 }) + cardHTML({ c: 'wissen', v: 2 }) + cardHTML({ c: 'geschick', v: 3 }) + '</div>' +
+    '<ol class="steps"><li>Tisch erstellen und Link verschicken – oder allein losziehen.</li><li>In der Lobby sucht sich jeder eine Figur mit besonderer Fähigkeit aus.</li><li>Sprecht euch im Chat oder per Anruf ab, wer welche Karten gibt.</li></ol>',
+  rules: r => '<p>Ihr spielt <b>gemeinsam</b>. Ziel: Bringt die Gruppe über 10 Felder vom Lagerfeuer ins Dorf, bevor die Sonne aufgeht.</p>' +
+    '<h3>Jede Stunde</h3><ol><li>Ein <b>Ereignis</b> wird aufgedeckt. Es verlangt Punkte in einer oder zwei Farben: <b style="color:var(--kraft)">Kraft</b>, <b style="color:var(--mut)">Mut</b>, <b style="color:var(--wissen)">Wissen</b> oder <b style="color:var(--geschick)">Geschick</b>.</li>' +
+    '<li>Jeder kann Handkarten in die Mitte legen. Nur Karten in der passenden Farbe zählen – mit ihrem Wert. Gelegte Karten kannst du wieder zurücknehmen, solange noch nicht aufgelöst ist.</li>' +
+    '<li>Wenn alle auf <b>„Fertig“</b> gedrückt haben, wird aufgelöst. Geschafft oder nicht – auf der Karte steht, was dann passiert.</li>' +
+    '<li>Danach geht ihr 1 Feld weiter (außer das Ereignis hält euch auf), und jeder zieht neue Karten nach.</li></ol>' +
+    '<h3>Gut zu wissen</h3><ul><li>Gelegte Karten sind weg. Spart Karten, wenn ein Ereignis freiwillig ist oder ihr es eh nicht schafft.</li><li>Ab der 6. Stunde werden die Ereignisse schwerer.</li><li>Bei „eins davon reicht“ genügt eine der beiden Farben.</li><li>Dunkle Ereignisse löst eine Fackel sofort.</li><li>Sinkt die Ausdauer auf 0 oder geht die Sonne auf, bevor ihr im Dorf seid, habt ihr verloren.</li></ul>' +
+    '<h3>Gegenstände</h3><ul><li><b>Fackel:</b> löst ein dunkles Ereignis sofort, sonst +2 Mut.</li><li><b>Seil:</b> +3 Geschick.</li><li><b>Heiltrank:</b> +2 Ausdauer.</li><li><b>Kompass:</b> sofort 1 Feld weiter.</li></ul>' +
+    '<h3>Figuren</h3><ul><li><b>Jägerin, Ritter, Gelehrte, Akrobat:</b> Karten ihrer Farbe zählen +1.</li><li><b>Heiler:</b> einmal pro Stunde eine Handkarte abwerfen für +1 Ausdauer.</li><li><b>Späherin:</b> Ihr seht das nächste Ereignis vorher. Einmal pro Nacht darf sie ein Ereignis überspringen.</li></ul>',
+  lobby: (r, host) => {
+    const d = r.settings.diff;
+    const opt = (v, t) => '<button type="button" data-set="diff" data-val="' + v + '" aria-pressed="' + (d === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
+    return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
+      '<small class="muted">' + (d === 'leicht' ? '11 Stunden Zeit, 8 Ausdauer.' : d === 'schwer' ? '9 Stunden Zeit, 5 Ausdauer.' : '10 Stunden Zeit, 6 Ausdauer.') + ' Ihr müsst 10 Felder schaffen.</small></div>';
+  },
+  lobbyRight: (r) => {
+    const C = r.catalog.CHARS, chars = r.settings.chars || {}, mine = chars[r.me];
+    const owner = k => { const pid = Object.keys(chars).find(p => chars[p] === k && r.players.some(x => x.id === p)); return pid; };
+    return '<div class="label">Deine Figur</div><div style="display:flex;flex-direction:column;gap:6px">' + Object.entries(C).map(([k, c]) => {
+      const o = owner(k), taken = o && o !== r.me;
+      return '<div class="char' + (mine === k ? ' mine' : '') + (taken ? ' taken' : '') + '"><span class="ic" style="color:' + (({ jaegerin: 'var(--kraft)', ritter: 'var(--mut)', gelehrte: 'var(--wissen)', akrobat: 'var(--geschick)' })[k] || '#ffd27a') + '">' + IC[CHAR_IC[k]] + '</span><div style="flex:1;min-width:0"><b>' + c.name + '</b><div class="muted" style="font-size:13px">' + c.text + '</div></div>' +
+        (mine === k ? '<button class="btn small" data-act="char" data-k="">Abwählen</button>' : taken ? '<span class="pill">' + esc(api.pname(o)) + '</span>' : '<button class="btn small" data-act="char" data-k="' + k + '">Wählen</button>') + '</div>';
+    }).join('') + '</div><small class="muted">Wer keine Figur wählt, bekommt beim Start eine zufällige.</small>';
+  },
+  playerExtra: (r, p) => { const k = (r.settings.chars || {})[p.id]; return k ? ' <span class="muted">· ' + r.catalog.CHARS[k].name + '</span>' : ''; },
+  render: renderGame, onState,
+  actions: {
+    char: el => api.send({ t: 'lobby', a: 'char', c: el.dataset.k || null }),
+    give: el => { if (L.heal) { api.act('heal', { card: el.dataset.id }); L.heal = false; return; } api.act('give', { card: el.dataset.id }); },
+    take: el => api.act('take', { card: el.dataset.id }),
+    item: el => api.act(el.dataset.used ? 'unitem' : 'item', { item: el.dataset.k }),
+    ready: () => api.act('ready'),
+    next: () => api.act('next'),
+    heal: () => { L.heal = !L.heal; api.render(); if (L.heal) api.toast('Klick eine deiner Karten an, die du für +1 Ausdauer abwirfst.'); },
+    skip: () => api.act('skip')
+  },
+  onEscape: () => { if (L.heal) { L.heal = false; api.render(); } },
+  sounds: {
+    flip: (S, t, v) => { S.noise(t, .15, .3 * v, 1500); S.tone(330, t + .05, .3, 'sine', .08 * v); },
+    give: (S, t, v) => S.tone(620, t, .12, 'triangle', .1 * v),
+    good: (S, t, v) => [523, 784, 1047].forEach((f, i) => S.tone(f, t + i * .09, .3, 'triangle', .14 * v)),
+    owl: (S, t, v) => { S.tone(392, t, .35, 'sine', .12 * v); S.tone(330, t + .4, .5, 'sine', .12 * v); }
+  }
+});
+
+function top(g, r) {
+  const hearts = Array.from({ length: g.hpMax }, (_, i) => '<span class="' + (i < g.hp ? '' : 'e') + '">' + IC.heart + '</span>').join('');
+  const dots = Array.from({ length: g.goal + 1 }, (_, i) => '<div class="f' + (i <= g.pos ? ' done' : '') + '"><span class="dot' + (i === g.pos ? ' here' : '') + (i === g.goal && i !== g.pos ? ' end' : '') + '" title="Feld ' + i + '">' + (i === g.pos ? IC.lantern : i === g.goal ? IC.house : '') + '</span></div>').join('');
+  return '<div class="panel nt-top"><div class="clock"><span>Stunde ' + g.round + ' von ' + g.rounds + '</span><b>' + clock(g.round) + '</b><div class="sky" style="width:150px"><i style="left:' + Math.round((g.round - 1) / Math.max(1, g.rounds - 1) * 100) + '%"></i></div></div>' +
+    '<div style="min-width:0"><div class="lbl" style="margin-bottom:8px">Weg ins Dorf · Feld ' + g.pos + ' von ' + g.goal + '</div><div class="track">' + dots + '</div></div>' +
+    '<div><div class="lbl" style="text-align:right">Ausdauer ' + g.hp + '</div><div class="hp">' + hearts + '</div></div></div>';
+}
+function eventHTML(r, g) {
+  const ev = g.event; if (!ev) return '';
+  const shown = g.phase === 'result' && g.result && g.result.totals ? g.result : null;
+  const need = ev.needNow, t = shown ? shown.totals : g.totals;
+  const bonus = (c) => g.contrib.filter(x => x.card.c === c).length;
+  let needs = '';
+  if (need) needs = '<div class="needs">' + Object.entries(need).map(([c, v]) => '<div class="need' + (t[c] >= v ? ' ok' : '') + '" style="--c:var(--' + c + ')"><span class="nm" style="color:var(--' + c + ')">' + IC[c] + CN[c] + '</span><span class="bar"><i style="width:' + Math.min(100, Math.round(t[c] / v * 100)) + '%"></i></span><span class="val">' + t[c] + '/' + v + '</span></div>').join('') + '</div>';
+  const tags = [ev.any ? '<span class="pill wait">eins davon reicht</span>' : '', ev.dark ? '<span class="pill">dunkel – Fackel löst es</span>' : '', ev.optional ? '<span class="pill live">freiwillig</span>' : '', !need ? '<span class="pill live">kein Hindernis</span>' : ''].join('');
+  const verdict = g.phase === 'plan' ? (need ? '<div class="verdict ' + (g.willWin ? 'ok' : 'no') + '">' + (g.willWin ? 'Das reicht! Ihr schafft es.' : 'Das reicht noch nicht. ' + Object.entries(need).filter(([c, v]) => t[c] < v).map(([c, v]) => 'Es fehlt ' + CN[c] + ' ' + (v - t[c])).join(ev.any ? ' oder ' : ', ') + '.') + '</div>' : '<div class="verdict ok">Hier müsst ihr nichts legen.</div>') : '';
+  return '<div class="event" id="eventcard"><div class="tagrow">' + tags + '</div><h2>' + esc(ev.name) + '</h2><p class="story">' + esc(ev.text) + '</p>' + needs +
+    '<div class="conseq">' + (need ? '<div class="w"><b>Geschafft:</b> ' + effText(ev.win) + '.</div><div class="l"><b>Nicht geschafft:</b> ' + effText(ev.fail) + '.</div>' : '<div class="w" style="grid-column:1/-1"><b>Belohnung:</b> ' + effText(ev.win) + '.</div>') + '</div>' + verdict + '</div>';
+}
+function renderGame(r, el) {
+  const g = r.g; if (!g) { el.innerHTML = ''; return; }
+  const me = r.me, mine = r.players.some(p => p.id === me), C = r.catalog.CHARS, I = r.catalog.ITEMS, myChar = g.chars[me];
+  if (r.status === 'over') {
+    const won = g.phase === 'won';
+    el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top(g, r) + '<div class="panel over"><h2>' + (won ? 'Im Dorf angekommen!' : g.why === 'dawn' ? 'Die Sonne geht auf …' : 'Zu erschöpft …') + '</h2>' +
+      '<p class="muted" style="font-size:17px">' + (won ? 'Ihr habt es um ' + clock(g.round) + ' ins Dorf geschafft – mit ' + g.hp + ' Ausdauer übrig.' : g.why === 'dawn' ? 'Ihr seid noch ' + (g.goal - g.pos) + ' Feld' + (g.goal - g.pos === 1 ? '' : 'er') + ' vom Dorf entfernt.' : 'Eure Ausdauer ist aufgebraucht – auf Feld ' + g.pos + ' von ' + g.goal + '.') + '</p>' +
+      '<div class="journey">' + g.history.map(h => '<span class="pill ' + (h.ok ? 'live' : 'bad') + '">' + clock(h.round) + ' ' + esc(r.catalog.EVENTS[h.id].name) + '</span>').join('') + '</div>' + api.overButtons(r) + '</div></div>';
+    return;
+  }
+  const evKey = g.round + ':' + (g.event && g.event.id);
+  const flip = L.eventKey !== evKey; L.eventKey = evKey;
+  const shownContrib = g.phase === 'result' && g.result && g.result.contrib ? g.result.contrib : g.contrib;
+  const contrib = '<div class="panel contrib" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Gelegt</div><div class="cards">' +
+    (shownContrib.length ? shownContrib.map(x => { const bonus = C[g.chars[x.pid]] && C[g.chars[x.pid]].color === x.card.c; return '<div><button type="button" ' + (x.pid === me && g.phase === 'plan' ? 'data-act="take" data-id="' + esc(x.card.id) + '" title="Zurücknehmen"' : 'disabled') + '>' + cardHTML(x.card, bonus) + '</button><div class="who">' + esc(api.pname(x.pid)) + '</div></div>'; }).join('') : '<p class="muted">Noch nichts gelegt. Klick deine Handkarten an, um sie zu legen.</p>') + '</div></div>';
+  const items = '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Gegenstände</div><div class="items">' +
+    (g.items.length || g.used.length ? g.used.map(k => '<button type="button" class="item used" data-act="item" data-k="' + k + '" data-used="1"' + (g.phase === 'plan' && mine ? '' : ' disabled') + '>' + IC[k] + '<span><b>' + I[k].name + '</b> eingesetzt<small>Klick: zurücknehmen</small></span></button>').join('') +
+      g.items.map(k => '<button type="button" class="item" data-act="item" data-k="' + k + '"' + (g.phase === 'plan' && mine ? '' : ' disabled') + '>' + IC[k] + '<span><b>' + I[k].name + '</b><small>' + I[k].text + '</small></span></button>').join('') : '<p class="muted">Keine. Manche Ereignisse belohnen euch mit Gegenständen.</p>') + '</div></div>';
+  const party = '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Eure Gruppe</div><div class="party">' + r.players.map(p => '<div class="p"><span><b>' + esc(p.name) + '</b>' + (p.id === me ? ' <span class="muted">(du)</span>' : '') + '<br><small>' + (C[g.chars[p.id]] ? C[g.chars[p.id]].name : '') + ' · ' + (g.counts[p.id] || 0) + ' Karten' + (p.online ? '' : ' · offline') + '</small></span>' + (g.phase === 'plan' ? (g.ready[p.id] ? '<span class="pill live">fertig</span>' : '<span class="pill">überlegt</span>') : '') + '</div>').join('') + '</div></div>';
+  let action = '';
+  if (g.phase === 'plan' && mine) {
+    const extra = (myChar === 'heiler' && !g.healed[me] && g.hp < g.hpMax ? '<button class="btn" data-act="heal">' + (L.heal ? 'Heilen abbrechen' : 'Heilen (+1 Ausdauer)') + '</button>' : '') +
+      (myChar === 'spaeherin' && !g.skipUsed ? '<button class="btn" data-act="skip">Ereignis überspringen</button>' : '');
+    action = '<div class="row">' + (g.ready[me] ? '<button class="btn big" data-act="ready">Doch noch nicht fertig</button>' : '<button class="btn primary big" data-act="ready">Fertig – auflösen</button>') + extra +
+      '<small class="muted">' + r.players.filter(p => g.ready[p.id]).length + ' von ' + r.players.length + ' fertig</small></div>';
+  }
+  const res = g.phase === 'result' && g.result ? (() => { const x = g.result; const fx = [];
+      if (x.skipped) fx.push('übersprungen');
+      fx.push(x.move > 0 ? '+' + x.move + ' Feld' + (x.move > 1 ? 'er' : '') : x.move < 0 ? x.move + ' Feld' : 'kein Fortschritt');
+      if (x.hp) fx.push((x.hp > 0 ? '+' : '') + x.hp + ' Ausdauer'); if (x.item) fx.push('gefunden: ' + I[x.item].name); if (x.lost) fx.push('verloren: ' + I[x.lost].name); if (x.discard) fx.push('jeder verliert ' + x.discard + ' Karte');
+      return '<div class="panel result ' + (x.ok ? 'ok' : 'no') + '"><h2>' + (x.ok ? 'Geschafft!' : 'Nicht geschafft') + '</h2><div class="fx">' + fx.map(f => '<span class="pill">' + f + '</span>').join('') + '</div>' + (mine ? '<button class="btn primary big" data-act="next">Weiter zur nächsten Stunde</button>' : '') + '</div>'; })() : '';
+  const myCharBox = myChar ? '<div class="char mine"><span class="ic">' + IC[CHAR_IC[myChar]] + '</span><div><b>Du bist ' + C[myChar].name + '</b><div class="muted" style="font-size:13px">' + C[myChar].text + '</div></div></div>' : '';
+  const hand = mine ? '<div class="panel' + (L.heal ? ' healmode' : '') + '" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between"><div class="lbl">Deine Karten</div>' + (L.heal ? '<span class="pill bad">Welche Karte abwerfen?</span>' : '') + '</div><div class="cards">' +
+    (g.hand.length ? g.hand.map(c => '<button type="button" data-act="give" data-id="' + esc(c.id) + '"' + (g.phase === 'plan' ? '' : ' disabled') + ' title="' + CN[c.c] + ' ' + c.v + (L.heal ? ' abwerfen' : ' legen') + '">' + cardHTML(c, C[myChar] && C[myChar].color === c.c) + '</button>').join('') : '<p class="muted">Keine Karten mehr.</p>') + '</div>' + myCharBox + '</div>' : '';
+  const preview = g.next ? '<div class="preview"><b>Späherin sieht voraus:</b> Als Nächstes kommt „' + esc(g.next.name) + '“.</div>' : '';
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top(g, r) + res +
+    '<div class="nt-main"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + eventHTML(r, g) + action + contrib + hand + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + party + items + preview + '</div></div></div>';
+  if (flip) { const e = el.querySelector('#eventcard'); if (e) e.classList.add('flip'); }
+}
+function onState(prev, r) {
+  const g = r.g;
+  if (!g) return;
+  if (L.evKey !== g.started) { L.evKey = g.started; L.lastSeq = (!prev || !prev.g) && g.ev ? g.ev.seq : 0; if (!prev || !prev.g) return; }
+  if (!g.ev || g.ev.seq === L.lastSeq) return;
+  L.lastSeq = g.ev.seq;
+  const e = g.ev, S = api.Snd;
+  if (e.kind === 'event') S.play('flip');
+  if (e.kind === 'result') S.play(e.ok ? 'good' : 'bad');
+  if (e.kind === 'item') { S.play('ok'); api.toast(api.pname(e.pid) + ' setzt ' + r.catalog.ITEMS[e.it].name + ' ein.'); }
+  if (e.kind === 'heal') { S.play('ok'); api.toast(api.pname(e.pid) + ' heilt die Gruppe: +1 Ausdauer.'); }
+  if (e.kind === 'skip') { S.play('owl'); api.toast(api.pname(e.pid) + ' findet einen Umweg um „' + r.catalog.EVENTS[e.from].name + '“.'); }
+  if (r.status === 'over' && prev && prev.status !== 'over') S.play(g.phase === 'won' ? 'win' : 'lose');
+}
+})();
+</script>
+</body></html>

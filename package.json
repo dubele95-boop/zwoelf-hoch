@@ -1,7 +1,7 @@
 {
   "name": "zwoelf-hoch",
   "version": "1.0.0",
-  "description": "Zwölf hoch – Online-Kartenspiel für 2 bis 8 Spieler",
+  "description": "Spieleabend – Zwölf hoch, Gleichklang, Bombe entschärfen und Durch die Nacht",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

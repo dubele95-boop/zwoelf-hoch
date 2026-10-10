@@ -1,0 +1,329 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bombe entschärfen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="/common.css">
+<style>
+:root{--accent:#ff7a5c;--accent-ink:#2a0d05}
+.bb-head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.bb-role{font:900 30px/1 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+.bb-role em{font-style:normal;color:var(--accent)}
+.timer{font:800 44px/1 "Courier New",ui-monospace,monospace;color:#ff5a4a;background:#120a0a;padding:8px 16px;border-radius:8px;border:2px solid #3a2020;text-shadow:0 0 14px rgba(255,80,60,.65);letter-spacing:.06em;font-variant-numeric:tabular-nums;min-width:4.2em;text-align:center}
+.timer.low{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{color:#ffb0a6}}
+.strikes{display:flex;gap:6px;align-items:center}
+.strikes span{width:30px;height:30px;border-radius:6px;border:2px solid #3a2020;background:#120a0a;display:grid;place-items:center;color:#3a2020;font:900 22px/1 var(--f-display)}
+.strikes span.on{color:#ff5a4a;text-shadow:0 0 10px rgba(255,80,60,.8)}
+.modlist{display:flex;flex-wrap:wrap;gap:6px}
+.modlist .pill.done{color:var(--ok);border-color:rgba(87,194,154,.5)}
+/* Gehäuse */
+.casing{background:linear-gradient(180deg,#3b3f47,#2a2d33);border:3px solid #15171b;border-radius:18px;padding:14px;box-shadow:inset 0 2px 0 rgba(255,255,255,.08),0 18px 40px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:14px}
+.edge{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:#22252a;border-radius:10px;padding:10px 12px;border:1px solid #121418}
+.serial{background:#f4f1e8;color:#1b1b1b;border-radius:4px;padding:4px 10px;font:700 13px/1.2 ui-monospace,monospace;display:flex;flex-direction:column;align-items:flex-start}
+.serial b{font:800 22px/1 "Courier New",ui-monospace,monospace;letter-spacing:.12em}
+.bats{display:flex;gap:6px;align-items:center;color:#cfd3da;font-size:13px}
+.bat{width:16px;height:30px;border-radius:3px;background:linear-gradient(90deg,#c8a33a,#f0d06a 45%,#a8862a);position:relative;border:1px solid #6b5517}
+.bat::before{content:"";position:absolute;top:-4px;left:4px;width:6px;height:4px;background:#bbb;border-radius:1px}
+.inds{display:flex;gap:8px;flex-wrap:wrap}
+.ind{display:flex;align-items:center;gap:6px;background:#111;border-radius:4px;padding:4px 8px;font:800 14px/1 ui-monospace,monospace;color:#ddd;letter-spacing:.08em}
+.ind i{width:10px;height:10px;border-radius:50%;background:#333;box-shadow:inset 0 0 2px #000}
+.ind.lit i{background:#ffe27a;box-shadow:0 0 8px #ffd24a}
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px}
+.mod{position:relative;background:#2c3036;border:2px solid #15171b;border-radius:12px;padding:14px 14px 12px;min-height:250px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.mod h3{font:800 16px/1 var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:#c7cbd2}
+.mod .led{position:absolute;top:12px;right:12px;width:16px;height:16px;border-radius:50%;background:#3a1010;border:2px solid #111}
+.mod.solved .led{background:#4cff8a;box-shadow:0 0 12px #4cff8a}
+.mod.solved{border-color:#245c3a}
+.mod.hit{animation:hit .6s ease}
+@keyframes hit{0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}30%{box-shadow:0 0 0 4px rgba(255,70,60,.8),inset 0 0 40px rgba(255,60,60,.4)}}
+/* Kabel */
+.wires{display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center}
+.wire{display:flex;align-items:center;gap:8px;border:0;background:none;padding:2px 0;width:100%}
+.wire .no{width:16px;color:#8b9099;font:700 12px/1 ui-monospace,monospace}
+.wire .term{width:12px;height:18px;background:#9aa0a8;border-radius:2px;flex:none}
+.wire .line{flex:1;height:10px;border-radius:5px;background:var(--wc);box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.25);position:relative}
+.wire:hover:not(:disabled) .line{filter:brightness(1.2);transform:scaleY(1.2)}
+.wire.cut .line{background:linear-gradient(90deg,var(--wc) 0 44%,transparent 44% 56%,var(--wc) 56%)}
+.wire:disabled{cursor:default}
+/* Knopf */
+.kn{display:flex;align-items:center;justify-content:center;gap:22px;flex:1}
+.kn-btn{width:132px;height:132px;border-radius:50%;border:6px solid rgba(0,0,0,.35);background:var(--kc);color:var(--kt);font:900 20px/1 var(--f-display);letter-spacing:.06em;box-shadow:0 8px 0 rgba(0,0,0,.45),inset 0 6px 10px rgba(255,255,255,.35);touch-action:none;user-select:none}
+.kn-btn.down{transform:translateY(6px);box-shadow:0 2px 0 rgba(0,0,0,.45),inset 0 6px 10px rgba(255,255,255,.2)}
+.strip{width:22px;height:132px;border-radius:6px;background:#15171b;border:2px solid #0d0e10}
+.strip.on{background:var(--sc);box-shadow:0 0 18px var(--sc)}
+/* Symbole */
+.syms{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1}
+.sym{background:#e9e4d6;border:2px solid #15171b;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px 6px;color:#1c1c1c}
+.sym svg{width:56px;height:56px}
+.sym i{width:12px;height:12px;border-radius:50%;background:#333}
+.sym.done i{background:#4cff8a;box-shadow:0 0 8px #4cff8a}
+.sym:disabled{cursor:default}
+/* Farben */
+.simon{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);justify-content:center;flex:1;align-content:center}
+.pad{border:3px solid #111;border-radius:12px;opacity:.45;transition:opacity .08s,box-shadow .08s}
+.pad.lit{opacity:1;box-shadow:0 0 24px var(--pc)}
+.pad[data-c=rot]{grid-area:1/2;--pc:#ff4040;background:#ff4040}
+.pad[data-c=blau]{grid-area:2/1;--pc:#3d7bff;background:#3d7bff}
+.pad[data-c=gruen]{grid-area:2/3;--pc:#36d36c;background:#36d36c}
+.pad[data-c=gelb]{grid-area:3/2;--pc:#ffd23d;background:#ffd23d}
+/* Passwort */
+.pw{display:flex;justify-content:center;gap:6px;flex:1;align-items:center}
+.pw .col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.pw .col button{width:38px;height:26px;border-radius:6px;border:1px solid #111;background:#3c4148;color:#ddd;font-size:12px;padding:0}
+.pw .letter{width:42px;height:52px;border-radius:6px;background:#0f1a10;color:#6dff8f;font:800 32px/52px "Courier New",ui-monospace,monospace;text-align:center;text-shadow:0 0 10px rgba(80,255,120,.6);border:2px solid #0a0f0a}
+.pw-send{align-self:center}
+/* Handbuch */
+.manual{background:#f3eee0;color:#24211c;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.manual h2{font:900 28px/1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:#8a1f12}
+.manual h3{font:800 22px/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #24211c;padding-bottom:4px}
+.manual section{display:flex;flex-direction:column;gap:8px}
+.manual ol,.manual ul{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:5px}
+.manual table{border-collapse:collapse;font-size:14px}
+.manual td,.manual th{border:1px solid #9b9584;padding:5px 8px;text-align:left}
+.manual th{background:#e2dccb}
+.manual .muted{color:#6b6556}
+.symcols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;max-width:520px}
+.symcols div{display:flex;flex-direction:column;gap:4px;border:1px solid #9b9584;border-radius:6px;padding:4px;align-items:center;background:#fbf8ef}
+.symcols svg{width:100%;max-width:44px;height:auto;color:#1c1c1c}
+.symcols b{font-size:12px}
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:4px 10px;font:700 15px/1.4 ui-monospace,monospace}
+.cdot{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px;border:1px solid rgba(0,0,0,.4)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button[aria-pressed=true]{background:#24211c;color:#f3eee0;border-color:#24211c}
+.tabs button{border:1px solid #9b9584;background:#fbf8ef;color:#24211c;padding:6px 12px;border-radius:8px;font-weight:700}
+/* Ende */
+.boom{position:fixed;inset:0;z-index:45;pointer-events:none;display:grid;place-items:center;overflow:hidden}
+.boom .flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 55%,#fff 0,#ffd27a 18%,#ff6a2a 38%,rgba(120,30,10,.85) 60%,rgba(0,0,0,.9) 100%);animation:bflash 2.6s ease forwards}
+.boom b{position:relative;font:900 clamp(80px,16vw,220px)/1 var(--f-display);color:#fff4d6;text-shadow:0 0 30px #ff7a2a,0 6px 0 #6b1d06;animation:btext 2.6s ease forwards}
+@keyframes bflash{0%{opacity:0;transform:scale(.2)}8%{opacity:1;transform:scale(1.4)}60%{opacity:.9}100%{opacity:0;transform:scale(1.6)}}
+@keyframes btext{0%{transform:scale(.3) rotate(-8deg);opacity:0}12%{transform:scale(1.15) rotate(3deg);opacity:1}70%{opacity:1}100%{transform:scale(1);opacity:0}}
+.shakeall{animation:shk .7s ease}
+@keyframes shk{10%,50%{transform:translate(-12px,6px)}30%,70%{transform:translate(10px,-8px)}90%{transform:translate(-4px,3px)}}
+.winfx{position:fixed;inset:0;z-index:45;pointer-events:none;background:radial-gradient(ellipse at center,rgba(76,255,138,.35),transparent 70%);animation:wf 2s ease forwards}
+@keyframes wf{from{opacity:1}to{opacity:0}}
+.result{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding:24px 16px}
+.result h2{font:900 clamp(48px,8vw,96px)/.9 var(--f-display);text-transform:uppercase}
+.result.won h2{color:#4cff8a}.result.lost h2{color:#ff6a4a}
+@media (max-width:640px){.timer{font-size:34px}.symcols{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style></head><body>
+<div id="app"></div>
+<script src="/bombe-regeln.js"></script>
+<script src="/common.js"></script>
+<script>
+(function(){
+const R = window.BombeRegeln, esc = Spieleabend.esc;
+const WC = { rot: '#e53935', blau: '#2f6fe0', gelb: '#f4c430', weiss: '#f2f2f2', schwarz: '#1b1b1b' };
+const KC = { rot: ['#d93b2b', '#fff'], blau: ['#2f6fe0', '#fff'], gelb: ['#f4c430', '#2a2205'], weiss: ['#f2f2f2', '#222'] };
+const SC = { blau: '#3d7bff', gelb: '#ffd23d', rot: '#ff4040', weiss: '#ffffff' };
+// 27 Symbole (eigene Zeichnungen)
+const SY = [
+  '<path d="M4 20 Q20 6 36 20 Q20 34 4 20 Z"/><circle cx="20" cy="20" r="5" fill="currentColor"/>',
+  '<path d="M23 3 L10 22 H19 L15 37 L30 16 H21 Z" fill="currentColor" stroke="none"/>',
+  '<path d="M24 4 A16 16 0 1 0 24 36 A20 20 0 0 1 24 4 Z" fill="currentColor" stroke="none"/>',
+  '<path d="M20 4 L24.5 15 L36 15.5 L27 23 L30 35 L20 28.5 L10 35 L13 23 L4 15.5 L15.5 15 Z"/>',
+  '<path d="M20 34 C6 24 4 16 8 10 C12 5 18 7 20 12 C22 7 28 5 32 10 C36 16 34 24 20 34 Z"/>',
+  '<circle cx="20" cy="7" r="3"/><path d="M20 10 V34 M12 15 H28 M8 25 Q10 34 20 34 Q30 34 32 25"/>',
+  '<path d="M20 20 a3 3 0 1 1 3 3 a6 6 0 1 1 -9 -5 a10 10 0 1 1 14 12 a14 14 0 1 1 -19 -16"/>',
+  '<path d="M20 9 V36 M10 9 V18 Q10 24 20 24 Q30 24 30 18 V9 M7 12 L10 6 L13 12 M17 12 L20 6 L23 12 M27 12 L30 6 L33 12"/>',
+  '<path d="M3 14 Q9 8 15 14 T27 14 T37 14 M3 26 Q9 20 15 26 T27 26 T37 26"/>',
+  '<path d="M20 32 V8 M10 18 L20 8 L30 18 M10 34 H30"/>',
+  '<circle cx="20" cy="20" r="14"/><path d="M10 10 L30 30 M30 10 L10 30"/>',
+  '<path d="M20 4 L36 20 L20 36 L4 20 Z"/><circle cx="20" cy="20" r="3.5" fill="currentColor"/>',
+  '<path d="M10 29 Q10 12 20 10 Q30 12 30 29 Z M6 29 H34 M17 34 H23 M20 6 V10"/>',
+  '<circle cx="12" cy="20" r="7"/><path d="M19 20 H36 M30 20 V27 M35 20 V25"/>',
+  '<path d="M6 34 Q6 8 34 6 Q32 34 6 34 Z M6 34 L24 16"/>',
+  '<path d="M20 4 Q32 19 32 25 A12 12 0 0 1 8 25 Q8 19 20 4 Z"/>',
+  '<path d="M6 30 L8 12 L15 20 L20 8 L25 20 L32 12 L34 30 Z M6 34 H34"/>',
+  '<path d="M10 5 H30 M10 35 H30 M12 5 Q12 16 20 20 Q28 16 28 5 M12 35 Q12 24 20 20 Q28 24 28 35"/>',
+  '<path d="M4 28 L11 12 L18 28 L25 12 L32 28 L36 18"/>',
+  '<path d="M6 25 A14 14 0 0 1 34 25 Z"/><circle cx="12" cy="32" r="2" fill="currentColor"/><circle cx="20" cy="32" r="2" fill="currentColor"/><circle cx="28" cy="32" r="2" fill="currentColor"/>',
+  '<path d="M20 5 L36 33 H4 Z"/><circle cx="20" cy="23" r="4" fill="currentColor"/>',
+  '<path d="M20 36 V18 M12 5 V13 Q12 18 20 18 Q28 18 28 13 V5 M20 5 V18"/>',
+  '<circle cx="20" cy="20" r="7"/><path d="M20 3 V8 M20 32 V37 M3 20 H8 M32 20 H37 M8 8 L11 11 M29 29 L32 32 M32 8 L29 11 M8 32 L11 29"/>',
+  '<path d="M10 30 A6 6 0 0 1 10 18 A9 9 0 0 1 27 14 A7.5 7.5 0 0 1 31 30 Z"/>',
+  '<circle cx="17" cy="19" r="9"/><path d="M17 19 m-4 0 a4 4 0 1 0 4 -4 M4 31 H32 Q37 31 36 24"/>',
+  '<path d="M14 6 V34 M26 6 V34 M6 14 H34 M6 26 H34"/>',
+  '<path d="M7 34 H15 Q6 26 8 16 Q12 6 20 6 Q28 6 32 16 Q34 26 25 34 H33"/>'
+];
+const sym = i => '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + SY[i] + '</svg>';
+const L = { off: 0, bombKey: null, pw: {}, pressing: null, simonPause: {}, lastSeq: 0, tab: null, tick: -1 };
+
+const api = Spieleabend.start({
+  game: 'bombe', title: 'Bombe entschärfen', tagline: 'Reden ist alles',
+  brand: '<b>Bombe <i>entschärfen</i></b>',
+  meta: { min: 2, max: 6, bots: false },
+  hero: '<h1>Bombe <em>entschärfen</em></h1><p>Eine Person hat die Bombe vor sich – aber kein Handbuch. Alle anderen haben das Handbuch – sehen die Bombe aber nicht. Beschreibt, fragt nach, findet die Lösung. Und zwar bevor der Timer abläuft.</p>' +
+    '<div class="art row" aria-hidden="true"><div class="timer">4:59</div><div class="strikes"><span class="on">X</span><span>X</span><span>X</span></div></div>' +
+    '<ol class="steps"><li>Startet einen Anruf (z. B. WhatsApp, Discord, Telefon) – reden geht am schnellsten.</li><li>Tisch erstellen, Link verschicken, mindestens 2 Spieler.</li><li>Wer die Bombe hat, beschreibt. Wer das Handbuch hat, sagt, was zu tun ist.</li></ol>',
+  rules: () => '<h3>Rollen</h3><ul><li><b>Entschärfer:</b> sieht die Bombe mit allen Modulen, aber kein Handbuch. Nur er kann Kabel schneiden und Knöpfe drücken.</li><li><b>Experten:</b> haben das Handbuch, sehen die Bombe aber nicht. Wenn ihr mehrere seid, bekommt jeder nur einen Teil der Kapitel.</li></ul>' +
+    '<h3>Ziel</h3><ul><li>Löst alle Module, bevor der Timer abläuft. Jedes gelöste Modul bekommt ein grünes Licht.</li><li>Jeder Fehler gibt ein <b>X</b>. Beim dritten X fliegt die Bombe in die Luft.</li></ul>' +
+    '<h3>Reden</h3><ul><li>Am besten telefoniert ihr nebenbei. Im Spiel gibt es zusätzlich einen kleinen Chat.</li><li>Der Entschärfer sollte genau beschreiben: Farben, Reihenfolge, Aufschriften, die Seriennummer, Batterien und leuchtende Anzeigen auf dem Gehäuse.</li></ul>',
+  lobby: (r, host) => {
+    const s = r.settings;
+    const seg = (key, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button type="button" data-set="' + key + '" data-val="' + v + '" aria-pressed="' + (String(s[key]) === String(v)) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>').join('') + '</div>';
+    return '<div class="field"><span class="label">Schwierigkeit</span>' + seg('diff', [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']]) +
+        '<small class="muted">' + (s.diff === 'leicht' ? '3 Module, wenige Kabel.' : s.diff === 'schwer' ? '5 Module, lange Farbfolgen.' : '4 Module.') + '</small></div>' +
+      '<div class="field"><span class="label">Zeit</span>' + seg('minutes', [[3, '3 Min.'], [4, '4 Min.'], [5, '5 Min.'], [6, '6 Min.'], [8, '8 Min.']]) + '</div>' +
+      '<div class="field"><label class="label" for="defSel">Wer entschärft?</label>' + (host ? '<select id="defSel" data-set="defuser"><option value="zufall"' + (s.defuser === 'zufall' ? ' selected' : '') + '>Zufall</option>' + r.players.map(p => '<option value="' + esc(p.id) + '"' + (s.defuser === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>' : '<div>' + (s.defuser === 'zufall' ? 'Zufall' : esc(api.pname(s.defuser))) + '</div>') + '</div>' +
+      '<div class="field"><span class="label">Handbuch aufteilen</span><div class="row"><button type="button" class="toggle" role="switch" aria-checked="' + !!s.split + '" aria-label="Handbuch aufteilen" data-set="split" data-val="' + !s.split + '"' + (host ? '' : ' disabled') + '><i></i></button><small class="muted" style="flex:1">Bei mehreren Experten bekommt jeder nur einige Kapitel. Dann müsst ihr euch auch untereinander absprechen.</small></div></div>';
+  },
+  render: renderGame, onState,
+  actions: {
+    cut: el => { api.Snd.play('snip'); api.act('cut', { m: +el.dataset.m, k: +el.dataset.k }); },
+    sym: el => api.act('sym', { m: +el.dataset.m, k: +el.dataset.k }),
+    pad: el => { const m = +el.dataset.m; L.simonPause[m] = Date.now() + 4000; el.classList.add('lit'); setTimeout(() => el.classList.remove('lit'), 220); api.Snd.play('pad'); api.act('color', { m, c: el.dataset.c }); },
+    up: el => { pwStep(+el.dataset.m, +el.dataset.k, -1); },
+    down: el => { pwStep(+el.dataset.m, +el.dataset.k, 1); },
+    word: el => { const m = +el.dataset.m, d = api.room.g.detail[m], pos = L.pw[m] || [0, 0, 0, 0, 0]; api.act('word', { m, word: d.cols.map((c, i) => c[pos[i]]).join('') }); },
+    tab: el => { L.tab = el.dataset.k; api.render(); }
+  },
+  sounds: {
+    tick: (S, t, v) => S.tone(1800, t, .03, 'square', .03 * v),
+    strike: (S, t, v) => { S.tone(140, t, .4, 'sawtooth', .14 * v); S.tone(95, t + .05, .45, 'square', .1 * v); },
+    solve: (S, t, v) => [880, 1320].forEach((f, i) => S.tone(f, t + i * .09, .25, 'sine', .15 * v)),
+    pad: (S, t, v) => S.tone(660, t, .12, 'triangle', .1 * v),
+    boom: (S, t, v) => { S.noise(t, 1.6, 1 * v, 300, 'lowpass'); S.noise(t + .05, .9, .7 * v, 900, 'lowpass'); S.tone(70, t, 1.2, 'sine', .4 * v); },
+    snip: (S, t, v) => S.noise(t, .06, .5 * v, 4000)
+  }
+});
+
+// Knopf gedrückt halten: Loslassen zählt überall auf der Seite
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.kn-btn'); if (!b || b.disabled) return;
+  e.preventDefault(); L.pressing = +b.dataset.m; b.classList.add('down'); api.act('press', { m: L.pressing });
+});
+const release = () => { if (L.pressing == null) return; const m = L.pressing; L.pressing = null; document.querySelectorAll('.kn-btn.down').forEach(x => x.classList.remove('down')); api.act('release', { m }); };
+document.addEventListener('pointerup', release); document.addEventListener('pointercancel', release);
+window.addEventListener('blur', release);
+
+function pwStep(m, k, d) {
+  const cols = api.room.g.detail[m].cols, pos = L.pw[m] || (L.pw[m] = [0, 0, 0, 0, 0]);
+  pos[k] = (pos[k] + d + 6) % 6;
+  const el = document.querySelector('.letter[data-m="' + m + '"][data-k="' + k + '"]'); if (el) el.textContent = cols[k][pos[k]];
+  api.Snd.play('click', .5);
+}
+const now = () => Date.now() + L.off;
+const fmt = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+
+function head(r, g) {
+  const role = g.role === 'defuser' ? 'Du hast die <em>Bombe</em>' : g.role === 'expert' ? 'Du hast das <em>Handbuch</em>' : 'Du schaust <em>zu</em>';
+  const left = r.status === 'over' ? (g.ended ? g.deadline - g.ended : 0) : g.deadline - now();
+  return '<div class="panel bb-head"><div><div class="bb-role">' + role + '</div><div class="muted">' + (g.role === 'defuser' ? 'Beschreibe den anderen, was du siehst.' : 'Entschärfer: <b>' + esc(api.pname(g.defuser)) + '</b>') + '</div></div>' +
+    '<div class="row" style="gap:16px"><div class="timer' + (left < 30000 && r.status !== 'over' ? ' low' : '') + '" data-timer>' + fmt(left) + '</div>' +
+    '<div class="strikes" aria-label="' + g.strikes + ' von ' + g.maxStrikes + ' Fehlern">' + Array.from({ length: g.maxStrikes }, (_, i) => '<span class="' + (i < g.strikes ? 'on' : '') + '">X</span>').join('') + '</div></div>' +
+    '<div class="modlist">' + g.modules.map(m => '<span class="pill ' + (m.solved ? 'done' : '') + '">' + R.MODULES[m.type] + (m.solved ? ' ✓' : '') + '</span>').join('') + '</div></div>';
+}
+
+function bombHTML(g, over) {
+  const b = g.bomb;
+  const edge = '<div class="edge"><div class="serial"><span>SERIENNUMMER</span><b>' + esc(b.serial) + '</b></div>' +
+    '<div class="bats">' + (b.batteries ? Array.from({ length: b.batteries }, () => '<div class="bat"></div>').join('') : '') + '<span>' + b.batteries + (b.batteries === 1 ? ' Batterie' : ' Batterien') + '</span></div>' +
+    '<div class="inds">' + (b.indicators.length ? b.indicators.map(i => '<div class="ind' + (i.lit ? ' lit' : '') + '" title="' + (i.lit ? 'leuchtet' : 'aus') + '"><i></i>' + esc(i.label) + '</div>').join('') : '<span class="muted" style="font-size:13px">keine Anzeigen</span>') + '</div></div>';
+  const mods = g.modules.map((m, i) => {
+    const d = g.detail[i], solved = m.solved, dis = solved || over ? ' disabled' : '';
+    let body = '';
+    if (m.type === 'kabel') body = '<div class="wires">' + d.wires.map((c, k) => '<button type="button" class="wire' + (d.cut.includes(k) ? ' cut' : '') + '" data-act="cut" data-m="' + i + '" data-k="' + k + '" style="--wc:' + WC[c] + '" aria-label="' + (k + 1) + '. Kabel, ' + R.COLORS[c] + '"' + (dis || d.cut.includes(k) ? ' disabled' : '') + '><span class="no">' + (k + 1) + '</span><span class="term"></span><span class="line"></span><span class="term"></span></button>').join('') + '</div>' + (over && d.answer != null ? '<small class="muted">Richtig war: ' + (d.answer + 1) + '. Kabel</small>' : '');
+    if (m.type === 'knopf') body = '<div class="kn"><button type="button" class="kn-btn' + (d.pressed && L.pressing === i ? ' down' : '') + '" data-m="' + i + '" style="--kc:' + KC[d.color][0] + ';--kt:' + KC[d.color][1] + '"' + dis + '>' + esc(d.label) + '</button><div class="strip' + (d.strip ? ' on' : '') + '" style="--sc:' + (SC[d.strip] || '#000') + '" title="Leuchtstreifen"></div></div>' + (over && d.answer ? '<small class="muted">Richtig war: ' + (d.answer === 'tap' ? 'kurz drücken' : 'gedrückt halten') + '</small>' : '<small class="muted">Kurz drücken oder gedrückt halten – loslassen, wann es passt.</small>');
+    if (m.type === 'symbole') body = '<div class="syms">' + d.symbols.map((s, k) => '<button type="button" class="sym' + (d.done.includes(s) ? ' done' : '') + '" data-act="sym" data-m="' + i + '" data-k="' + k + '"' + (dis || d.done.includes(s) ? ' disabled' : '') + '><i></i>' + sym(s) + (over && d.order ? '<small style="font-weight:800">' + (d.order.indexOf(s) + 1) + '.</small>' : '') + '</button>').join('') + '</div>';
+    if (m.type === 'farben') body = '<div class="simon" data-simon="' + i + '">' + R.SIMON_COLORS.map(c => '<button type="button" class="pad" data-act="pad" data-m="' + i + '" data-c="' + c + '" aria-label="' + R.COLORS[c] + '"' + dis + '></button>').join('') + '</div><small class="muted" style="text-align:center">Stufe ' + Math.min(d.stage, d.len) + ' von ' + d.len + '</small>';
+    if (m.type === 'wort') { const pos = L.pw[i] || (L.pw[i] = [0, 0, 0, 0, 0]); body = '<div class="pw">' + d.cols.map((c, k) => '<div class="col"><button type="button" data-act="up" data-m="' + i + '" data-k="' + k + '" aria-label="hoch"' + dis + '>▲</button><div class="letter" data-m="' + i + '" data-k="' + k + '">' + (solved && d.answer ? d.answer[k] : c[pos[k]]) + '</div><button type="button" data-act="down" data-m="' + i + '" data-k="' + k + '" aria-label="runter"' + dis + '>▼</button></div>').join('') + '</div><button type="button" class="btn pw-send" data-act="word" data-m="' + i + '"' + dis + '>Senden</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer + '</small>' : ''); }
+    return '<div class="mod' + (solved ? ' solved' : '') + '" data-mod="' + i + '"><span class="led"></span><h3>' + R.MODULES[m.type] + '</h3>' + body + '</div>';
+  }).join('');
+  return '<div class="casing">' + edge + '<div class="mods">' + mods + '</div></div>';
+}
+
+function manualHTML(r, g) {
+  const mine = g.manual || [];
+  const all = Object.keys(R.MODULES);
+  const others = Object.entries(g.manualOf || {}).filter(([pid]) => pid !== r.me).map(([pid, ch]) => ({ name: api.pname(pid), ch })).filter(x => x.ch.length);
+  if (!L.tab || (L.tab !== 'allg' && !mine.includes(L.tab))) L.tab = 'allg';
+  const tabs = '<div class="tabs"><button type="button" data-act="tab" data-k="allg" aria-pressed="' + (L.tab === 'allg') + '">Allgemein</button>' + mine.map(c => '<button type="button" data-act="tab" data-k="' + c + '" aria-pressed="' + (L.tab === c) + '">' + R.MODULES[c] + '</button>').join('') + '</div>';
+  let body = '';
+  if (L.tab === 'allg') {
+    body = '<section><h3>Allgemein</h3><p>Willkommen beim Bombenentschärfungs-Handbuch. Fragt den Entschärfer nach allem, was ihr braucht:</p><ul>' +
+      '<li><b>Seriennummer:</b> steht auf dem weißen Schild am Gehäuse. Wichtig sind die <b>letzte Ziffer</b> (gerade oder ungerade) und ob ein <b>Vokal</b> (A, E, I, U) darin vorkommt.</li>' +
+      '<li><b>Batterien:</b> Anzahl der goldenen Batterien am Gehäuse.</li><li><b>Anzeigen:</b> kleine Schilder mit drei Buchstaben. Sie können <b>leuchten</b> oder aus sein.</li>' +
+      '<li>Jeder Fehler gibt ein <b>X</b>. Beim dritten X explodiert die Bombe.</li><li>Ein grünes Licht oben rechts bedeutet: Modul gelöst.</li></ul>' +
+      '<p><b>Deine Kapitel:</b> ' + (mine.length ? mine.map(c => R.MODULES[c]).join(', ') : 'keine') + '</p>' +
+      (others.length && mine.length < all.length ? '<p><b>Die anderen Kapitel haben:</b> ' + others.map(o => esc(o.name) + ' (' + o.ch.map(c => R.MODULES[c]).join(', ') + ')').join(' · ') + '</p>' : '') + '</section>';
+  } else if (L.tab === 'kabel') {
+    body = '<section><h3>Kabel</h3><p>Auf dem Modul sind 3 bis 6 Kabel. Sie werden <b>von oben nach unten</b> gezählt. Es muss genau <b>ein</b> Kabel durchgeschnitten werden. Mögliche Farben: Rot, Blau, Gelb, Weiß, Schwarz.</p>' +
+      [3, 4, 5, 6].map(n => '<div><b>' + n + ' Kabel:</b><ol>' + R.WIRES[n].map(x => '<li>' + x.t + '</li>').join('') + '</ol></div>').join('') + '<p class="muted">Prüft die Regeln immer von oben nach unten. Die erste, die passt, gilt.</p></section>';
+  } else if (L.tab === 'knopf') {
+    body = '<section><h3>Der Knopf</h3><p>Ein großer farbiger Knopf mit Aufschrift. Geht die Regeln von oben nach unten durch, die erste passende gilt:</p><ol>' + R.BUTTON.map(x => '<li>' + x.t + '</li>').join('') + '</ol>' +
+      '<p><b>Kurz drücken:</b> drücken und sofort wieder loslassen.</p><p><b>Gedrückt halten:</b> Neben dem Knopf leuchtet dann ein Streifen auf. Lass erst los, wenn auf dem Timer an <b>irgendeiner Stelle</b> diese Ziffer steht:</p>' +
+      '<table><tr><th>Streifen</th><th>Loslassen bei Ziffer</th></tr>' + Object.entries(R.STRIP).map(([c, d]) => '<tr><td><span class="cdot" style="background:' + SC[c] + '"></span>' + R.COLORS[c] + '</td><td><b>' + d + '</b></td></tr>').join('') + '</table></section>';
+  } else if (L.tab === 'symbole') {
+    body = '<section><h3>Symbole</h3><p>Auf dem Modul sind 4 Symbole. Genau <b>eine</b> der Spalten unten enthält alle vier. Drückt die Symbole in der Reihenfolge, in der sie in dieser Spalte <b>von oben nach unten</b> stehen.</p><div class="symcols">' +
+      R.SYM_COLS.map((col, i) => '<div><b>' + (i + 1) + '</b>' + col.map(s => sym(s)).join('') + '</div>').join('') + '</div><p class="muted">Tipp: Gebt den Symbolen gemeinsam Namen, z. B. „Auge“, „Blitz“, „Mond“.</p></section>';
+  } else if (L.tab === 'farben') {
+    const tbl = (k, title) => '<p><b>' + title + '</b></p><table><tr><th>Blinkt</th><th>0 Fehler</th><th>1 Fehler</th><th>2 Fehler</th></tr>' + R.SIMON_COLORS.map(c => '<tr><td><span class="cdot" style="background:' + ({ rot: '#ff4040', blau: '#3d7bff', gruen: '#36d36c', gelb: '#ffd23d' })[c] + '"></span>' + R.COLORS[c] + '</td>' + [0, 1, 2].map(s => '<td>' + R.COLORS[R.SIMON[k][s][c]] + '</td>').join('') + '</tr>').join('') + '</table>';
+    body = '<section><h3>Farben-Echo</h3><p>Vier farbige Felder blinken in einer Folge. Drückt <b>nicht</b> die blinkende Farbe, sondern die Farbe aus der Tabelle. Es kommt darauf an, ob die Seriennummer einen <b>Vokal</b> (A, E, I, U) enthält und wie viele Fehler (X) ihr schon habt.</p>' +
+      '<p>Nach jeder richtigen Folge kommt eine Farbe dazu. Gebt immer die <b>ganze Folge</b> von Anfang an ein.</p>' + tbl('vokal', 'Seriennummer MIT Vokal') + tbl('ohne', 'Seriennummer OHNE Vokal') + '</section>';
+  } else if (L.tab === 'wort') {
+    body = '<section><h3>Passwort</h3><p>Fünf Buchstabenrollen. Mit den Pfeilen blättert man durch je 6 Buchstaben. Nur <b>eines</b> der Wörter unten lässt sich einstellen. Dann „Senden“ drücken.</p><div class="words">' + R.WORDS.map(w => '<span>' + w + '</span>').join('') + '</div><p class="muted">Tipp: Lasst euch die Buchstaben einer Rolle vorlesen und streicht Wörter aus.</p></section>';
+  }
+  return '<div class="manual"><h2>Handbuch</h2>' + tabs + body + '</div>';
+}
+
+function renderGame(r, el) {
+  const g = r.g; if (!g) { el.innerHTML = ''; return; }
+  L.off = g.now - Date.now();
+  if (L.bombKey !== g.started) { L.bombKey = g.started; L.pw = {}; L.simonPause = {}; L.tab = null; }
+  const over = r.status === 'over';
+  let main = '';
+  if (over) {
+    const won = g.phase === 'won', left = g.deadline - g.ended;
+    main = '<div class="panel result ' + (won ? 'won' : 'lost') + '"><h2>' + (won ? 'Entschärft!' : 'BOOM!') + '</h2><p class="muted" style="font-size:17px">' +
+      (won ? 'Geschafft mit ' + fmt(left) + ' auf der Uhr und ' + g.strikes + ' Fehler' + (g.strikes === 1 ? '' : 'n') + '.' : g.why === 'time' ? 'Die Zeit ist abgelaufen.' : 'Drei Fehler – das war einer zu viel.') + '</p>' + api.overButtons(r) + '</div>' + bombHTML(g, true);
+  } else if (g.role === 'defuser') main = bombHTML(g, false);
+  else main = manualHTML(r, g);
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + head(r, g) + main + '</div>';
+}
+
+// Timer + Farben-Echo laufen unabhängig vom Neuzeichnen
+setInterval(() => {
+  const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
+  const g = r.g, left = g.deadline - now();
+  document.querySelectorAll('[data-timer]').forEach(t => { t.textContent = fmt(left); t.classList.toggle('low', left < 30000); });
+  const sec = Math.ceil(left / 1000);
+  if (sec !== L.tick) { L.tick = sec; if (left < 30000 && left > 0) api.Snd.play('tick', 1); else if (sec % 1 === 0 && left > 0) api.Snd.play('tick', .25); }
+  if (g.role === 'defuser' && g.detail) {
+    g.modules.forEach((m, i) => {
+      if (m.type !== 'farben' || m.solved) return;
+      const box = document.querySelector('[data-simon="' + i + '"]'); if (!box) return;
+      const d = g.detail[i], seq = d.flash, step = 650, cycle = seq.length * step + 2200;
+      const paused = (L.simonPause[i] || 0) > Date.now();
+      const t = Date.now() % cycle, idx = Math.floor(t / step), on = !paused && idx < seq.length && (t % step) < 420;
+      box.querySelectorAll('.pad').forEach(p => { if (!p.matches(':active')) p.classList.toggle('lit', on && p.dataset.c === seq[idx]); });
+    });
+  }
+}, 80);
+
+function onState(prev, r) {
+  const g = r.g;
+  if (!g) return;
+  if (L.evKey !== g.started) { L.evKey = g.started; L.lastSeq = (!prev || !prev.g) && g.ev ? g.ev.seq : 0; if (!prev || !prev.g) return; }
+  if (!g.ev || g.ev.seq === L.lastSeq) return;
+  L.lastSeq = g.ev.seq;
+  const e = g.ev, S = api.Snd;
+  if (e.kind === 'strike') {
+    S.play('strike'); api.toast('Fehler! ' + (e.what || '') + ' – ' + g.strikes + ' von ' + g.maxStrikes + ' X');
+    const m = document.querySelector('[data-mod="' + e.m + '"]'); if (m) m.classList.add('hit');
+    document.body.classList.remove('shakeall'); void document.body.offsetWidth; document.body.classList.add('shakeall');
+  }
+  if (e.kind === 'solved') { S.play('solve'); if (g.role !== 'defuser') api.toast(R.MODULES[g.modules[e.m].type] + ' ist gelöst!'); }
+  if (e.kind === 'ok') S.play('click', .6);
+  if (e.kind === 'stage') S.play('solve', .5);
+  if (e.kind === 'cut') S.play('snip');
+  if (e.kind === 'boom' && prev && prev.status !== 'over') {
+    S.play('boom'); document.body.insertAdjacentHTML('beforeend', '<div class="boom"><div class="flash"></div><b>BOOM!</b></div>');
+    document.body.classList.remove('shakeall'); void document.body.offsetWidth; document.body.classList.add('shakeall');
+    setTimeout(() => { const b = document.querySelector('.boom'); if (b) b.remove(); }, 2700);
+  }
+  if (e.kind === 'won' && prev && prev.status !== 'over') { S.play('win'); document.body.insertAdjacentHTML('beforeend', '<div class="winfx"></div>'); setTimeout(() => { const b = document.querySelector('.winfx'); if (b) b.remove(); }, 2100); }
+}
+})();
+</script>
+</body></html>

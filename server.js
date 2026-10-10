@@ -1,6 +1,7 @@
-// Zwölf hoch – Spielserver
-// Startet einen Webserver, liefert das Spiel aus (public/index.html)
-// und hält alle laufenden Spiele im Speicher. Die Browser verbinden sich per WebSocket.
+// Spieleabend – Spielserver
+// Liefert die Startseite (index.html) und die Spiele aus: Zwölf hoch (zwoelf.html, Regeln hier in dieser Datei)
+// sowie Gleichklang, Bombe entschärfen und Durch die Nacht (Regeln in spiel-*.js, Tische in spieleabend.js).
+// Die Browser verbinden sich per WebSocket.
 
 const http = require('http');
 const fs = require('fs');
@@ -15,19 +16,24 @@ const BOT_NAMES = ['Bruno', 'Clara', 'Emil', 'Frieda'];
 const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 
 /* ---------------- HTTP ---------------- */
-// index.html darf direkt neben server.js oder im Ordner public liegen
-const indexFile = [path.join(__dirname, 'index.html'), path.join(__dirname, 'public', 'index.html')].find(f => fs.existsSync(f));
+// Die Dateien dürfen direkt neben server.js oder im Ordner public liegen
+const fileOf = name => [path.join(__dirname, name), path.join(__dirname, 'public', name)].find(f => fs.existsSync(f));
+const PAGES = { '/': 'index.html', '/zwoelf': 'zwoelf.html', '/gleichklang': 'gleichklang.html', '/bombe': 'bombe.html', '/nacht': 'nacht.html' };
+const ASSETS = { '/common.js': 'text/javascript', '/common.css': 'text/css', '/bombe-regeln.js': 'text/javascript' };
 const server = http.createServer((req, res) => {
-  if (req.url === '/healthz') { res.writeHead(200); return res.end('ok'); }
-  if (req.url === '/' || req.url.startsWith('/?') || req.url.startsWith('/#')) {
-    fs.readFile(indexFile, (err, buf) => {
-      if (err) { res.writeHead(500); return res.end('Fehler'); }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-      res.end(buf);
-    });
-    return;
-  }
-  res.writeHead(404); res.end('Nicht gefunden');
+  const url = req.url.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+  if (url === '/healthz') { res.writeHead(200); return res.end('ok'); }
+  let name = PAGES[url], type = 'text/html; charset=utf-8';
+  if (!name && ASSETS[url]) { name = url.slice(1); type = ASSETS[url] + '; charset=utf-8'; }
+  // falls die neue Startseite fehlt, kommt direkt Zwölf hoch
+  if (url === '/' && !fileOf('index.html') && fileOf('zwoelf.html')) name = 'zwoelf.html';
+  const file = name && fileOf(name);
+  if (!file) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Nicht gefunden'); }
+  fs.readFile(file, (err, buf) => {
+    if (err) { res.writeHead(500); return res.end('Fehler'); }
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
+    res.end(buf);
+  });
 });
 
 /* ---------------- Spielzustand ---------------- */
@@ -76,7 +82,7 @@ async function loadGames() {
   } catch (e) { console.error('Laden fehlgeschlagen:', e.message); }
 }
 // Beim Herunterfahren (Update/Neustart bei Render) noch schnell alles sichern
-async function flushAll() { await Promise.all([...saveTimers.keys()].map(saveNow)); }
+async function flushAll() { await Promise.all([...saveTimers.keys()].map(saveNow)); if (typeof abend !== 'undefined') await abend.flush(); }
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, async () => { try { await flushAll(); if (store) await store.quit(); } finally { process.exit(0); } });
 const sockets = new Map();    // Spieler-ID -> Set<ws>
 
@@ -779,7 +785,16 @@ function removePlayer(g, id) {
   broadcast(g);
 }
 
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+// Neue Spiele (Gleichklang, Bombe, Nacht) laufen über einen eigenen Unterbau
+const abend = require('./spieleabend')({ store, WebSocketServer });
+server.on('upgrade', (req, socket, head) => {
+  const p = req.url.split('?')[0];
+  if (p === '/ws') return wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  const m = p.match(/^\/ws\/(\w+)$/);
+  if (m && abend.games.includes(m[1])) return abend.handleUpgrade(req, socket, head, m[1]);
+  socket.destroy();
+});
 wss.on('connection', ws => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -831,4 +846,4 @@ setInterval(() => {
 
 // nur für automatische Tests (im echten Betrieb nie gesetzt)
 if (process.env.ZH_TEST_HOOKS) global.__zh = { games, handlers, setupPiles, botAct: (...a) => botAct(...a) };
-loadGames().then(() => server.listen(PORT, () => console.log('Zwölf hoch läuft auf http://localhost:' + PORT + (store ? ' (mit Speicher)' : ''))));
+Promise.all([loadGames(), abend.load()]).then(() => server.listen(PORT, () => console.log('Spieleabend läuft auf http://localhost:' + PORT + (store ? ' (mit Speicher)' : ''))));

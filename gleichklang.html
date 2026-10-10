@@ -1,0 +1,193 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gleichklang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="/common.css">
+<style>
+:root{--accent:#4fd1c5;--accent-ink:#06211f}
+.gk-card{--w:92px;width:var(--w);aspect-ratio:5/7;border-radius:12px;background:var(--card);color:var(--h,#1d7d8f);display:grid;place-items:center;font:900 calc(var(--w) * .46)/1 var(--f-display);position:relative;flex:none;box-shadow:0 2px 0 rgba(0,0,0,.25),0 10px 22px rgba(0,0,0,.3);border:2px solid color-mix(in srgb,var(--h,#1d7d8f) 30%,#fff)}
+.gk-card small{position:absolute;top:6px;left:8px;font-size:calc(var(--w) * .16)}
+.gk-card small.b{top:auto;left:auto;bottom:6px;right:8px;transform:rotate(180deg)}
+.gk-back{width:var(--w,26px);aspect-ratio:5/7;border-radius:5px;background:linear-gradient(135deg,#2c6f69,#1b3f4f);border:1px solid rgba(255,255,255,.18);flex:none}
+.gk-top{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center;justify-content:space-between}
+.gk-level{display:flex;align-items:baseline;gap:10px}
+.gk-level b{font:900 54px/1 var(--f-display)}
+.gk-level span{color:var(--muted);font-weight:700}
+.gk-res{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.gk-res .grp{display:flex;align-items:center;gap:4px}
+.gk-res svg{width:26px;height:26px}
+.gk-res .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:6px}
+.heart{color:#ff6b7a}.heart.empty{color:rgba(255,255,255,.14)}
+.star{color:#ffd166}
+.gk-players{display:flex;flex-wrap:wrap;gap:10px}
+.gk-p{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.18);min-width:130px}
+.gk-p .nm{font-weight:700;display:flex;gap:6px;align-items:center}
+.gk-p .backs{display:flex;gap:3px;min-height:36px;align-items:center;--w:24px}
+.gk-p .backs .gk-back{margin-left:-12px}.gk-p .backs .gk-back:first-child{margin-left:0}
+.gk-p.me{border-color:rgba(79,209,197,.5)}
+.gk-p.flash{animation:pflash .7s ease}
+@keyframes pflash{0%{box-shadow:0 0 0 0 rgba(79,209,197,.0)}30%{box-shadow:0 0 0 4px rgba(79,209,197,.7)}100%{box-shadow:0 0 0 0 rgba(79,209,197,0)}}
+.gk-mid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
+.gk-pile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:270px;position:relative}
+.gk-pile .stack{position:relative;width:132px;aspect-ratio:5/7}
+.gk-pile .stack .gk-card{--w:132px;position:absolute;inset:0}
+.gk-pile .who{color:var(--muted);font-size:14px;min-height:21px}
+.gk-pile .empty{width:132px;aspect-ratio:5/7;border:2px dashed var(--line-2);border-radius:12px;display:grid;place-items:center;color:var(--muted);font-weight:700;text-align:center;padding:10px}
+.pop{animation:pop .35s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes pop{from{transform:translateY(-30px) scale(1.25) rotate(-6deg);opacity:0}to{transform:none;opacity:1}}
+.shake{animation:shake .5s ease}
+@keyframes shake{20%{transform:translateX(-10px) rotate(-3deg)}40%{transform:translateX(9px) rotate(3deg)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+.gk-out{display:flex;flex-direction:column;gap:8px}
+.gk-out .list{display:flex;flex-wrap:wrap;gap:8px}
+.gk-out .x{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted)}
+.gk-out .x .gk-card{--w:46px;opacity:.85}
+.gk-hand{display:flex;flex-direction:column;gap:12px}
+.gk-hand .cards{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;min-height:140px}
+.gk-hand .cards .gk-card{--w:92px}
+.gk-hand .cards button{padding:0;border:0;background:none;border-radius:12px}
+.gk-hand .cards button .gk-card{transition:transform .15s ease}
+.gk-hand .cards button:not(:disabled):hover .gk-card{transform:translateY(-8px)}
+.gk-hand .cards button.lowest .gk-card{outline:3px solid var(--accent);outline-offset:3px}
+.gk-hand .cards button:disabled{cursor:default}
+.gk-hand .cards button:disabled .gk-card{filter:saturate(.75) brightness(.92)}
+.gk-ready{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding:28px 16px}
+.gk-ready h2{font:900 clamp(44px,7vw,80px)/.9 var(--f-display);text-transform:uppercase}
+.gk-ready .reward{font-weight:700;color:var(--accent)}
+.gk-ready .who{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.gk-vote{border-color:rgba(255,209,102,.6);background:rgba(255,209,102,.08);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.gk-over{text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center;padding:24px 16px}
+.gk-over h2{font:900 clamp(44px,7vw,84px)/.9 var(--f-display);text-transform:uppercase}
+.gk-over table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+.gk-over td,.gk-over th{padding:6px 12px;border-bottom:1px solid var(--line);text-align:right}
+.gk-over td:first-child,.gk-over th:first-child{text-align:left}
+.redflash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,60,60,0),rgba(255,60,60,.35));animation:rf .8s ease forwards;z-index:40}
+@keyframes rf{from{opacity:1}to{opacity:0}}
+@media (max-width:760px){.gk-mid{grid-template-columns:minmax(0,1fr)}.gk-hand .cards .gk-card{--w:70px}}
+</style></head><body>
+<div id="app"></div>
+<script src="/common.js"></script>
+<script>
+(function(){
+const esc = Spieleabend.esc;
+const HEART = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8 3 4 6.8 4c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3C21 4 23.1 8 21.6 11.6 19.5 16.4 12 21 12 21z"/></svg>';
+const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>';
+const hue = v => { const t = (v - 1) / 99; const h = 175 + t * 205; return 'hsl(' + (h % 360) + ' 62% 38%)'; };
+const card = (v, extra) => '<div class="gk-card' + (extra || '') + '" style="--h:' + hue(v) + '"><small>' + v + '</small>' + v + '<small class="b">' + v + '</small></div>';
+let local = { lastSeq: 0, lastLevelEv: null };
+
+const api = Spieleabend.start({
+  game: 'gleichklang', title: 'Gleichklang', tagline: 'Gemeinsam aufsteigend – ohne Worte',
+  brand: '<b>Gleich<i>klang</i></b>',
+  meta: { min: 2, max: 6, bots: true, maxBots: 5 },
+  hero: '<h1>Gleich<em>klang</em></h1><p>Ihr spielt alle zusammen. Jeder hat ein paar Zahlen zwischen 1 und 100. Legt sie gemeinsam in aufsteigender Reihenfolge in die Mitte – aber ohne zu reden, ohne Zeichen. Nur mit Gefühl für den richtigen Moment.</p>' +
+    '<div class="art row" aria-hidden="true">' + [7, 23, 46, 81].map(v => card(v)).join('') + '</div>' +
+    '<ol class="steps"><li>Tisch erstellen und den Link an deine Freunde schicken (oder Bots dazunehmen).</li><li>Jeder sieht nur seine eigenen Karten.</li><li>Wer glaubt, die kleinste Zahl zu haben, legt sie einfach. Schafft ihr alle Level?</li></ol>',
+  rules: () => '<p>Gleichklang ist ein <b>gemeinsames</b> Spiel: Ihr gewinnt oder verliert zusammen.</p>' +
+    '<h3>Ablauf</h3><ol><li>In Level 1 bekommt jeder 1 Karte, in Level 2 zwei Karten und so weiter. Die Zahlen gehen von 1 bis 100.</li>' +
+    '<li>Ihr legt alle Karten zusammen auf einen Stapel – <b>aufsteigend</b>. Es gibt keine Reihenfolge, wer dran ist: Wer meint, jetzt sei seine Zahl dran, legt sie.</li>' +
+    '<li>Während gelegt wird, darf <b>nicht geredet</b> werden (der Chat ist dann aus). Ihr müsst ein Gefühl für die Zeit entwickeln: Wer eine 3 hat, legt schnell – wer eine 90 hat, wartet lange.</li>' +
+    '<li>Du legst immer deine kleinste Karte.</li></ol>' +
+    '<h3>Fehler</h3><ul><li>Hatte jemand noch eine kleinere Zahl, als gerade gelegt wurde, verliert das Team <b>ein Leben</b>. Alle kleineren Karten werden aufgedeckt und abgeworfen, dann geht es weiter.</li><li>Sind alle Leben weg, ist das Spiel verloren.</li></ul>' +
+    '<h3>Sterne</h3><ul><li>Steckt ihr fest, kann jemand einen <b>Stern</b> vorschlagen. Sind alle einverstanden, wirft jeder seine kleinste Karte offen ab – das gibt euch Hinweise.</li></ul>' +
+    '<h3>Belohnungen</h3><ul><li>Nach Level 2, 5 und 8 gibt es einen Stern, nach Level 3, 6 und 9 ein Leben dazu.</li><li>Gewonnen habt ihr, wenn ihr das letzte Level schafft (2 Spieler: 12 Level, 3 Spieler: 10, ab 4 Spielern: 8).</li></ul>' +
+    '<h3>Vor jedem Level</h3><ul><li>Alle drücken „Bereit“. Erst dann werden die Karten verteilt. Kurz durchatmen, konzentrieren – los.</li></ul>',
+  lobby: (r, host) => {
+    const m = r.settings.mode;
+    const opt = (v, t) => '<button type="button" data-set="mode" data-val="' + v + '" aria-pressed="' + (m === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
+    return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
+      '<small class="muted">' + (m === 'leicht' ? 'Ein Leben und ein Stern mehr zum Start.' : m === 'schwer' ? 'Ein Leben weniger und kein Stern zum Start.' : 'So viele Leben wie Spieler und ein Stern.') + '</small></div>' +
+      '<div class="field"><span class="label">Kurz erklärt</span><p class="muted">Legt eure Zahlen gemeinsam aufsteigend ab, ohne zu reden. Wer zu früh legt oder zu lange wartet, kostet ein Leben.</p></div>';
+  },
+  chatQuiet: r => r.status === 'playing' && r.g && r.g.phase === 'play' ? 'Psst! Während ihr legt, wird nicht geredet.' : null,
+  render: renderGame,
+  onState,
+  actions: {
+    ready: () => api.act('ready'),
+    play: () => api.act('play'),
+    star: () => api.act('star'),
+    yes: () => api.act('vote', { yes: true }),
+    no: () => api.act('vote', { yes: false })
+  },
+  sounds: {
+    play: (S, t, v) => S.tone(520, t, .22, 'triangle', .14 * v),
+    lvl: (S, t, v) => [523, 659, 784, 1047, 1319].forEach((f, i) => S.tone(f, t + i * .08, .35, 'triangle', .14 * v)),
+    starfx: (S, t, v) => [1568, 1976, 2349, 2637].forEach((f, i) => S.tone(f, t + i * .06, .45, 'sine', .08 * v))
+  }
+});
+
+function renderGame(r, el) {
+  const g = r.g; if (!g) { el.innerHTML = ''; return; }
+  const me = r.me, mine = r.players.some(p => p.id === me);
+  const hearts = Array.from({ length: Math.max(g.lives, 0) }, () => '<span class="heart">' + HEART + '</span>').join('') || '<span class="muted">keine</span>';
+  const stars = Array.from({ length: g.stars }, () => '<span class="star">' + STAR + '</span>').join('') || '<span class="muted">keine</span>';
+  const top = '<div class="panel gk-top"><div class="gk-level"><b>Level ' + g.level + '</b><span>von ' + g.maxLevel + '</span></div>' +
+    '<div class="gk-res"><div class="grp" title="Leben"><span class="lbl">Leben</span>' + hearts + '</div><div class="grp" title="Sterne"><span class="lbl">Sterne</span>' + stars + '</div>' +
+    (g.nextReward && r.status === 'playing' ? '<span class="pill">Belohnung nach diesem Level: ' + (g.nextReward === 'life' ? 'Leben' : 'Stern') + '</span>' : '') + '</div></div>';
+  const players = '<div class="gk-players">' + r.players.map(p => {
+    const n = g.counts[p.id] || 0;
+    return '<div class="gk-p' + (p.id === me ? ' me' : '') + '" data-pid="' + esc(p.id) + '"><div class="nm">' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.online ? '' : '<span class="pill">offline</span>') + '</div>' +
+      (g.phase === 'ready' ? '<div class="backs">' + (g.ready[p.id] ? '<span class="pill live">bereit</span>' : '<span class="pill">wartet</span>') + '</div>'
+        : '<div class="backs" title="' + n + ' Karten">' + (n ? Array.from({ length: n }, () => '<div class="gk-back"></div>').join('') : '<span class="muted" style="font-size:13px">fertig</span>') + '</div>') + '</div>';
+  }).join('') + '</div>';
+
+  if (r.status === 'over') { el.innerHTML = top + renderOver(r, g); return; }
+
+  if (g.phase === 'ready') {
+    const lev = g.ev && g.ev.kind === 'level' ? g.ev : null;
+    el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top +
+      '<div class="panel gk-ready">' + (lev ? '<p class="reward">Level ' + lev.level + ' geschafft!' + (lev.reward === 'life' ? ' Ihr bekommt ein Leben dazu.' : lev.reward === 'star' ? ' Ihr bekommt einen Stern dazu.' : '') + '</p>' : '') +
+      '<h2>Level ' + g.level + '</h2><p class="muted">Jeder bekommt ' + g.level + (g.level === 1 ? ' Karte' : ' Karten') + '. Konzentriert euch – und dann: kein Wort mehr.</p>' +
+      (mine ? (g.ready[me] ? '<button class="btn big" disabled>Du bist bereit</button>' : '<button class="btn primary big" data-act="ready">Bereit</button>') : '') +
+      '<div class="who">' + r.players.map(p => '<span class="pill ' + (g.ready[p.id] ? 'live' : '') + '">' + esc(p.name) + (g.ready[p.id] ? ' ✓' : '') + '</span>').join('') + '</div></div>' + players + '</div>';
+    return;
+  }
+  const last = g.pile[g.pile.length - 1];
+  const pile = '<div class="panel gk-pile"><div class="label">Stapel in der Mitte</div>' +
+    (last ? '<div class="stack" id="stack">' + g.pile.slice(-3).map((x, i, a) => '<div style="position:absolute;inset:0;transform:rotate(' + ((i - a.length + 1) * 4) + 'deg)">' + card(x.v, i === a.length - 1 ? ' toppile' : '') + '</div>').join('') + '</div>' : '<div class="empty" id="stack">Noch keine Karte.<br>Wer hat die kleinste?</div>') +
+    '<div class="who">' + (last ? 'zuletzt: <b>' + esc(api.pname(last.pid)) + '</b> · ' + g.pileCount + ' gelegt' : '') + '</div></div>';
+  const out = '<div class="panel gk-out"><div class="label">Abgeworfen</div>' + (g.out.length ? '<div class="list">' + g.out.map(x => '<div class="x">' + card(x.v) + '<span>' + esc(api.pname(x.pid)) + '</span></div>').join('') + '</div>' : '<p class="muted">Noch nichts. Fehler und Sterne decken hier Karten auf.</p>') + '</div>';
+  const vote = g.vote ? '<div class="panel gk-vote"><div><b>' + esc(api.pname(g.vote.by)) + '</b> schlägt einen Stern vor: Jeder wirft seine kleinste Karte offen ab.<br><span class="muted">Einverstanden: ' + r.players.filter(p => g.vote.yes[p.id]).map(p => esc(p.name)).join(', ') + '</span></div>' +
+    (mine && !g.vote.yes[me] ? '<div class="row"><button class="btn primary" data-act="yes">Ja, Stern einsetzen</button><button class="btn" data-act="no">Nein</button></div>' : '<span class="pill wait">Warte auf die anderen …</span>') + '</div>' : '';
+  const hand = g.hand || [];
+  const myHand = mine ? '<div class="panel gk-hand"><div class="row" style="justify-content:space-between"><div class="label">Deine Karten</div>' +
+    (g.stars > 0 && !g.vote ? '<button class="btn small" data-act="star">' + STAR.replace('<svg', '<svg style="color:#ffd166"') + ' Stern vorschlagen</button>' : '') + '</div>' +
+    '<div class="cards">' + (hand.length ? hand.map((v, i) => '<button type="button" ' + (i === 0 && !g.vote ? 'class="lowest" data-act="play" aria-label="' + v + ' legen"' : 'disabled aria-label="' + v + '"') + '>' + card(v) + '</button>').join('') : '<p class="muted">Du hast keine Karten mehr. Drück den anderen die Daumen!</p>') + '</div>' +
+    (hand.length && !g.vote ? '<div class="row"><button class="btn primary big" data-act="play">' + hand[0] + ' jetzt legen</button><small class="muted">Du legst immer deine kleinste Karte.</small></div>' : '') + '</div>' : '';
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + vote + '<div class="gk-mid">' + pile + out + '</div>' + myHand + players + '</div>';
+  if (g.ev && g.ev.seq !== local.renderedSeq && (g.ev.kind === 'play' || g.ev.kind === 'mistake')) {
+    local.renderedSeq = g.ev.seq;
+    const t = el.querySelector('.toppile'); if (t) t.classList.add('pop');
+    if (g.ev.kind === 'mistake') { const s = el.querySelector('#stack'); if (s) s.classList.add('shake'); }
+    const pc = el.querySelector('.gk-p[data-pid="' + g.ev.pid + '"]'); if (pc) pc.classList.add('flash');
+  }
+}
+function renderOver(r, g) {
+  const won = g.phase === 'won', dur = Math.round(((g.ended || Date.now()) - g.started) / 1000);
+  const rows = r.players.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (g.stats.played[p.id] || 0) + '</td><td>' + (g.stats.mistakes[p.id] || 0) + '</td><td>' + ((g.reveal && g.reveal[p.id]) || []).join(', ') + '</td></tr>').join('');
+  return '<div class="panel gk-over"><h2>' + (won ? 'Geschafft!' : 'Verloren') + '</h2>' +
+    '<p class="muted" style="font-size:17px">' + (won ? 'Ihr habt alle ' + g.maxLevel + ' Level im Gleichklang gemeistert.' : 'Ihr seid bis Level ' + g.level + ' von ' + g.maxLevel + ' gekommen.') + ' Dauer: ' + Math.floor(dur / 60) + ' Min. ' + (dur % 60) + ' Sek. · Sterne eingesetzt: ' + g.stats.starsUsed + ' · Leben verloren: ' + g.stats.livesLost + '</p>' +
+    '<table><thead><tr><th>Spieler</th><th>gelegt</th><th>zu lange gehalten</th><th>übrige Karten</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    api.overButtons(r) + '</div>';
+}
+function onState(prev, r) {
+  const g = r.g;
+  if (!g) return;
+  if (local.evKey !== g.started) { local.evKey = g.started; local.lastSeq = (!prev || !prev.g) && g.ev ? g.ev.seq : 0; if (!prev || !prev.g) return; }
+  if (!g.ev || g.ev.seq === local.lastSeq) return;
+  local.lastSeq = g.ev.seq;
+  const e = g.ev, S = api.Snd;
+  if (e.kind === 'play') S.play('play', .8 + Math.min(.4, e.v / 250));
+  if (e.kind === 'mistake') {
+    S.play('bad'); document.body.insertAdjacentHTML('beforeend', '<div class="redflash"></div>'); setTimeout(() => { const f = document.querySelector('.redflash'); if (f) f.remove(); }, 900);
+    api.toast(e.lower.length === 1 ? 'Oh nein! ' + api.pname(e.lower[0].pid) + ' hatte noch die ' + e.lower[0].v + '. Ein Leben weg.' : 'Oh nein! Da lagen noch kleinere Karten: ' + e.lower.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ') + '. Ein Leben weg.', 5000);
+  }
+  if (e.kind === 'level') S.play('lvl');
+  if (e.kind === 'star') { S.play('starfx'); api.toast('Stern eingesetzt: ' + e.shown.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ')); }
+  if (e.kind === 'vote' && e.pid !== r.me) { S.play('chat'); }
+  if (e.kind === 'voteNo') api.toast(api.pname(e.pid) + ' möchte keinen Stern einsetzen.');
+  if (r.status === 'over' && prev && prev.status !== 'over') S.play(g.phase === 'won' ? 'win' : 'lose');
+}
+})();
+</script>
+</body></html>
