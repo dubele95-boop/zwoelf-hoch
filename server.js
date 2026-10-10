@@ -230,7 +230,7 @@ function viewFor(g, me) {
     discards: g.discards[p.id] || [[], [], [], []]
   }));
   return {
-    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, wins: g.wins || {}, stats: g.status === 'finished' ? g.stats || null : null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
+    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, lobbyBy: g.lobbyBy || null, next: g.next || null, wins: g.wins || {}, stats: g.status === 'finished' ? g.stats || null : null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
     spy: g.spy ? (g.spy.pid === me ? { pid: g.spy.pid, target: g.spy.target, hand: g.hands[g.spy.target] } : { pid: g.spy.pid, target: g.spy.target }) : null,
     choose: g.choose || null, skips: g.skips || {}, slog: (g.slog || []).map(e => ({ k: e.k, t: e.priv && e.priv[me] ? e.priv[me] : e.t, n: e.n })),
@@ -277,8 +277,23 @@ const handlers = {
     const g = games.get(code); must(g, 'Kein Spiel mit dem Code ' + code + ' gefunden.');
     const name = cleanName(m.name);
     if (!g.players.some(p => p.id === ws.pid)) {
-      if (g.status !== 'lobby') { g.watchers.add(ws.pid); ws.gameCode = code; broadcast(g); throw new UserErr('Das Spiel läuft schon. Du schaust zu.'); }
       must(name, 'Gib zuerst deinen Namen ein.');
+      // Wieder reinkommen: gleicher Name wie ein Platz, der gerade offline ist -> Platz übernehmen
+      const seat = g.players.find(p => !p.bot && !isOnline(p.id) && p.name.toLowerCase() === name.toLowerCase());
+      if (seat) {
+        const old = gameOf(ws.pid); if (old && old !== g && old.status === 'lobby') removePlayer(old, ws.pid);
+        takeSeat(g, seat.id, ws.pid); g.watchers.delete(ws.pid);
+        if (g.status === 'playing') addSLog(g, 'join', name + ' ist wieder dabei');
+        ws.gameCode = code; broadcast(g); return;
+      }
+      if (g.status !== 'lobby') {
+        // mitten in der Runde einsteigen: neuer Platz mit frischem Spielerstapel
+        const ok = g.status === 'playing' && g.players.length < MAXP && g.draw.length >= Math.min(g.stackSize, 5) + 5;
+        if (!ok) { g.watchers.add(ws.pid); ws.gameCode = code; broadcast(g); throw new UserErr(g.status === 'playing' && g.players.length >= MAXP ? 'Der Tisch ist voll. Du schaust zu.' : 'Die Runde ist gerade vorbei. Du kommst in der nächsten Runde dazu.'); }
+        const old = gameOf(ws.pid); if (old && old !== g && old.status === 'lobby') removePlayer(old, ws.pid);
+        lateJoin(g, ws.pid, name); g.watchers.delete(ws.pid);
+        ws.gameCode = code; broadcast(g); return;
+      }
       must(g.players.length < MAXP, 'Das Spiel ist voll (' + MAXP + ' Spieler).');
       const old = gameOf(ws.pid); if (old && old !== g && old.status === 'lobby') removePlayer(old, ws.pid);
       g.players.push({ id: ws.pid, name });
@@ -293,16 +308,16 @@ const handlers = {
     if (g.status === 'lobby') removePlayer(g, ws.pid);
   },
   setAllSpecials(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
-    g.specials = {}; for (const k of Object.keys(SPECIALS)) g.specials[k] = !!m.on; broadcast(g);
+    must(g.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
+    const c = cfg(g); c.specials = {}; for (const k of Object.keys(SPECIALS)) c.specials[k] = !!m.on; broadcast(g);
   },
   setSpecial(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    must(g.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
     must(Object.prototype.hasOwnProperty.call(SPECIALS, m.key), 'Unbekannte Sonderkarte.');
-    g.specials = { ...(g.specials || {}), [m.key]: !!m.on }; broadcast(g);
+    const c = cfg(g); c.specials = { ...(c.specials || {}), [m.key]: !!m.on }; broadcast(g);
   },
   addBot(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann Bots hinzufügen.');
+    must(g.host === ws.pid && g.status === 'lobby', 'Bots kannst du in der Lobby hinzufügen.');
     must(g.players.length < MAXP, 'Der Tisch ist voll (' + MAXP + ' Spieler).');
     must(g.players.filter(p => p.bot).length < MAXBOTS, 'Mehr als ' + MAXBOTS + ' Bots gehen nicht.');
     const used = new Set(g.players.map(p => p.name));
@@ -311,38 +326,61 @@ const handlers = {
     broadcast(g);
   },
   removeBot(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann Bots entfernen.');
+    must(g.host === ws.pid && g.status === 'lobby', 'Nur der Gastgeber kann Bots entfernen.');
     must(g.players.some(p => p.id === m.id && p.bot), 'Diesen Bot gibt es nicht.');
     g.players = g.players.filter(p => p.id !== m.id); broadcast(g);
   },
   setPiles(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    must(g.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
     const n = Number(m.piles), d = Number(m.down);
     must(Number.isInteger(n) && n >= 1 && n <= 6, 'Es sind 1 bis 6 Aufbaustapel möglich.');
     must(Number.isInteger(d) && d >= 0 && d <= n, 'So viele Stapel gibt es nicht.');
-    g.piles = n; g.downPiles = d; broadcast(g);
+    const c = cfg(g); c.piles = n; c.downPiles = d; broadcast(g);
   },
   setStack(ws, m, g) {
-    must(g.host === ws.pid && g.status !== 'playing', 'Nur der Gastgeber kann das ändern.');
+    must(g.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
     must(STACK_SIZES.includes(m.n), 'Ungültige Stapelgröße.');
-    g.stackSize = m.n; broadcast(g);
+    cfg(g).stackSize = m.n; broadcast(g);
   },
   // nach Spielende: jeder Mitspieler darf eine neue Runde anstoßen -> alle zurück in die Lobby
   newRound(ws, m, g) {
     must(g.status === 'finished', 'Die Runde läuft noch.');
     must(g.players.some(p => p.id === ws.pid), 'Nur Mitspieler können eine neue Runde starten.');
-    g.status = 'lobby'; g.round = (g.round || 1) + 1; g.rematchBy = ws.pid;
-    g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
-    setupPiles(g);
-    g.skips = {}; g.choose = null; g.spy = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
+    g.round = (g.round || 1) + 1; toLobby(g, ws.pid);
+    broadcast(g);
+  },
+  // Gastgeber holt alle zurück in die Lobby (bricht eine laufende Runde ab)
+  backToLobby(ws, m, g) {
+    must(g.host === ws.pid, 'Nur der Gastgeber kann alle in die Lobby holen.');
+    must(g.status !== 'lobby', 'Ihr seid schon in der Lobby.');
+    if (g.status === 'finished') g.round = (g.round || 1) + 1;
+    toLobby(g, null); g.lobbyBy = ws.pid;
+    broadcast(g);
+  },
+  // Gastgeber entfernt einen Mitspieler (auch mitten in der Runde)
+  kick(ws, m, g) {
+    must(g.host === ws.pid, 'Nur der Gastgeber kann Mitspieler entfernen.');
+    must(m.id !== ws.pid, 'Du kannst dich nicht selbst entfernen.');
+    const p = g.players.find(x => x.id === m.id); must(p, 'Diesen Spieler gibt es nicht.');
+    if (g.status === 'playing') {
+      must(g.players.length > 2, 'Mit nur 2 Spielern geht das nicht mitten in der Runde. Hol alle in die Lobby zurück.');
+      dropFromRound(g, p.id);
+      addSLog(g, 'kick', pname(g, ws.pid) + ' hat ' + p.name + ' vom Tisch genommen');
+    }
+    g.players = g.players.filter(x => x.id !== p.id);
+    g.watchers.delete(p.id);
+    if (!p.bot) {
+      const set = sockets.get(p.id);
+      if (set) for (const s of set) if (s.gameCode === g.code) { s.gameCode = null; send(s, { t: 'kicked' }); }
+    }
     broadcast(g);
   },
   start(ws, m, g) {
     must(g.host === ws.pid, 'Nur der Gastgeber kann starten.');
     must(g.status !== 'playing', 'Das Spiel läuft schon.');
     must(g.players.length >= 2, 'Es braucht mindestens 2 Spieler.');
-    g.rematchBy = null;
-    startRound(g); broadcast(g);
+    g.rematchBy = null; g.lobbyBy = null;
+    applyNext(g); startRound(g); broadcast(g);
   },
   play(ws, m, g) {
     const me = ws.pid; myTurn(g, me);
@@ -675,6 +713,63 @@ function applySkip(g, by, target) {
   addLog(g, pname(g, by) + ' lässt ' + pname(g, target) + ' aussetzen.');
   addSLog(g, 'skip', GAGS[gag](pname(g, by), pname(g, target)) + ' – ' + pname(g, target) + ' setzt aus');
   return gag;
+}
+// Einstellungen: in der Lobby sofort, sonst für die nächste Runde merken
+function cfg(g) {
+  if (g.status === 'lobby') return g;
+  if (!g.next) g.next = { stackSize: g.stackSize, specials: { ...(g.specials || {}) }, piles: g.piles || 4, downPiles: g.downPiles || 0 };
+  return g.next;
+}
+function applyNext(g) { if (g.next) { Object.assign(g, g.next); delete g.next; } }
+function toLobby(g, by) {
+  g.status = 'lobby'; g.rematchBy = by; g.lobbyBy = null;
+  applyNext(g);
+  g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
+  setupPiles(g);
+  g.skips = {}; g.choose = null; g.spy = null; g.slog = []; g.winner = null; g.turnNo = 0; g.lastMove = null;
+}
+// Karten eines Spielers, der die Runde verlässt, zurück in den Nachziehstapel mischen
+function dropFromRound(g, id) {
+  const idx = g.players.findIndex(p => p.id === id);
+  const back = [...(g.stocks[id] || []), ...(g.hands[id] || []), ...[].concat(...(g.discards[id] || []))];
+  g.draw = shuffle([...g.draw, ...back]);
+  delete g.stocks[id]; delete g.hands[id]; delete g.discards[id];
+  if (g.skips) delete g.skips[id];
+  if (g.spy && (g.spy.pid === id || g.spy.target === id)) g.spy = null;
+  if (g.choose && g.choose.pid === id) g.choose = null;
+  const wasTurn = idx === g.turn;
+  g.players.splice(idx, 1);
+  if (idx < g.turn) g.turn--;
+  else if (wasTurn) { g.turnCards = 0; g.turn = (idx - 1 + g.players.length) % g.players.length; advanceFrom(g); }
+}
+function advanceFrom(g) {
+  g.choose = null; g.spy = null; g.skips = g.skips || {};
+  for (let k = 0; k <= g.players.length; k++) {
+    g.turn = (g.turn + 1) % g.players.length; g.turnNo++;
+    const p = g.players[g.turn];
+    if (g.skips[p.id] > 0) { g.skips[p.id]--; stat(g, p.id).skipped++; addLog(g, p.name + ' setzt aus.'); addSLog(g, 'skipped', p.name + ' setzt aus'); continue; }
+    break;
+  }
+  refill(g, g.players[g.turn].id);
+}
+// Spieler-ID austauschen (wer mit neuem Browser zurückkommt, übernimmt seinen alten Platz)
+function takeSeat(g, oldId, newId) {
+  const p = g.players.find(x => x.id === oldId); p.id = newId;
+  for (const k of ['hands', 'stocks', 'discards', 'skips']) if (g[k] && oldId in g[k]) { g[k][newId] = g[k][oldId]; delete g[k][oldId]; }
+  if (g.stats && g.stats.players[oldId]) { g.stats.players[newId] = g.stats.players[oldId]; delete g.stats.players[oldId]; }
+  if (g.wins && oldId in g.wins) { g.wins[newId] = g.wins[oldId]; delete g.wins[oldId]; }
+  if (g.host === oldId) g.host = newId;
+  if (g.winner === oldId) g.winner = newId;
+  if (g.rematchBy === oldId) g.rematchBy = newId;
+  for (const o of [g.choose, g.spy, g.lastMove]) if (o) { if (o.pid === oldId) o.pid = newId; if (o.target === oldId) o.target = newId; if (o.skipTarget === oldId) o.skipTarget = newId; }
+}
+function lateJoin(g, id, name) {
+  g.players.push({ id, name });
+  g.stocks[id] = g.draw.splice(0, Math.min(g.stackSize, Math.max(0, g.draw.length - 5)));
+  g.hands[id] = []; g.discards[id] = [[], [], [], []];
+  stat(g, id);
+  addLog(g, name + ' steigt mit ' + g.stocks[id].length + ' Karten ein.');
+  addSLog(g, 'join', name + ' steigt mitten in der Runde ein');
 }
 function removePlayer(g, id) {
   g.players = g.players.filter(p => p.id !== id);

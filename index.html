@@ -99,6 +99,8 @@ body.busy{cursor:progress}
 .pill.bot{color:#9ec3ff;border-color:rgba(143,180,255,.45);font-size:10px;padding:1px 6px;vertical-align:middle}
 .pill.skip{display:inline-flex;align-items:center;gap:5px;color:#ffb3a8;border-color:rgba(239,107,91,.5)}
 .pill.skip svg{width:12px;height:12px}
+.modalbox.managebox{max-width:620px;max-height:min(90vh,900px);overflow:auto;align-items:stretch;text-align:left;gap:12px}
+.modalbox.managebox h2{text-align:center}
 .modalbox.statsbox{max-width:900px;max-height:min(90vh,900px);overflow:auto;align-items:stretch;text-align:left;gap:14px}
 .awards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:8px}
 .award{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:rgba(242,184,75,.08);border:1px solid rgba(242,184,75,.3);font-size:14px}
@@ -123,6 +125,12 @@ body.busy{cursor:progress}
 .confgrid{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;text-align:left;width:100%;font-size:15px}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
 .modalbox{background:var(--table-2);max-width:440px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal.side{background:none;pointer-events:none;place-items:center end;padding:12px}
+.modal.side .modalbox{pointer-events:auto;max-width:min(360px,94vw)!important;max-height:calc(100vh - 24px);overflow:auto;padding:16px;gap:10px;background:rgba(30,26,48,.95);border:2px solid var(--accent);box-shadow:0 14px 40px rgba(0,0,0,.55)}
+.modal.side .modalbox h2{font-size:22px}
+.modal.side .skipbig{width:30px;height:30px}
+.modal.side .choose{justify-content:center}
+@media (max-width:760px){.modal.side{place-items:end center}.modal.side .modalbox{max-height:55vh}}
 .modalbox h2{font:900 32px/1 var(--f-display);text-transform:uppercase}
 .skipbig{width:44px;height:44px;color:var(--danger)}
 .choose{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}
@@ -291,6 +299,7 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 <div id="toast" hidden></div>
 <div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div>
 <div id="stats" class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden></div>
+<div id="manage" class="modal" role="dialog" aria-modal="true" aria-labelledby="manageTitle" hidden></div>
 <script>
 (function(){
 const view = document.getElementById('view');
@@ -304,7 +313,7 @@ const MAXP = 8;
 const hashCode = (location.hash || '').replace('#','').toUpperCase().slice(0,4);
 
 document.body.dataset.back = ['gitter','sonne','welle'].includes(LS.get('zh.back','')) ? LS.get('zh.back','') : 'gitter';
-const S = { ws:null, token:LS.get('zh.token',null), me:null, game:null, sel:null, name:LS.get('zh.name',''),
+const S = { confirmLobby:0, confirmKickAt:0, manage:false, ws:null, token:LS.get('zh.token',null), me:null, game:null, sel:null, name:LS.get('zh.name',''),
   connected:false, everConnected:false, view:null, confirmEnd:0, landed:null, prevBuild:null, retry:0 };
 
 /* ---------- Verbindung ---------- */
@@ -333,8 +342,10 @@ function connect(){
     }
     else if(m.t === 'pong'){}
     else if(m.t === 'error'){ toast(m.msg); Snd.play('error'); S.dragHide = null; S.dropRect = null; S.sel = null; render(); }
-    else if(m.t === 'left' || m.t === 'ended'){
+    else if(m.t === 'left' || m.t === 'ended' || m.t === 'kicked'){
       if(m.t === 'ended') toast('Das Spiel wurde beendet.');
+      if(m.t === 'kicked') toast('Der Gastgeber hat dich vom Tisch genommen. Über den Einladungslink kannst du wieder einsteigen.');
+      closeManage();
       S.game = null; S.sel = null; history.replaceState(null, '', location.pathname); document.title = 'Zwölf hoch'; render();
     }
   };
@@ -860,6 +871,17 @@ const H = {
     if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, () => { el.select(); });
     else el.select();
   },
+  toLobby(){
+    if(S.game && S.game.status === 'playing' && Date.now() - S.confirmLobby > 4000){ S.confirmLobby = Date.now(); render(); setTimeout(render, 4100); toast('Nochmal klicken: Die Runde wird abgebrochen und alle kommen zurück in die Lobby.'); return; }
+    S.confirmLobby = 0; closeManage(); send({t:'backToLobby'});
+  },
+  manage(){ S.manage = true; S.manageKey = null; renderManage(); },
+  manageClose(){ closeManage(); },
+  kick(_, b){
+    const id = b.dataset.pid;
+    if(S.confirmKick !== id || Date.now() - S.confirmKickAt > 4000){ S.confirmKick = id; S.confirmKickAt = Date.now(); S.manageKey = null; renderManage(); setTimeout(() => { S.manageKey = null; renderManage(); }, 4100); return; }
+    S.confirmKick = null; send({t:'kick', id});
+  },
   endgame(){
     if(Date.now() - S.confirmEnd > 4000){ S.confirmEnd = Date.now(); render(); setTimeout(render, 4100); return; }
     send({t:'endGame'});
@@ -1049,14 +1071,18 @@ document.addEventListener('pointerup', e => endDrag(e, false));
 document.addEventListener('pointercancel', e => endDrag(e, true));
 view.addEventListener('click', e => { if(D.justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
 
-bind(view); bind(barActions);
-view.addEventListener('change', e => {
+const manageEl = document.getElementById('manage');
+bind(view); bind(barActions); bind(manageEl);
+manageEl.addEventListener('click', e => { if(e.target === manageEl) closeManage(); });
+manageEl.addEventListener('change', e => onCfgChange(e));
+view.addEventListener('change', e => onCfgChange(e));
+function onCfgChange(e){
   if(e.target.id === 'stackSel') send({t:'setStack', n:+e.target.value});
   if(e.target.id === 'pilesSel' || e.target.id === 'downSel'){
     const n = +document.getElementById('pilesSel').value, d = Math.min(n, +document.getElementById('downSel').value);
     send({t:'setPiles', piles:n, down:d});
   }
-});
+}
 view.addEventListener('input', e => { if(e.target.id === 'nameInput'){ S.name = e.target.value; LS.set('zh.name', e.target.value.trim()); } });
 view.addEventListener('keydown', e => {
   if(e.key !== 'Enter') return;
@@ -1065,6 +1091,7 @@ view.addEventListener('keydown', e => {
 });
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
+  if(!document.getElementById('manage').hidden){ closeManage(); return; }
   if(!document.getElementById('stats').hidden){ closeStats(); return; }
   if(!document.getElementById('rules').hidden){ closeRules(); return; }
   if(S.sel){ S.sel = null; render(); }
@@ -1208,10 +1235,46 @@ function render(){
   if((!S.game || S.game.status === 'lobby') && !document.getElementById('rules').hidden) closeRules();
   if((!S.game || S.game.status !== 'finished') && !document.getElementById('stats').hidden) closeStats();
   renderBar();
+  renderManage();
   if(!S.everConnected){ S.view = 'boot'; view.innerHTML = '<div class="panel muted">Verbinde mit dem Spieltisch …</div>'; return; }
   if(!S.game){ resetFit(); return renderHome(); }
   if(S.game.status === 'lobby'){ resetFit(); return renderLobby(); }
   return renderGame();
+}
+/* ---------- Tisch verwalten (nur Gastgeber, während des Spiels) ---------- */
+function closeManage(){ S.manage = false; S.manageKey = null; const el = document.getElementById('manage'); el.hidden = true; el.innerHTML = ''; }
+function renderManage(){
+  const el = document.getElementById('manage'), g = S.game;
+  if(!S.manage || !g || g.status === 'lobby' || g.host !== S.me){ if(!el.hidden) closeManage(); return; }
+  const c = Object.assign({}, g, g.next || {}); c.specials = (g.next || g).specials || {};
+  const key = JSON.stringify([g.players.map(p => [p.id, p.name, p.online, p.bot]), g.host, c.stackSize, c.piles, c.downPiles, c.specials, !!g.next, g.status, S.confirmKick, Date.now() - (S.confirmKickAt || 0) < 4000]);
+  if(key === S.manageKey && !el.hidden) return;          // nichts geändert: nicht neu zeichnen (sonst klappen Auswahllisten zu)
+  S.manageKey = key;
+  const link = location.origin + location.pathname + '#' + g.code;
+  const playing = g.status === 'playing';
+  const rows = g.players.map((p, i) => {
+    const confirming = S.confirmKick === p.id && Date.now() - S.confirmKickAt < 4000;
+    return '<li><span>' + esc(p.name) + (p.id === S.me ? ' <span class="muted">(du)</span>' : '') + (p.online ? '' : ' <span class="muted">(offline)</span>') + '</span><span class="row" style="gap:6px">' +
+      (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.id === g.host ? '<span class="pill wait">Gastgeber</span>' : '') +
+      (p.id !== S.me ? '<button type="button" class="btn small' + (confirming ? ' danger' : '') + '" data-act="kick" data-pid="' + esc(p.id) + '"' + (playing && g.players.length <= 2 ? ' disabled title="Mit nur 2 Spielern: erst zur Lobby"' : '') + '>' + (confirming ? 'Wirklich entfernen?' : 'Entfernen') + '</button>' : '') +
+      '</span></li>';
+  }).join('');
+  const opts = [5,10,15,20,25,30].map(k => '<option value="' + k + '"' + (k === c.stackSize ? ' selected' : '') + '>' + k + ' Karten</option>').join('');
+  el.innerHTML = '<div class="panel modalbox managebox">' +
+    '<h2 id="manageTitle">Tisch verwalten</h2>' +
+    '<div class="field"><span class="label">Mitspieler (' + g.players.length + '/' + MAXP + ')</span><ul class="plist">' + rows + '</ul>' +
+      '<small class="muted">Entfernte Spieler geben ihre Karten in den Nachziehstapel zurück. Wer rausgeflogen ist, kommt über den Einladungslink wieder rein: Mit dem gleichen Namen bekommt er seinen alten Platz zurück, neue Mitspieler steigen mit einem eigenen Spielerstapel ein.</small></div>' +
+    '<div class="field"><label class="label" for="invite">Einladungslink</label><div class="row"><input type="text" id="invite" readonly value="' + esc(link) + '" style="flex:1;min-width:0"><button class="btn" data-act="copy">Kopieren</button></div></div>' +
+    '<div class="field"><span class="label">Einstellungen</span><small class="muted">' + (g.next ? '<b style="color:var(--accent)">Geändert</b> – gilt ab der nächsten Runde.' : 'Änderungen gelten ab der nächsten Runde. Die laufende Runde bleibt so, wie sie ist.') + '</small></div>' +
+    '<div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">' +
+      '<div class="field"><label class="label" for="stackSel">Spielerstapel</label><select id="stackSel" style="width:10em">' + opts + '</select></div>' +
+      '<div class="field"><label class="label" for="pilesSel">Aufbaustapel</label><select id="pilesSel" style="width:8em">' + [1,2,3,4,5,6].map(k => '<option value="' + k + '"' + (k === (c.piles || 4) ? ' selected' : '') + '>' + k + ' Stapel</option>').join('') + '</select></div>' +
+      '<div class="field"><label class="label" for="downSel">Davon rückwärts</label><select id="downSel" style="width:8em">' + Array.from({length:(c.piles || 4) + 1}, (_, k) => '<option value="' + k + '"' + (k === (c.downPiles || 0) ? ' selected' : '') + '>' + (k === 0 ? 'keiner' : k + ' Stapel') + '</option>').join('') + '</select></div>' +
+    '</div>' +
+    '<div class="field"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="label">Sonderkarten</span>' + allSpecialsBtn(c) + '</div>' + specialRow(c, true) + '</div>' +
+    '<div class="choose"><button type="button" class="btn" data-act="toLobby">Alle zurück in die Lobby</button><button type="button" class="btn primary" data-act="manageClose">Fertig</button></div>' +
+  '</div>';
+  el.hidden = false;
 }
 function renderBar(){
   const ico = Snd.on
@@ -1225,6 +1288,8 @@ function renderBar(){
   if(g && g.host === S.me && g.status !== 'lobby'){
     const cur = g.players[g.turn];
     if(g.status === 'playing' && cur && cur.id !== S.me) h += '<button class="btn small" data-act="skip" title="Falls jemand nicht mehr reagiert">Zug überspringen</button>';
+    h += '<button class="btn small" data-act="manage" aria-haspopup="dialog">Tisch verwalten</button>';
+    h += '<button class="btn small" data-act="toLobby">' + (Date.now() - S.confirmLobby < 4000 ? 'Wirklich zur Lobby?' : 'Zur Lobby') + '</button>';
     h += '<button class="btn small danger" data-act="endgame">' + (Date.now() - S.confirmEnd < 4000 ? 'Wirklich beenden?' : 'Spiel beenden') + '</button>';
   }
   barActions.innerHTML = h;
@@ -1275,7 +1340,7 @@ function renderLobby(){
   const link = location.origin + location.pathname + '#' + g.code;
   if(!isHost || !g.rematchBy) S.confirmStart = false;
   const by = (g.players.find(p => p.id === g.rematchBy) || {}).name || 'Jemand';
-  const notice = g.rematchBy ? '<div class="panel rematch">' + (isHost
+  const notice = g.lobbyBy && !g.rematchBy ? '<div class="panel rematch">' + (isHost ? '<b>Zurück in der Lobby.</b> Du kannst jetzt alles ändern und eine neue Runde starten.' : '<b>Zurück in der Lobby.</b> ' + esc((g.players.find(p => p.id === g.host) || {}).name || 'Der Gastgeber') + ' hat die Runde abgebrochen und startet gleich neu.') + '</div>' : g.rematchBy ? '<div class="panel rematch">' + (isHost
       ? '<b>Neue Runde!</b> ' + (g.rematchBy === S.me ? 'Du hast' : esc(by) + ' hat') + ' eine neue Runde angestoßen. Passen die Einstellungen noch? Du kannst Stapelgröße und Sonderkarten jetzt ändern und dann starten.'
       : '<b>Neue Runde!</b> ' + (g.rematchBy === S.me ? 'Du hast' : esc(by) + ' hat') + ' eine neue Runde angestoßen. ' + esc((g.players.find(p => p.id === g.host) || {}).name || 'Der Gastgeber') + ' prüft gerade die Einstellungen und startet dann.') + '</div>' : '';
   const NAMES = { split: 'Entweder-oder', skip: 'Aussetzen', gift: 'Geschenk', steal: 'Diebstahl', spy: 'Spion', rev: 'Rückwärts' };
@@ -1462,26 +1527,26 @@ function renderGame(){
   if(!mine || chooser){ S.gift = null; S.steal = null; }
   if(g.spy && g.spy.pid === S.me && g.spy.hand){
     const sp = g.spy;
-    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="spyTitle"><div class="panel modalbox" style="max-width:640px"><span class="skipbig" style="color:#d9a6ff">' + SPY_ICON + '</span><h2 id="spyTitle">' + esc(pn(sp.target)) + 's Handkarten</h2>' +
+    dialog = '<div class="modal side" role="dialog" aria-modal="false" aria-labelledby="spyTitle"><div class="panel modalbox" style="max-width:640px"><span class="skipbig" style="color:#d9a6ff">' + SPY_ICON + '</span><h2 id="spyTitle">' + esc(pn(sp.target)) + 's Handkarten</h2>' +
       '<p class="muted" style="margin:0">Nur du siehst diese Karten. Nimm dir eine davon.</p><div class="choose giftcards">' +
       sp.hand.map((v,i) => '<button type="button" class="cbtn" data-act="spyTake" data-i="' + i + '" aria-label="' + esc(cardName(v)) + ' nehmen">' + cardHTML(v) + '</button>').join('') + '</div></div></div>';
   }
   if(S.steal && mine){
     const sl = S.steal, piles = (g.players.find(p => p.id === sl.target) || {discards:[]}).discards;
     const opts = piles.map((d,i) => d.length ? '<button type="button" class="cbtn" data-act="stealPick" data-i="' + i + '" aria-label="' + esc(cardName(top(d))) + ' klauen">' + cardHTML(top(d)) + '</button>' : '').join('');
-    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="stealTitle"><div class="panel modalbox" style="max-width:560px"><span class="skipbig" style="color:#8fb4ff">' + STEAL_ICON + '</span><h2 id="stealTitle">Was klaust du ' + esc(pn(sl.target)) + '?</h2>' +
+    dialog = '<div class="modal side" role="dialog" aria-modal="false" aria-labelledby="stealTitle"><div class="panel modalbox" style="max-width:560px"><span class="skipbig" style="color:#8fb4ff">' + STEAL_ICON + '</span><h2 id="stealTitle">Was klaust du ' + esc(pn(sl.target)) + '?</h2>' +
       '<p class="muted" style="margin:0">Die oberste Karte eines Ablagestapels wandert auf deine Hand.</p><div class="choose giftcards">' + opts + '</div>' +
       '<button type="button" class="btn small" data-act="stealCancel">Abbrechen</button></div></div>';
   }
   if(S.gift && mine){
     const gft = S.gift;
     const opts = g.hand.map((v,i) => (gft.src === 'hand' && gft.i === i) ? '' : '<button type="button" class="cbtn" data-act="giftGive" data-i="' + i + '" aria-label="' + esc(cardName(v)) + ' verschenken">' + cardHTML(v) + '</button>').join('');
-    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="giftTitle"><div class="panel modalbox" style="max-width:560px"><span class="skipbig" style="color:var(--ok)">' + GIFT_ICON + '</span><h2 id="giftTitle">Was schenkst du ' + esc(pn(gft.target)) + '?</h2>' +
+    dialog = '<div class="modal side" role="dialog" aria-modal="false" aria-labelledby="giftTitle"><div class="panel modalbox" style="max-width:560px"><span class="skipbig" style="color:var(--ok)">' + GIFT_ICON + '</span><h2 id="giftTitle">Was schenkst du ' + esc(pn(gft.target)) + '?</h2>' +
       (opts ? '<p class="muted" style="margin:0">Klick eine deiner Handkarten an.</p><div class="choose giftcards">' + opts + '</div>' : giftDiscHTML(g, gft)) +
       '<button type="button" class="btn small" data-act="giftCancel">Abbrechen</button></div></div>';
   }
   if(chooser === S.me){
-    dialog = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="chooseTitle"><div class="panel modalbox"><span class="skipbig">' + SKIP_ICON + '</span><h2 id="chooseTitle">Wer soll aussetzen?</h2><p class="muted" style="margin:0">Der gewählte Spieler wird bei seinem nächsten Zug übersprungen.</p><div class="choose">' +
+    dialog = '<div class="modal side" role="dialog" aria-modal="false" aria-labelledby="chooseTitle"><div class="panel modalbox"><span class="skipbig">' + SKIP_ICON + '</span><h2 id="chooseTitle">Wer soll aussetzen?</h2><p class="muted" style="margin:0">Der gewählte Spieler wird bei seinem nächsten Zug übersprungen.</p><div class="choose">' +
       order.filter(p => p.id !== S.me).map(p => (g.skips && g.skips[p.id])
         ? '<button type="button" class="btn" disabled title="Setzt schon aus">' + esc(p.name) + ' <span class="muted">(setzt schon aus)</span></button>'
         : '<button type="button" class="btn" data-act="chooseSkip" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') +
