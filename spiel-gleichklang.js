@@ -6,13 +6,17 @@ const BOT_MS_PER_STEP = 360;
 // Sonderkarten: werden ab Level 2 verteilt (ab Level 5 zwei pro Level)
 const SPECIALS = ['echo', 'schild', 'spiegel', 'pause', 'tausch'];
 const MAX_SHIELDS = 2, PAUSE_MS = 10000, ECHO_MS = 6000, ECHO_RANGE = 10;
+// Zeitlimit: pro Level 10 Sekunden Grundzeit + X Sekunden pro Karte, die jeder auf der Hand hat
+const TIMERS = [0, 8, 12, 20, 30];
+const timeFor = (level, per) => per ? (10 + level * per) * 1000 : 0;
 
 const meta = { id: 'gleichklang', name: 'Gleichklang', min: 2, max: 6, bots: true, maxBots: 5 };
 
-function defaults() { return { mode: 'normal', specials: { echo: true, schild: true, spiegel: false, pause: false, tausch: false } }; }
+function defaults() { return { mode: 'normal', timer: 0, specials: { echo: true, schild: true, spiegel: false, pause: false, tausch: false } }; }
 const liveSetting = key => key === 'allSpecials' || key.startsWith('sp_');   // gilt ab dem nächsten Level
 function setting(r, key, value, ctx) {
   if (key === 'mode') { ctx.must(r.status !== 'playing', 'Die Schwierigkeit kannst du zwischen den Runden ändern.'); ctx.must(['leicht', 'normal', 'schwer'].includes(value), 'Unbekannte Stufe.'); r.settings.mode = value; return; }
+  if (key === 'timer') { ctx.must(r.status !== 'playing', 'Das Zeitlimit kannst du zwischen den Runden ändern.'); ctx.must(TIMERS.includes(+value), 'Ungültiges Zeitlimit.'); r.settings.timer = +value; return; }
   r.settings.specials = r.settings.specials || {};
   if (key === 'allSpecials') { for (const k of SPECIALS) r.settings.specials[k] = !!value; return; }
   if (key.startsWith('sp_')) { const k = key.slice(3); ctx.must(SPECIALS.includes(k), 'Unbekannte Sonderkarte.'); r.settings.specials[k] = !!value; return; }
@@ -27,7 +31,7 @@ function start(r, ctx) {
     stars: mode === 'schwer' ? 0 : mode === 'leicht' ? 2 : 1,
     phase: 'ready', ready: {}, hands: {}, pile: [], out: [], vote: null,
     seq: 0, ev: null, changed: Date.now(), started: Date.now(), ended: null,
-    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0, early: {}, bestJump: null, fastest: null, streak: 0, bestStreak: 0, perfect: 0, levelMistakes: 0, starsProposed: {}, specialsBy: {}, levelsDone: 0 },
+    stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0, early: {}, bestJump: null, fastest: null, streak: 0, bestStreak: 0, perfect: 0, levelMistakes: 0, starsProposed: {}, specialsBy: {}, levelsDone: 0, timeouts: 0 },
     cards: {}, shields: 0, dir: 1, ref: 0, pausedUntil: 0, echo: null
   };
   botTick(r, ctx);
@@ -39,6 +43,8 @@ function deal(r, ctx) {
   for (const p of r.players) s.hands[p.id] = deck.splice(0, s.level).sort((a, b) => a - b);
   s.pile = []; s.out = []; s.vote = null; s.phase = 'play'; s.changed = Date.now();
   s.dir = 1; s.ref = 0; s.pausedUntil = 0; s.echo = null; s.stats.levelMistakes = 0;
+  const ms = timeFor(s.level, r.settings.timer || 0); s.deadline = ms ? Date.now() + ms : 0; s.limit = ms;
+  armClock(r, ctx);
   // Sonderkarten verteilen
   const on = SPECIALS.filter(k => (r.settings.specials || {})[k]);
   const gifts = [];
@@ -57,6 +63,19 @@ function deal(r, ctx) {
 // welche Karte ist bei diesem Spieler als Nächstes dran? (aufsteigend: kleinste, im Spiegel: größte)
 const nextOf = (s, h) => s.dir === 1 ? h[0] : h[h.length - 1];
 const takeNext = (s, h) => s.dir === 1 ? h.shift() : h.pop();
+function armClock(r, ctx) {
+  const s = r.state; if (!s || !s.deadline || s.phase !== 'play') { if (s) ctx.clearTimer(r, 'clock'); return; }
+  ctx.timer(r, 'clock', s.deadline - Date.now(), () => { if (s.phase !== 'play' || !s.deadline || Date.now() < s.deadline - 50) return armClock(r, ctx); timeUp(r, ctx); ctx.broadcast(r); botTick(r, ctx); });
+}
+function timeUp(r, ctx) {
+  const s = r.state;
+  s.lives--; s.stats.livesLost++; s.stats.timeouts++; s.stats.streak = 0;
+  const left = []; for (const p of r.players) for (const v of s.hands[p.id] || []) left.push({ v, pid: p.id });
+  s.deadline = 0; s.vote = null; s.pausedUntil = 0;
+  event(s, { kind: 'timeup', level: s.level, left: left.length });
+  if (s.lives <= 0) { s.phase = 'lost'; s.why = 'time'; s.ended = Date.now(); ctx.finish(r); return; }
+  s.phase = 'ready'; s.ready = {};          // das Level wird mit neuen Karten wiederholt
+}
 function event(s, e) { s.seq++; s.ev = { ...e, seq: s.seq }; }
 const name = (r, id) => (r.players.find(p => p.id === id) || {}).name || 'Jemand';
 const top = s => s.pile.length ? s.pile[s.pile.length - 1].v : 0;
@@ -64,8 +83,9 @@ const cardsLeft = s => Object.values(s.hands).reduce((a, h) => a + h.length, 0);
 
 function checkLevel(r, ctx) {
   const s = r.state;
-  if (s.lives <= 0) { s.phase = 'lost'; s.ended = Date.now(); ctx.finish(r); return; }
+  if (s.lives <= 0) { s.phase = 'lost'; s.ended = Date.now(); s.deadline = 0; ctx.clearTimer(r, 'clock'); ctx.finish(r); return; }
   if (cardsLeft(s) > 0) return;
+  s.deadline = 0; ctx.clearTimer(r, 'clock');
   s.stats.levelsDone = s.level; if (!s.stats.levelMistakes) s.stats.perfect++;
   if (s.level >= s.maxLevel) { s.phase = 'won'; s.ended = Date.now(); event(s, { kind: 'won' }); ctx.finish(r); return; }
   const rw = REWARD[s.level];
@@ -148,6 +168,7 @@ function useSpecial(r, id, m, ctx) {
     event(s, { kind: 'sp_spiegel', pid: id });
   } else if (m.kind === 'pause') {
     s.pausedUntil = Date.now() + PAUSE_MS;
+    if (s.deadline) { s.deadline += PAUSE_MS; armClock(r, ctx); }
     event(s, { kind: 'sp_pause', pid: id, until: s.pausedUntil });
     ctx.timer(r, 'pause', PAUSE_MS, () => { s.changed = Date.now(); s.botPlan = null; event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); });
   } else if (m.kind === 'tausch') {
@@ -222,7 +243,7 @@ function removePlayer(r, id, ctx) {
 }
 const resume = (r, ctx) => {
   const s = r.state;
-  if (s) { s.changed = Date.now(); s.botPlan = null; if (s.pausedUntil > Date.now()) ctx.timer(r, 'pause', s.pausedUntil - Date.now(), () => { s.changed = Date.now(); event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); }); }
+  if (s) { armClock(r, ctx); s.changed = Date.now(); s.botPlan = null; if (s.pausedUntil > Date.now()) ctx.timer(r, 'pause', s.pausedUntil - Date.now(), () => { s.changed = Date.now(); event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); }); }
   botTick(r, ctx);
 };
 const onPresence = (r, ctx) => botTick(r, ctx);
@@ -239,7 +260,7 @@ function view(r, id) {
   return {
     level: s.level, maxLevel: s.maxLevel, lives: s.lives, stars: s.stars, phase: s.phase,
     ready: s.ready, vote: s.vote, ev: s.ev,
-    hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(),
+    hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(), deadline: s.deadline || 0, limit: s.limit || 0, why: s.why || null,
     myCards: (s.cards && s.cards[id]) || [], shields: s.shields || 0, maxShields: MAX_SHIELDS,
     pausedUntil: s.pausedUntil || 0, echo: s.echo && s.echo.until > Date.now() ? s.echo : null,
     cardCounts: Object.fromEntries(r.players.map(p => [p.id, ((s.cards && s.cards[p.id]) || []).length])),

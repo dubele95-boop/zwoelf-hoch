@@ -79,7 +79,8 @@ input[type=text],select{background:var(--table);border:1px solid var(--line-2);c
 /* Spielbereich + Chat */
 .stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .stage.nochat{grid-template-columns:minmax(0,1fr)}
-.chat{display:flex;flex-direction:column;gap:8px;position:sticky;top:12px;max-height:calc(100vh - 24px)}
+.sidecol{display:flex;flex-direction:column;gap:16px;position:sticky;top:12px;min-width:0}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px)}
 .chat .msgs{flex:1;min-height:160px;max-height:min(60vh,520px);overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px}
 .chat .msg{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
 .chat .msg b{color:var(--accent)}
@@ -102,7 +103,7 @@ input[type=text],select{background:var(--table);border:1px solid var(--line-2);c
 #toast{position:fixed;text-align:center;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--table);padding:10px 16px;border-radius:10px;font-weight:700;max-width:min(92vw,520px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:60;transition:opacity .2s}
 #toast:empty{display:none}
 
-@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}.chat{position:static;max-height:none}.chat .msgs{max-height:240px}}
+@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}.sidecol{position:static}.chat{position:static;max-height:none}.chat .msgs{max-height:240px}}
 @media (max-width:760px){.home,.lobby{grid-template-columns:minmax(0,1fr)}.brand span{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 

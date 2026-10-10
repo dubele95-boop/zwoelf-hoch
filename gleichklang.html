@@ -20,6 +20,18 @@
 .gk-res .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:6px}
 .heart{color:#ff6b7a}.heart.empty{color:rgba(255,255,255,.14)}
 .star{color:#ffd166}
+.gktimer{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums;padding:6px 12px;border-radius:10px;border:1px solid var(--line-2);background:rgba(0,0,0,.25);display:flex;align-items:center;gap:6px}
+.gktimer svg{width:20px;height:20px;color:var(--accent)}
+.gktimer.low{color:#ff8f7a;border-color:rgba(255,110,90,.6);animation:tpulse 1s ease-in-out infinite}
+.gktimer.frozen{color:#c9b8ff}
+@keyframes tpulse{50%{box-shadow:0 0 0 4px rgba(255,110,90,.25)}}
+.sidesp{display:flex;flex-direction:column;gap:8px}
+.sidesp .it{display:flex;gap:10px;align-items:flex-start}
+.sidesp .ic{width:30px;height:30px;border-radius:8px;background:var(--sc);color:#16122a;display:grid;place-items:center;flex:none}
+.sidesp .ic svg{width:18px;height:18px}
+.sidesp b{display:block;font-size:14px}
+.sidesp small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35}
+.sidesp .mine{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
 .starbtn{border:1px solid rgba(255,209,102,.55);background:rgba(255,209,102,.08);border-radius:10px;padding:4px 10px;display:flex;align-items:center;gap:4px}
 .starbtn:hover{background:rgba(255,209,102,.18);border-color:#ffd166}
 .starhint{font-size:12px;font-weight:700;color:#ffd166;margin-left:4px}
@@ -97,7 +109,9 @@ button.spc:disabled{opacity:.55;cursor:default}
 .pausebox span{color:var(--muted);font-weight:700}
 .splist{display:flex;flex-direction:column;gap:6px}
 .splist .spc{justify-content:space-between}
-.splist .spc > div{display:flex;align-items:center;gap:10px;min-width:0}
+.splist .spc > div{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.spc > span:not(.ico){flex:1;min-width:0;text-align:left}
+.spc .ico{flex:none}
 .pick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 @media (max-width:760px){.gk-mid{grid-template-columns:minmax(0,1fr)}.gk-hand .cards .gk-card,.gk-hand .cards .gk-sp{--w:70px}}
 </style></head><body>
@@ -155,10 +169,20 @@ function gkStats(r, api) {
   const rows = P.slice().sort((a, b) => ((st.played || {})[b.id] || 0) - ((st.played || {})[a.id] || 0)).map(p => '<tr' + (p.id === r.me ? ' class="me"' : '') + '><td>' + esc(p.name) + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + '</td><td>' + ((st.played || {})[p.id] || 0) + '</td><td>' + ((st.early || {})[p.id] || 0) + '</td><td>' + ((st.mistakes || {})[p.id] || 0) + '</td><td>' + (((st.specialsBy || {})[p.id] || 0) + ((st.starsProposed || {})[p.id] || 0)) + '</td><td>' + ((g.reveal && g.reveal[p.id]) || []).join(', ') + '</td></tr>').join('');
   const rec = (r.records || {}).gk;
   return '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Geschafft!' : 'Verloren') + '</span><span class="muted">Runde ' + r.round + ' · ' + api.fmtDur(dur) + '</span></div>' +
-    '<div class="kpis">' + kpi(levelReached + '/' + g.maxLevel, 'Level geschafft') + kpi(sumPlayed, 'Karten gelegt') + kpi(st.bestStreak || 0, 'längste Serie ohne Fehler') + kpi(st.perfect || 0, 'perfekte Level') + kpi(st.livesLost || 0, 'Leben verloren') + kpi((st.starsUsed || 0) + ' / ' + (st.shieldsUsed || 0) + ' / ' + (st.specials || 0), 'Sterne / Schilde / Sonderkarten') + '</div>' +
+    '<div class="kpis">' + kpi(levelReached + '/' + g.maxLevel, 'Level geschafft') + kpi(sumPlayed, 'Karten gelegt') + kpi(st.bestStreak || 0, 'längste Serie ohne Fehler') + kpi(st.perfect || 0, 'perfekte Level') + kpi(st.livesLost || 0, 'Leben verloren' + (st.timeouts ? ' (' + st.timeouts + 'x Zeit um)' : '')) + kpi((st.starsUsed || 0) + ' / ' + (st.shieldsUsed || 0) + ' / ' + (st.specials || 0), 'Sterne / Schilde / Sonderkarten') + '</div>' +
     (aw.length ? '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' : '') +
     '<div class="label">Spieler</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Spieler</th><th>gelegt</th><th>zu früh</th><th>zu lange gehalten</th><th>Sterne & Sonder&shy;karten</th><th>übrige Karten</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     (rec ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + rec.games + (rec.games === 1 ? ' Spiel' : ' Spiele') + '</span><span class="pill">' + rec.wins + ' gewonnen</span><span class="pill">bestes Level: ' + rec.bestLevel + '</span><span class="pill">längste Serie: ' + (rec.bestStreak || 0) + ' Karten</span></div>' : '');
+}
+const fmtS = sec => sec >= 60 ? Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0') + ' Min.' : sec + ' Sek.';
+const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>';
+function timerText(g) { const now = Date.now() + (local.off || 0), ms = Math.max(0, g.pausedUntil > now ? g.deadline - g.pausedUntil : g.deadline - now), t = Math.ceil(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+function sideSpecials(r) {
+  const g = r.g, on = (g && g.specialsOn) || Object.keys(SP).filter(k => (r.settings.specials || {})[k]);
+  if (!on.length) return '';
+  const mine = (g && g.myCards) || [];
+  return '<div class="panel sidesp"><div class="label">Sonderkarten</div>' + on.map(k => '<div class="it sp-' + k + '"><span class="ic">' + SP[k].ico + '</span><div><b>' + SP[k].name + (mine.filter(x => x === k).length ? ' <span class="mine">· du hast ' + mine.filter(x => x === k).length + '</span>' : '') + '</b><small>' + SP[k].text + '</small></div></div>').join('') +
+    '<small class="muted">Ab Level 2 werden Sonderkarten verteilt' + (on.includes('schild') ? '; das Schutzschild gehört dem ganzen Team' : '') + '.</small></div>';
 }
 function spSettings(r, host) { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
         return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="splist">' +
@@ -179,6 +203,7 @@ const api = Spieleabend.start({
     '<li>Du legst immer deine kleinste Karte (nach einem Spiegel: deine größte).</li></ol>' +
     '<h3>Fehler</h3><ul><li>Hatte jemand noch eine kleinere Zahl, als gerade gelegt wurde, verliert das Team <b>ein Leben</b>. Alle kleineren Karten werden aufgedeckt und abgeworfen, dann geht es weiter.</li><li>Sind alle Leben weg, ist das Spiel verloren.</li></ul>' +
     '<h3>Sterne</h3><ul><li>Steckt ihr fest, kann jemand einen <b>Stern</b> vorschlagen. Sind alle einverstanden, wirft jeder seine kleinste Karte offen ab – das gibt euch Hinweise.</li></ul>' +
+    '<h3>Zeitlimit</h3><ul><li>Der Gastgeber kann in der Lobby ein Zeitlimit pro Level einstellen. Die Zeit wächst mit dem Level: 10 Sekunden plus einige Sekunden pro Karte.</li><li>Ist die Zeit um, verliert ihr ein Leben und spielt das Level mit neuen Karten noch einmal.</li><li>Während einer Pause-Karte bleibt die Uhr stehen.</li></ul>' +
     '<h3>Sonderkarten</h3><p>Ab Level 2 werden zusätzlich Sonderkarten verteilt (ab Level 5 zwei pro Level). Welche mitspielen, legt der Gastgeber in der Lobby fest. Einsetzen kannst du sie, während gelegt wird – einfach anklicken.</p><div class="splist">' + Object.keys(SP).map(k => spCard(k)).join('') + '</div><p class="muted">Das Schutzschild bekommt das ganze Team; es wird beim nächsten Fehler automatisch verbraucht (höchstens 2 gleichzeitig).</p>' +
     '<h3>Belohnungen</h3><ul><li>Nach Level 2, 5 und 8 gibt es einen Stern, nach Level 3, 6 und 9 ein Leben dazu.</li><li>Gewonnen habt ihr, wenn ihr das letzte Level schafft (2 Spieler: 12 Level, 3 Spieler: 10, ab 4 Spielern: 8).</li></ul>' +
     '<h3>Vor jedem Level</h3><ul><li>Alle drücken „Bereit“. Erst dann werden die Karten verteilt. Kurz durchatmen, konzentrieren – los.</li></ul>',
@@ -187,10 +212,14 @@ const api = Spieleabend.start({
     const opt = (v, t) => '<button type="button" data-set="mode" data-val="' + v + '" aria-pressed="' + (m === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
     return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
       '<small class="muted">' + (m === 'leicht' ? 'Ein Leben und ein Stern mehr zum Start.' : m === 'schwer' ? 'Ein Leben weniger und kein Stern zum Start.' : 'So viele Leben wie Spieler und ein Stern.') + '</small></div>' +
+      (() => { const t = +r.settings.timer || 0, opt = (v, l) => '<button type="button" data-set="timer" data-val="' + v + '" aria-pressed="' + (t === v) + '"' + (host ? '' : ' disabled') + '>' + l + '</button>';
+        const ex = t ? 'Level 1: ' + fmtS(10 + t) + ', Level 5: ' + fmtS(10 + 5 * t) + ', Level 10: ' + fmtS(10 + 10 * t) + (10 + 10 * t >= 60 ? '' : '.') : 'Ihr habt so viel Zeit, wie ihr braucht.';
+        return '<div class="field"><span class="label">Zeitlimit pro Level</span><div class="seg">' + opt(0, 'Aus') + opt(30, 'Gemütlich') + opt(20, 'Entspannt') + opt(12, 'Normal') + opt(8, 'Knapp') + '</div><small class="muted">' + ex + (t ? ' Ist die Zeit um, kostet das ein Leben und das Level wird mit neuen Karten wiederholt.' : '') + '</small></div>'; })() +
       spSettings(r, host) +
       '<div class="field"><span class="label">Kurz erklärt</span><p class="muted">Legt eure Zahlen gemeinsam aufsteigend ab, ohne zu reden. Wer zu früh legt oder zu lange wartet, kostet ein Leben.</p></div>';
   },
   stats: (r, api) => gkStats(r, api),
+  sideExtra: r => sideSpecials(r),
   livePanel: r => '<p class="muted" style="margin:0">Änderungen gelten ab dem nächsten Level. Bereits verteilte Sonderkarten bleiben auf der Hand.</p>' + spSettings(r, true),
   chatQuiet: r => r.status === 'playing' && r.g && r.g.phase === 'play' ? 'Psst! Während ihr legt, wird nicht geredet.' : null,
   render: renderGame,
@@ -209,6 +238,7 @@ const api = Spieleabend.start({
   sounds: {
     play: (S, t, v) => S.tone(520, t, .22, 'triangle', .14 * v),
     lvl: (S, t, v) => [523, 659, 784, 1047, 1319].forEach((f, i) => S.tone(f, t + i * .08, .35, 'triangle', .14 * v)),
+    tick: (S, t, v) => S.tone(1500, t, .05, 'square', .04 * v),
     echo: (S, t, v) => [0, .18, .36].forEach((d, i) => S.tone(880, t + d, .5 - i * .1, 'sine', (.12 - i * .03) * v)),
     shield: (S, t, v) => { S.tone(440, t, .3, 'triangle', .14 * v); S.tone(880, t + .05, .5, 'sine', .1 * v); },
     mirror: (S, t, v) => [1319, 1047, 784, 523].forEach((f, i) => S.tone(f, t + i * .07, .3, 'triangle', .12 * v)),
@@ -231,6 +261,7 @@ function renderGame(r, el) {
   const top = '<div class="panel gk-top"><div class="gk-level"><b>Level ' + g.level + '</b><span>von ' + g.maxLevel + '</span></div>' +
     '<div class="gk-res"><div class="grp" title="Leben"><span class="lbl">Leben</span>' + hearts + '</div>' + shields + (canStar ? '<button type="button" class="grp starbtn" data-act="star" title="Stern einsetzen: Jeder wirft seine kleinste Karte offen ab"><span class="lbl">Sterne</span>' + stars + '<span class="starhint">einsetzen</span></button>'
       : '<div class="grp" title="' + (g.stars ? (g.phase === 'play' ? (g.vote ? 'Abstimmung läuft' : 'Sterne') : 'Sterne kannst du einsetzen, sobald die Karten verteilt sind') : 'Keine Sterne') + '"><span class="lbl">Sterne</span>' + stars + '</div>') +
+    (g.deadline && g.phase === 'play' && r.status === 'playing' ? '<div class="gktimer" data-gktimer title="Zeit für dieses Level">' + CLOCK + '<span>' + timerText(g) + '</span></div>' : '') +
     (g.dir === -1 && g.phase === 'play' ? '<span class="pill mirror">' + SP.spiegel.ico.replace('<svg', '<svg style="width:14px;height:14px"') + ' Rückwärts: größte Zahl zuerst</span>' : '') +
     (g.nextReward && r.status === 'playing' ? '<span class="pill">Belohnung nach diesem Level: ' + (g.nextReward === 'life' ? 'Leben' : 'Stern') + '</span>' : '') + '</div></div>';
   const players = '<div class="gk-players">' + r.players.map(p => {
@@ -248,7 +279,7 @@ function renderGame(r, el) {
     const lev = g.ev && g.ev.kind === 'level' ? g.ev : null;
     el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top +
       '<div class="panel gk-ready">' + (lev ? '<p class="reward">Level ' + lev.level + ' geschafft!' + (lev.reward === 'life' ? ' Ihr bekommt ein Leben dazu.' : lev.reward === 'star' ? ' Ihr bekommt einen Stern dazu.' : '') + '</p>' : '') +
-      '<h2>Level ' + g.level + '</h2><p class="muted">Jeder bekommt ' + g.level + (g.level === 1 ? ' Karte' : ' Karten') + '. Konzentriert euch – und dann: kein Wort mehr.</p>' +
+      '<h2>Level ' + g.level + '</h2><p class="muted">Jeder bekommt ' + g.level + (g.level === 1 ? ' Karte' : ' Karten') + '.' + (+r.settings.timer ? ' Ihr habt <b>' + fmtS(10 + g.level * r.settings.timer) + '</b> Zeit.' : '') + ' Konzentriert euch – und dann: kein Wort mehr.</p>' +
       (mine ? (g.ready[me] ? '<button class="btn big" disabled>Du bist bereit</button>' : '<button class="btn primary big" data-act="ready">Bereit</button>') : '') +
       '<div class="who">' + r.players.map(p => '<span class="pill ' + (g.ready[p.id] ? 'live' : '') + '">' + esc(p.name) + (g.ready[p.id] ? ' ✓' : '') + '</span>').join('') + '</div></div>' + players + '</div>';
     return;
@@ -285,7 +316,7 @@ function renderOver(r, g) {
   const won = g.phase === 'won', dur = Math.round(((g.ended || Date.now()) - g.started) / 1000);
   const rows = r.players.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (g.stats.played[p.id] || 0) + '</td><td>' + (g.stats.mistakes[p.id] || 0) + '</td><td>' + ((g.reveal && g.reveal[p.id]) || []).join(', ') + '</td></tr>').join('');
   return '<div class="panel gk-over"><h2>' + (won ? 'Geschafft!' : 'Verloren') + '</h2>' +
-    '<p class="muted" style="font-size:17px">' + (won ? 'Ihr habt alle ' + g.maxLevel + ' Level im Gleichklang gemeistert.' : 'Ihr seid bis Level ' + g.level + ' von ' + g.maxLevel + ' gekommen.') + ' Dauer: ' + Math.floor(dur / 60) + ' Min. ' + (dur % 60) + ' Sek. · Sterne eingesetzt: ' + g.stats.starsUsed + ' · Leben verloren: ' + g.stats.livesLost + '</p>' +
+    '<p class="muted" style="font-size:17px">' + (won ? 'Ihr habt alle ' + g.maxLevel + ' Level im Gleichklang gemeistert.' : (g.why === 'time' ? 'Die Zeit ist abgelaufen. ' : '') + 'Ihr seid bis Level ' + g.level + ' von ' + g.maxLevel + ' gekommen.') + ' Dauer: ' + Math.floor(dur / 60) + ' Min. ' + (dur % 60) + ' Sek. · Sterne eingesetzt: ' + g.stats.starsUsed + ' · Leben verloren: ' + g.stats.livesLost + '</p>' +
     '<table><thead><tr><th>Spieler</th><th>gelegt</th><th>zu lange gehalten</th><th>übrige Karten</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     api.overButtons(r) + '</div>';
 }
@@ -305,6 +336,7 @@ function onState(prev, r) {
     api.toast(e.lower.length === 1 ? 'Oh nein! ' + api.pname(e.lower[0].pid) + ' hatte noch die ' + e.lower[0].v + '. Ein Leben weg.' : 'Oh nein! Da lagen noch kleinere Karten: ' + e.lower.map(x => x.v + ' (' + api.pname(x.pid) + ')').join(', ') + '. Ein Leben weg.', 5000);
   }
   if (e.kind === 'level') S.play('lvl');
+  if (e.kind === 'timeup') { S.play('bad'); api.toast(r.status === 'over' ? 'Die Zeit ist abgelaufen – das war das letzte Leben.' : 'Die Zeit ist abgelaufen! Ein Leben weg – Level ' + e.level + ' wird mit neuen Karten wiederholt.', 5500); }
   if (e.kind === 'deal' && e.gifts && e.gifts.length) {
     const mineG = e.gifts.filter(x => x.pid === r.me).map(x => SP[x.kind].name), sh = e.gifts.some(x => x.kind === 'schild');
     const msg = [mineG.length ? 'Du bekommst: ' + mineG.join(', ') : '', sh ? 'Euer Team bekommt ein Schutzschild' : ''].filter(Boolean).join(' · ');
@@ -324,6 +356,14 @@ function onState(prev, r) {
 setInterval(() => {
   const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
   const g = r.g, now = Date.now() + (local.off || 0);
+  const tm = document.querySelector('[data-gktimer]');
+  if (tm && g.deadline && g.phase === 'play') {
+    const paused = g.pausedUntil > now;
+    const ms = Math.max(0, paused ? g.deadline - g.pausedUntil : g.deadline - now), t = Math.ceil(ms / 1000);
+    tm.querySelector('span').textContent = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+    tm.classList.toggle('low', !paused && ms < 10000); tm.classList.toggle('frozen', paused);
+    if (!paused && t <= 5 && t > 0 && local.lastTick !== t) { local.lastTick = t; api.Snd.play('tick'); }
+  }
   const b = document.querySelector('[data-pause]');
   if (b) { const left = Math.ceil((g.pausedUntil - now) / 1000); if (left > 0) b.textContent = left; }
   const state = (g.pausedUntil > now ? 'p' : '') + (g.echo && g.echo.until > now ? 'e' : '');

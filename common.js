@@ -167,12 +167,14 @@
       if (S.view !== 'game') {
         S.view = 'game'; S.chatShown = 0;
         view.innerHTML = '<div id="watchbar"></div><div class="stage' + (chatOn ? '' : ' nochat') + '"><section id="game" style="min-width:0"></section>' +
-          (chatOn ? '<aside class="chat panel" aria-label="Chat"><div class="label">Chat</div><div class="msgs" id="msgs" aria-live="polite"></div><div id="chatquiet" class="quiet" hidden></div><form id="chatform" autocomplete="off"><input type="text" id="chatInput" maxlength="200" placeholder="Nachricht …" aria-label="Nachricht"><button class="btn" type="submit">Senden</button></form></aside>' : '') + '</div>';
+          (chatOn ? '<div class="sidecol"><aside class="chat panel" aria-label="Chat"><div class="label">Chat</div><div class="msgs" id="msgs" aria-live="polite"></div><div id="chatquiet" class="quiet" hidden></div><form id="chatform" autocomplete="off"><input type="text" id="chatInput" maxlength="200" placeholder="Nachricht …" aria-label="Nachricht"><button class="btn" type="submit">Senden</button></form></aside><div id="sideextra"></div></div>' : '') + '</div>';
       }
       const me = r.players.find(p => p.id === S.me), waiting = r.waiting.some(p => p.id === S.me);
       q('#watchbar').innerHTML = !me ? '<div class="panel watchbar">' + (waiting ? 'Die Runde läuft schon. <b>Du spielst ab der nächsten Runde mit.</b>' : 'Du schaust zu.') + '</div>' : '';
       cfg.render(r, q('#game'), api);
       if (chatOn) renderChat();
+      const sx = q('#sideextra');
+      if (sx) { const h = cfg.sideExtra ? cfg.sideExtra(r, api) || '' : ''; if (sx.dataset.h !== h) { sx.dataset.h = h; sx.innerHTML = h; } }
     }
     function renderChat() {
       const r = S.room, box = q('#msgs'); if (!box) return;
