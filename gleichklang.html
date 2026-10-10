@@ -110,6 +110,11 @@ const SP = {
 const SHIELD = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>';
 const spCard = (k, attrs) => '<' + (attrs ? 'button type="button" ' + attrs : 'div') + ' class="spc sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></' + (attrs ? 'button' : 'div') + '>';
 
+function spSettings(r, host) { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
+        return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="splist">' +
+          Object.keys(SP).map(k => '<div class="spc sp-' + k + '"><div><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></div>' +
+            (host ? '<button type="button" class="toggle" role="switch" aria-checked="' + !!on[k] + '" aria-label="' + SP[k].name + '" data-set="sp_' + k + '" data-val="' + !on[k] + '"><i></i></button>' : '<span class="pill' + (on[k] ? ' live' : '') + '">' + (on[k] ? 'an' : 'aus') + '</span>') + '</div>').join('') +
+          '</div><small class="muted">Werden ab Level 2 verteilt. Bots bekommen keine Sonderkarten.</small></div>'; }
 const api = Spieleabend.start({
   game: 'gleichklang', title: 'Gleichklang', tagline: 'Gemeinsam aufsteigend – ohne Worte',
   brand: '<b>Gleich<i>klang</i></b>',
@@ -132,13 +137,10 @@ const api = Spieleabend.start({
     const opt = (v, t) => '<button type="button" data-set="mode" data-val="' + v + '" aria-pressed="' + (m === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
     return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
       '<small class="muted">' + (m === 'leicht' ? 'Ein Leben und ein Stern mehr zum Start.' : m === 'schwer' ? 'Ein Leben weniger und kein Stern zum Start.' : 'So viele Leben wie Spieler und ein Stern.') + '</small></div>' +
-      (() => { const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
-        return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="splist">' +
-          Object.keys(SP).map(k => '<div class="spc sp-' + k + '"><div><span class="ico">' + SP[k].ico + '</span><span><b>' + SP[k].name + '</b><small>' + SP[k].text + '</small></span></div>' +
-            (host ? '<button type="button" class="toggle" role="switch" aria-checked="' + !!on[k] + '" aria-label="' + SP[k].name + '" data-set="sp_' + k + '" data-val="' + !on[k] + '"><i></i></button>' : '<span class="pill' + (on[k] ? ' live' : '') + '">' + (on[k] ? 'an' : 'aus') + '</span>') + '</div>').join('') +
-          '</div><small class="muted">Werden ab Level 2 verteilt. Bots bekommen keine Sonderkarten.</small></div>'; })() +
+      spSettings(r, host) +
       '<div class="field"><span class="label">Kurz erklärt</span><p class="muted">Legt eure Zahlen gemeinsam aufsteigend ab, ohne zu reden. Wer zu früh legt oder zu lange wartet, kostet ein Leben.</p></div>';
   },
+  livePanel: r => '<p class="muted" style="margin:0">Änderungen gelten ab dem nächsten Level. Bereits verteilte Sonderkarten bleiben auf der Hand.</p>' + spSettings(r, true),
   chatQuiet: r => r.status === 'playing' && r.g && r.g.phase === 'play' ? 'Psst! Während ihr legt, wird nicht geredet.' : null,
   render: renderGame,
   onState,

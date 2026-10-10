@@ -10,8 +10,9 @@ const MAX_SHIELDS = 2, PAUSE_MS = 10000, ECHO_MS = 6000, ECHO_RANGE = 10;
 const meta = { id: 'gleichklang', name: 'Gleichklang', min: 2, max: 6, bots: true, maxBots: 5 };
 
 function defaults() { return { mode: 'normal', specials: { echo: true, schild: true, spiegel: false, pause: false, tausch: false } }; }
+const liveSetting = key => key === 'allSpecials' || key.startsWith('sp_');   // gilt ab dem nächsten Level
 function setting(r, key, value, ctx) {
-  if (key === 'mode') { ctx.must(['leicht', 'normal', 'schwer'].includes(value), 'Unbekannte Stufe.'); r.settings.mode = value; return; }
+  if (key === 'mode') { ctx.must(r.status !== 'playing', 'Die Schwierigkeit kannst du zwischen den Runden ändern.'); ctx.must(['leicht', 'normal', 'schwer'].includes(value), 'Unbekannte Stufe.'); r.settings.mode = value; return; }
   r.settings.specials = r.settings.specials || {};
   if (key === 'allSpecials') { for (const k of SPECIALS) r.settings.specials[k] = !!value; return; }
   if (key.startsWith('sp_')) { const k = key.slice(3); ctx.must(SPECIALS.includes(k), 'Unbekannte Sonderkarte.'); r.settings.specials[k] = !!value; return; }
@@ -238,4 +239,4 @@ function view(r, id) {
   };
 }
 
-module.exports = { meta, defaults, setting, start, act, view, removePlayer, resume, onPresence, chatAllowed };
+module.exports = { meta, defaults, setting, liveSetting, start, act, view, removePlayer, resume, onPresence, chatAllowed };

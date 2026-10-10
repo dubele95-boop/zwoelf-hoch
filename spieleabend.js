@@ -163,8 +163,9 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
     },
     setting(ws, m, r) {
       must(r.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
-      must(r.status !== 'playing', 'Einstellungen kannst du zwischen den Runden ändern.');
-      GAMES[r.game].setting(r, String(m.key), m.value, ctx); broadcast(r);
+      const G = GAMES[r.game], key = String(m.key);
+      must(r.status !== 'playing' || (G.liveSetting && G.liveSetting(key)), 'Einstellungen kannst du zwischen den Runden ändern.');
+      G.setting(r, key, m.value, ctx); broadcast(r);
     },
     addBot(ws, m, r) {
       const G = GAMES[r.game];

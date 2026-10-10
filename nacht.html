@@ -80,6 +80,29 @@ body{background:#141224;background-image:radial-gradient(ellipse 90% 60% at 50% 
 .over h2{font:900 clamp(44px,7vw,84px)/.9 var(--f-display);text-transform:uppercase}
 .journey{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:760px}
 .healmode .cards button .ccard{outline:2px dashed #ff8f9c;outline-offset:2px}
+.scard{width:62px;aspect-ratio:5/7;border-radius:9px;background:linear-gradient(170deg,#3a2f6e,#1e1840);border:2px solid #b9a2ff;color:#f5e6b8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 14px rgba(0,0,0,.35);flex:none;padding:4px;text-align:center}
+.scard svg{width:24px;height:24px}
+.scard span{font:700 9px/1.1 var(--f-body);hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere;max-width:100%}
+.ccard .moon{position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#1e1840;border:1px solid #b9a2ff;display:grid;place-items:center}
+.ccard .moon svg{width:11px;height:11px;color:#f5e6b8}
+.sprow{display:flex;flex-direction:column;gap:6px}
+.spx{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid rgba(185,162,255,.35);background:rgba(185,162,255,.07)}
+.spx .ic{width:34px;height:34px;border-radius:8px;background:#2c2456;display:grid;place-items:center;color:#f5e6b8;flex:none}
+.spx .ic svg{width:20px;height:20px}
+.spx > div{flex:1;min-width:0}
+.spx small{display:block;color:var(--muted);font-size:12.5px;line-height:1.3}
+.hourtags{display:flex;flex-wrap:wrap;gap:6px}
+.hourtags .pill{color:#f5e6b8;border-color:rgba(185,162,255,.6)}
+.picklist{display:flex;flex-direction:column;gap:8px;width:100%}
+.picklist button{text-align:left;border:1px solid rgba(185,162,255,.4);background:rgba(0,0,0,.2);border-radius:10px;padding:10px 12px}
+.picklist button:hover{border-color:#b9a2ff;background:rgba(185,162,255,.12)}
+.picklist small{display:block;color:var(--muted)}
+.minis{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.minis .ccard,.minis .scard{width:30px;border-width:1px;border-radius:5px}
+.minis .ccard b{font-size:14px}.minis .ccard svg,.minis .scard svg{width:12px;height:12px}.minis .scard span{display:none}
+.colorpick{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.colorpick button{display:flex;align-items:center;gap:8px;justify-content:center;padding:12px;border-radius:10px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 22%,transparent);font-weight:800;color:#fff}
+.colorpick svg{width:20px;height:20px}
 .preview{border:1px dashed rgba(185,162,255,.45);border-radius:12px;padding:10px 12px;font-size:14px}
 @media (max-width:900px){.nt-main{grid-template-columns:minmax(0,1fr)}.nt-top{grid-template-columns:minmax(0,1fr)}.hp{justify-content:flex-start}}
 </style></head><body>
@@ -103,10 +126,19 @@ const IC = {
   heiler: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
   spaeherin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>'
 };
+const SPI = {
+  lagerfeuer: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c3 4 5 6 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/><path d="M3 20l18-2v2L3 22zM21 20L3 18v2l18 2z" opacity=".7"/></svg>',
+  mond: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 3a9 9 0 1 0 6 15A8 8 0 0 1 15 3z"/></svg>',
+  freund: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="7" r="3"/><circle cx="16" cy="7" r="3"/><path d="M2 20c0-4 3-7 6-7s6 3 6 7zM12 20c0-3 2-6 4-7 3 0 6 3 6 7z" opacity=".85"/></svg>',
+  stern: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 4l1.6 3.7 4 .4-3 2.7.9 3.9-3.5-2-3.5 2 .9-3.9-3-2.7 4-.4z"/><path d="M3 21l8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".7"/></svg>',
+  abkuerzung: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10a4 4 0 0 1 4-4h10M14 2l4 4-4 4"/></svg>',
+  glueck: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="8" r="4"/><circle cx="8" cy="16" r="4"/><circle cx="16" cy="16" r="4"/><path d="M12 12l6 10" stroke="currentColor" stroke-width="2"/></svg>',
+  eule: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4l3 3h8l3-3v9a7 7 0 0 1-14 0z"/><circle cx="9" cy="11" r="2.2" fill="#1e1840"/><circle cx="15" cy="11" r="2.2" fill="#1e1840"/><path d="M12 13l-1.2 2h2.4z" fill="#1e1840"/></svg>'
+};
 const CHAR_IC = { jaegerin: 'kraft', ritter: 'mut', gelehrte: 'wissen', akrobat: 'geschick', heiler: 'heiler', spaeherin: 'spaeherin' };
 const CN = { kraft: 'Kraft', mut: 'Mut', wissen: 'Wissen', geschick: 'Geschick' };
 const L = { lastSeq: 0, heal: false, eventKey: null };
-const cardHTML = (c, bonus) => '<div class="ccard c-' + c.c + '" title="' + CN[c.c] + ' ' + c.v + '">' + IC[c.c] + '<b>' + c.v + '</b>' + (bonus ? '<span class="bonus">+1</span>' : '') + '</div>';
+const cardHTML = (c, bonus) => c.sp && !c.c ? '<div class="scard" title="' + esc(((api && api.room && api.room.catalog.SPECIALS[c.sp]) || {}).name || '') + '">' + SPI[c.sp] + '<span>' + esc(((api && api.room && api.room.catalog.SPECIALS[c.sp]) || {}).name || '') + '</span></div>' : '<div class="ccard c-' + c.c + '" title="' + CN[c.c] + ' ' + c.v + '">' + (c.sp ? '<span class="moon">' + SPI.mond + '</span>' : '') + IC[c.c] + '<b>' + c.v + '</b>' + (bonus ? '<span class="bonus">+1</span>' : '') + '</div>';
 function effText(e) {
   if (!e) return 'nichts passiert';
   const out = [];
@@ -119,7 +151,14 @@ function effText(e) {
 }
 const clock = round => ((19 + round) % 24) + ':00';
 
-const api = Spieleabend.start({
+function spSettings(r, host) {
+  const SPC = r.catalog.SPECIALS, on = r.settings.specials || {}, all = Object.keys(SPC).every(k => on[k]);
+  return '<div class="field"><div class="row" style="justify-content:space-between"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="sprow">' +
+    Object.entries(SPC).map(([k, x]) => '<div class="spx"><span class="ic">' + SPI[k] + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div>' +
+      (host ? '<button type="button" class="toggle" role="switch" aria-checked="' + !!on[k] + '" aria-label="' + x.name + '" data-set="sp_' + k + '" data-val="' + !on[k] + '"><i></i></button>' : '<span class="pill' + (on[k] ? ' live' : '') + '">' + (on[k] ? 'an' : 'aus') + '</span>') + '</div>').join('') + '</div></div>';
+}
+var api;
+api = Spieleabend.start({
   game: 'nacht', title: 'Durch die Nacht', tagline: 'Ein gemeinsames Abenteuer bis zum Morgengrauen',
   brand: '<b>Durch die <i>Nacht</i></b>',
   meta: { min: 1, max: 6, bots: false },
@@ -133,12 +172,14 @@ const api = Spieleabend.start({
     '<li>Danach geht ihr 1 Feld weiter (außer das Ereignis hält euch auf), und jeder zieht neue Karten nach.</li></ol>' +
     '<h3>Gut zu wissen</h3><ul><li>Gelegte Karten sind weg. Spart Karten, wenn ein Ereignis freiwillig ist oder ihr es eh nicht schafft.</li><li>Ab der 6. Stunde werden die Ereignisse schwerer.</li><li>Bei „eins davon reicht“ genügt eine der beiden Farben.</li><li>Dunkle Ereignisse löst eine Fackel sofort.</li><li>Sinkt die Ausdauer auf 0 oder geht die Sonne auf, bevor ihr im Dorf seid, habt ihr verloren.</li></ul>' +
     '<h3>Gegenstände</h3><ul><li><b>Fackel:</b> löst ein dunkles Ereignis sofort, sonst +2 Mut.</li><li><b>Seil:</b> +3 Geschick.</li><li><b>Heiltrank:</b> +2 Ausdauer.</li><li><b>Kompass:</b> sofort 1 Feld weiter.</li></ul>' +
+    '<h3>Sonderkarten</h3><p>Zwischen den normalen Karten liegen Sonderkarten (dunkel mit Symbol). Klick sie an, um sie einzusetzen. Welche mitspielen, legt der Gastgeber fest – auch mitten im Spiel über den Knopf „Sonderkarten“.</p><div class="sprow">' + Object.entries((r && r.catalog && r.catalog.SPECIALS) || {}).map(([k, x]) => '<div class="spx"><span class="ic">' + SPI[k] + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div></div>').join('') + '</div>' +
     '<h3>Figuren</h3><ul><li><b>Jägerin, Ritter, Gelehrte, Akrobat:</b> Karten ihrer Farbe zählen +1.</li><li><b>Heiler:</b> einmal pro Stunde eine Handkarte abwerfen für +1 Ausdauer.</li><li><b>Späherin:</b> Ihr seht das nächste Ereignis vorher. Einmal pro Nacht darf sie ein Ereignis überspringen.</li></ul>',
+  livePanel: r => '<p class="muted" style="margin:0">Gilt sofort: Ausgeschaltete Sonderkarten werden ab jetzt nicht mehr gezogen. Karten, die schon auf der Hand sind, bleiben.</p>' + spSettings(r, true),
   lobby: (r, host) => {
     const d = r.settings.diff;
     const opt = (v, t) => '<button type="button" data-set="diff" data-val="' + v + '" aria-pressed="' + (d === v) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>';
     return '<div class="field"><span class="label">Schwierigkeit</span><div class="seg">' + opt('leicht', 'Leicht') + opt('normal', 'Normal') + opt('schwer', 'Schwer') + '</div>' +
-      '<small class="muted">' + (d === 'leicht' ? '11 Stunden Zeit, 8 Ausdauer.' : d === 'schwer' ? '9 Stunden Zeit, 5 Ausdauer.' : '10 Stunden Zeit, 6 Ausdauer.') + ' Ihr müsst 10 Felder schaffen.</small></div>';
+      '<small class="muted">' + (d === 'leicht' ? '11 Stunden Zeit, 8 Ausdauer.' : d === 'schwer' ? '9 Stunden Zeit, 5 Ausdauer.' : '10 Stunden Zeit, 6 Ausdauer.') + ' Ihr müsst 10 Felder schaffen.</small></div>' + spSettings(r, host);
   },
   lobbyRight: (r) => {
     const C = r.catalog.CHARS, chars = r.settings.chars || {}, mine = chars[r.me];
@@ -159,13 +200,25 @@ const api = Spieleabend.start({
     ready: () => api.act('ready'),
     next: () => api.act('next'),
     heal: () => { L.heal = !L.heal; api.render(); if (L.heal) api.toast('Klick eine deiner Karten an, die du für +1 Ausdauer abwirfst.'); },
-    skip: () => api.act('skip')
+    skip: () => api.act('skip'),
+    spc: el => {
+      const id = el.dataset.id, sp = el.dataset.sp;
+      if (sp === 'mond' || sp === 'freund' || sp === 'lagerfeuer') { L.ui = { sp, id, give: null }; api.render(); return; }
+      api.act('special', { card: id });
+    },
+    moon: el => { const u = L.ui; L.ui = null; api.act('special', { card: u.id, color: el.dataset.c }); },
+    fgive: el => { L.ui.give = el.dataset.id; api.render(); },
+    fto: el => { const u = L.ui; L.ui = null; api.act('special', { card: u.id, give: u.give, target: el.dataset.pid }); },
+    rest: () => { const u = L.ui; L.ui = null; api.act('special', { card: u.id }); },
+    uiClose: () => { L.ui = null; api.render(); },
+    pickEv: el => api.act('pickEvent', { id: el.dataset.id })
   },
-  onEscape: () => { if (L.heal) { L.heal = false; api.render(); } },
+  onEscape: () => { if (L.heal || L.ui) { L.heal = false; L.ui = null; api.render(); } },
   sounds: {
     flip: (S, t, v) => { S.noise(t, .15, .3 * v, 1500); S.tone(330, t + .05, .3, 'sine', .08 * v); },
     give: (S, t, v) => S.tone(620, t, .12, 'triangle', .1 * v),
     good: (S, t, v) => [523, 784, 1047].forEach((f, i) => S.tone(f, t + i * .09, .3, 'triangle', .14 * v)),
+    magic: (S, t, v) => [784, 988, 1175, 1568].forEach((f, i) => S.tone(f, t + i * .07, .4, 'sine', .09 * v)),
     owl: (S, t, v) => { S.tone(392, t, .35, 'sine', .12 * v); S.tone(330, t + .4, .5, 'sine', .12 * v); }
   }
 });
@@ -179,6 +232,9 @@ function top(g, r) {
 }
 function eventHTML(r, g) {
   const ev = g.event; if (!ev) return '';
+  if (g.phase === 'result' && g.result && g.result.rest) return '<div class="event" id="eventcard"><h2>Rast am Lagerfeuer</h2><p class="story">Das Feuer knistert, alle kommen wieder zu Kräften. „' + esc(ev.name) + '“ wartet in der nächsten Stunde auf euch.</p></div>';
+  const SPC = r.catalog.SPECIALS, h = g.hour || {};
+  const hourTags = ['abkuerzung', 'glueck', 'eule'].filter(k => h[k]).map(k => '<span class="pill">' + SPI[k].replace('<svg', '<svg style="width:13px;height:13px"') + ' ' + SPC[k].name + ' aktiv · ' + esc(api.pname(h[k])) + '</span>').join('');
   const shown = g.phase === 'result' && g.result && g.result.totals ? g.result : null;
   const need = ev.needNow, t = shown ? shown.totals : g.totals;
   const bonus = (c) => g.contrib.filter(x => x.card.c === c).length;
@@ -186,7 +242,7 @@ function eventHTML(r, g) {
   if (need) needs = '<div class="needs">' + Object.entries(need).map(([c, v]) => '<div class="need' + (t[c] >= v ? ' ok' : '') + '" style="--c:var(--' + c + ')"><span class="nm" style="color:var(--' + c + ')">' + IC[c] + CN[c] + '</span><span class="bar"><i style="width:' + Math.min(100, Math.round(t[c] / v * 100)) + '%"></i></span><span class="val">' + t[c] + '/' + v + '</span></div>').join('') + '</div>';
   const tags = [ev.any ? '<span class="pill wait">eins davon reicht</span>' : '', ev.dark ? '<span class="pill">dunkel – Fackel löst es</span>' : '', ev.optional ? '<span class="pill live">freiwillig</span>' : '', !need ? '<span class="pill live">kein Hindernis</span>' : ''].join('');
   const verdict = g.phase === 'plan' ? (need ? '<div class="verdict ' + (g.willWin ? 'ok' : 'no') + '">' + (g.willWin ? 'Das reicht! Ihr schafft es.' : 'Das reicht noch nicht. ' + Object.entries(need).filter(([c, v]) => t[c] < v).map(([c, v]) => 'Es fehlt ' + CN[c] + ' ' + (v - t[c])).join(ev.any ? ' oder ' : ', ') + '.') + '</div>' : '<div class="verdict ok">Hier müsst ihr nichts legen.</div>') : '';
-  return '<div class="event" id="eventcard"><div class="tagrow">' + tags + '</div><h2>' + esc(ev.name) + '</h2><p class="story">' + esc(ev.text) + '</p>' + needs +
+  return '<div class="event" id="eventcard">' + (hourTags ? '<div class="hourtags">' + hourTags + '</div>' : '') + '<div class="tagrow">' + tags + '</div><h2>' + esc(ev.name) + '</h2><p class="story">' + esc(ev.text) + '</p>' + needs +
     '<div class="conseq">' + (need ? '<div class="w"><b>Geschafft:</b> ' + effText(ev.win) + '.</div><div class="l"><b>Nicht geschafft:</b> ' + effText(ev.fail) + '.</div>' : '<div class="w" style="grid-column:1/-1"><b>Belohnung:</b> ' + effText(ev.win) + '.</div>') + '</div>' + verdict + '</div>';
 }
 function renderGame(r, el) {
@@ -203,11 +259,11 @@ function renderGame(r, el) {
   const flip = L.eventKey !== evKey; L.eventKey = evKey;
   const shownContrib = g.phase === 'result' && g.result && g.result.contrib ? g.result.contrib : g.contrib;
   const contrib = '<div class="panel contrib" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Gelegt</div><div class="cards">' +
-    (shownContrib.length ? shownContrib.map(x => { const bonus = C[g.chars[x.pid]] && C[g.chars[x.pid]].color === x.card.c; return '<div><button type="button" ' + (x.pid === me && g.phase === 'plan' ? 'data-act="take" data-id="' + esc(x.card.id) + '" title="Zurücknehmen"' : 'disabled') + '>' + cardHTML(x.card, bonus) + '</button><div class="who">' + esc(api.pname(x.pid)) + '</div></div>'; }).join('') : '<p class="muted">Noch nichts gelegt. Klick deine Handkarten an, um sie zu legen.</p>') + '</div></div>';
+    (shownContrib.length ? shownContrib.map(x => { const bonus = !x.card.sp && C[g.chars[x.pid]] && C[g.chars[x.pid]].color === x.card.c; return '<div><button type="button" ' + (x.pid === me && g.phase === 'plan' ? 'data-act="take" data-id="' + esc(x.card.id) + '" title="Zurücknehmen"' : 'disabled') + '>' + cardHTML(x.card, bonus) + '</button><div class="who">' + esc(api.pname(x.pid)) + '</div></div>'; }).join('') : '<p class="muted">Noch nichts gelegt. Klick deine Handkarten an, um sie zu legen.</p>') + '</div></div>';
   const items = '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Gegenstände</div><div class="items">' +
     (g.items.length || g.used.length ? g.used.map(k => '<button type="button" class="item used" data-act="item" data-k="' + k + '" data-used="1"' + (g.phase === 'plan' && mine ? '' : ' disabled') + '>' + IC[k] + '<span><b>' + I[k].name + '</b> eingesetzt<small>Klick: zurücknehmen</small></span></button>').join('') +
       g.items.map(k => '<button type="button" class="item" data-act="item" data-k="' + k + '"' + (g.phase === 'plan' && mine ? '' : ' disabled') + '>' + IC[k] + '<span><b>' + I[k].name + '</b><small>' + I[k].text + '</small></span></button>').join('') : '<p class="muted">Keine. Manche Ereignisse belohnen euch mit Gegenständen.</p>') + '</div></div>';
-  const party = '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Eure Gruppe</div><div class="party">' + r.players.map(p => '<div class="p"><span><b>' + esc(p.name) + '</b>' + (p.id === me ? ' <span class="muted">(du)</span>' : '') + '<br><small>' + (C[g.chars[p.id]] ? C[g.chars[p.id]].name : '') + ' · ' + (g.counts[p.id] || 0) + ' Karten' + (p.online ? '' : ' · offline') + '</small></span>' + (g.phase === 'plan' ? (g.ready[p.id] ? '<span class="pill live">fertig</span>' : '<span class="pill">überlegt</span>') : '') + '</div>').join('') + '</div></div>';
+  const party = '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="lbl">Eure Gruppe</div><div class="party">' + r.players.map(p => '<div class="p"><span><b>' + esc(p.name) + '</b>' + (p.id === me ? ' <span class="muted">(du)</span>' : '') + '<br><small>' + (C[g.chars[p.id]] ? C[g.chars[p.id]].name : '') + ' · ' + (g.counts[p.id] || 0) + ' Karten' + (p.online ? '' : ' · offline') + '</small>' + (g.others && g.others[p.id] ? '<div class="minis">' + g.others[p.id].map(c => cardHTML(c)).join('') + '</div>' : '') + '</span>' + (g.phase === 'plan' ? (g.ready[p.id] ? '<span class="pill live">fertig</span>' : '<span class="pill">überlegt</span>') : '') + '</div>').join('') + '</div></div>';
   let action = '';
   if (g.phase === 'plan' && mine) {
     const extra = (myChar === 'heiler' && !g.healed[me] && g.hp < g.hpMax ? '<button class="btn" data-act="heal">' + (L.heal ? 'Heilen abbrechen' : 'Heilen (+1 Ausdauer)') + '</button>' : '') +
@@ -216,17 +272,39 @@ function renderGame(r, el) {
       '<small class="muted">' + r.players.filter(p => g.ready[p.id]).length + ' von ' + r.players.length + ' fertig</small></div>';
   }
   const res = g.phase === 'result' && g.result ? (() => { const x = g.result; const fx = [];
+      if (x.rest) return '<div class="panel result ok"><h2>Rast am Lagerfeuer</h2><div class="fx"><span class="pill">' + (x.hp ? '+' + x.hp + ' Ausdauer' : 'Ausdauer schon voll') + '</span><span class="pill">jeder zieht 2 Karten</span><span class="pill">kein Fortschritt</span></div>' + (mine ? '<button class="btn primary big" data-act="next">Weiter zur nächsten Stunde</button>' : '') + '</div>';
       if (x.skipped) fx.push('übersprungen');
+      if (x.lucky) fx.push('Glücksbringer: nichts Schlimmes passiert');
+      if (x.shortcut) fx.push('Abkürzung: 1 Feld extra');
       fx.push(x.move > 0 ? '+' + x.move + ' Feld' + (x.move > 1 ? 'er' : '') : x.move < 0 ? x.move + ' Feld' : 'kein Fortschritt');
       if (x.hp) fx.push((x.hp > 0 ? '+' : '') + x.hp + ' Ausdauer'); if (x.item) fx.push('gefunden: ' + I[x.item].name); if (x.lost) fx.push('verloren: ' + I[x.lost].name); if (x.discard) fx.push('jeder verliert ' + x.discard + ' Karte');
       return '<div class="panel result ' + (x.ok ? 'ok' : 'no') + '"><h2>' + (x.ok ? 'Geschafft!' : 'Nicht geschafft') + '</h2><div class="fx">' + fx.map(f => '<span class="pill">' + f + '</span>').join('') + '</div>' + (mine ? '<button class="btn primary big" data-act="next">Weiter zur nächsten Stunde</button>' : '') + '</div>'; })() : '';
   const myCharBox = myChar ? '<div class="char mine"><span class="ic">' + IC[CHAR_IC[myChar]] + '</span><div><b>Du bist ' + C[myChar].name + '</b><div class="muted" style="font-size:13px">' + C[myChar].text + '</div></div></div>' : '';
   const hand = mine ? '<div class="panel' + (L.heal ? ' healmode' : '') + '" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between"><div class="lbl">Deine Karten</div>' + (L.heal ? '<span class="pill bad">Welche Karte abwerfen?</span>' : '') + '</div><div class="cards">' +
-    (g.hand.length ? g.hand.map(c => '<button type="button" data-act="give" data-id="' + esc(c.id) + '"' + (g.phase === 'plan' ? '' : ' disabled') + ' title="' + CN[c.c] + ' ' + c.v + (L.heal ? ' abwerfen' : ' legen') + '">' + cardHTML(c, C[myChar] && C[myChar].color === c.c) + '</button>').join('') : '<p class="muted">Keine Karten mehr.</p>') + '</div>' + myCharBox + '</div>' : '';
+    (g.hand.length ? g.hand.map(c => c.sp
+      ? '<button type="button" ' + (L.heal ? 'data-act="give"' : 'data-act="spc" data-sp="' + c.sp + '"') + ' data-id="' + esc(c.id) + '"' + (g.phase === 'plan' && !g.pick && !(g.hour && g.hour[c.sp]) ? '' : ' disabled') + ' title="' + esc(r.catalog.SPECIALS[c.sp].name + ': ' + r.catalog.SPECIALS[c.sp].text) + '">' + cardHTML(c) + '</button>'
+      : '<button type="button" data-act="give" data-id="' + esc(c.id) + '"' + (g.phase === 'plan' && !g.pick ? '' : ' disabled') + ' title="' + CN[c.c] + ' ' + c.v + (L.heal ? ' abwerfen' : ' legen') + '">' + cardHTML(c, C[myChar] && C[myChar].color === c.c) + '</button>').join('') : '<p class="muted">Keine Karten mehr.</p>') + '</div>' +
+    (g.hand.some(c => c.sp) ? '<small class="muted">Dunkle Karten sind Sonderkarten – anklicken zum Einsetzen.</small>' : '') + myCharBox + '</div>' : '';
+  // Dialoge für Sonderkarten
+  let dlg = '';
+  const SPC = r.catalog.SPECIALS;
+  if (L.ui && mine && g.phase === 'plan' && g.hand.some(c => c.id === L.ui.id)) {
+    const u = L.ui, box = (title, body) => '<div class="modal side" role="dialog" aria-label="' + title + '"><div class="panel modalbox" style="max-width:380px;border:2px solid #b9a2ff"><h2 style="font-size:24px">' + title + '</h2>' + body + '<button class="btn small" data-act="uiClose">Abbrechen</button></div></div>';
+    if (u.sp === 'mond') dlg = box('Mondlicht', '<p class="muted" style="margin:0">Welche Farbe soll das Mondlicht haben? Es zählt 3 Punkte.</p><div class="colorpick">' + ['kraft', 'mut', 'wissen', 'geschick'].map(c => '<button type="button" data-act="moon" data-c="' + c + '" style="--c:var(--' + c + ')">' + IC[c] + CN[c] + '</button>').join('') + '</div>');
+    if (u.sp === 'lagerfeuer') dlg = box('Lagerfeuer', '<p class="muted" style="margin:0">' + SPC.lagerfeuer.text + '</p><button class="btn primary" data-act="rest">Ja, rasten</button>');
+    if (u.sp === 'freund') {
+      const giveable = g.hand.filter(c => c.id !== u.id);
+      dlg = box('Hilfe vom Freund', !u.give ? '<p class="muted" style="margin:0">Welche Karte gibst du ab?</p><div class="cards" style="justify-content:center">' + (giveable.length ? giveable.map(c => '<button type="button" data-act="fgive" data-id="' + esc(c.id) + '">' + cardHTML(c) + '</button>').join('') : '<p class="muted">Du hast keine andere Karte.</p>') + '</div>'
+        : '<p class="muted" style="margin:0">An wen?</p><div class="row" style="justify-content:center">' + r.players.filter(p => p.id !== me).map(p => '<button class="btn" data-act="fto" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div>');
+    }
+  } else L.ui = null;
+  if (g.pickOpts && mine) dlg = '<div class="modal side" role="dialog" aria-label="Sternschnuppe"><div class="panel modalbox" style="max-width:420px;border:2px solid #b9a2ff"><h2 style="font-size:24px">Sternschnuppe</h2><p class="muted" style="margin:0">Welches Ereignis kommt als Nächstes?</p><div class="picklist">' +
+    g.pickOpts.map(e => '<button type="button" data-act="pickEv" data-id="' + e.id + '"><b>' + esc(e.name) + '</b><small>' + (e.need ? 'Braucht ' + Object.entries(e.need).map(([c, v]) => CN[c] + ' ' + v).join(e.any ? ' oder ' : ' + ') + ' (Grundwert)' : 'kein Hindernis') + ' · Geschafft: ' + effText(e.win) + (e.need ? ' · Sonst: ' + effText(e.fail) : '') + '</small></button>').join('') + '</div></div></div>';
+  const pickNote = g.pick && !g.pickOpts ? '<div class="preview"><b>' + esc(api.pname(g.pick.pid)) + '</b> sucht mit der Sternschnuppe das nächste Ereignis aus …</div>' : '';
   const preview = g.next ? '<div class="preview"><b>Späherin sieht voraus:</b> Als Nächstes kommt „' + esc(g.next.name) + '“.</div>' : '';
   el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top(g, r) + res +
     '<div class="nt-main"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + eventHTML(r, g) + action + contrib + hand + '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + party + items + preview + '</div></div></div>';
+    '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + pickNote + party + items + preview + '</div></div></div>' + dlg;
   if (flip) { const e = el.querySelector('#eventcard'); if (e) e.classList.add('flip'); }
 }
 function onState(prev, r) {
@@ -241,6 +319,21 @@ function onState(prev, r) {
   if (e.kind === 'item') { S.play('ok'); api.toast(api.pname(e.pid) + ' setzt ' + r.catalog.ITEMS[e.it].name + ' ein.'); }
   if (e.kind === 'heal') { S.play('ok'); api.toast(api.pname(e.pid) + ' heilt die Gruppe: +1 Ausdauer.'); }
   if (e.kind === 'skip') { S.play('owl'); api.toast(api.pname(e.pid) + ' findet einen Umweg um „' + r.catalog.EVENTS[e.from].name + '“.'); }
+  if (e.kind === 'sp') {
+    const SPC = r.catalog.SPECIALS, who = e.pid === r.me ? 'Du' : api.pname(e.pid), nm = SPC[e.sp].name;
+    S.play(e.sp === 'eule' ? 'owl' : 'magic');
+    const txt = {
+      mond: who + ' legt Mondlicht als ' + CN[e.color] + ' 3.',
+      freund: e.target === r.me ? api.pname(e.pid) + ' schenkt dir eine Karte: ' + CN[e.card.c] + ' ' + e.card.v + '.' : who + ' schenkt ' + api.pname(e.target) + ' eine Karte.',
+      lagerfeuer: who + ' entzündet ein Lagerfeuer – ihr rastet.',
+      stern: who + ' sieht eine Sternschnuppe und sucht das nächste Ereignis aus.',
+      abkuerzung: who + ' kennt eine Abkürzung: Schafft ihr es, geht ihr ein Feld extra.',
+      glueck: who + ' hält den Glücksbringer bereit: Scheitern tut diese Stunde nicht weh.',
+      eule: who + ' ruft die Eule: Alle sehen diese Stunde alle Karten.'
+    }[e.sp] || who + ' setzt ' + nm + ' ein.';
+    api.toast(txt, 4500);
+  }
+  if (e.kind === 'picked') { S.play('ok'); api.toast('Als Nächstes kommt: „' + r.catalog.EVENTS[e.id].name + '“.'); }
   if (r.status === 'over' && prev && prev.status !== 'over') S.play(g.phase === 'won' ? 'win' : 'lose');
 }
 })();

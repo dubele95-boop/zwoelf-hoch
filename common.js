@@ -58,7 +58,7 @@
     document.title = cfg.title + ' – Spieleabend';
     const app = q('#app');
     app.innerHTML = '<header class="bar"><div class="brand"><a class="homelink" href="/" title="Zurück zum Spieleabend" aria-label="Zurück zum Spieleabend">‹</a>' + cfg.brand + '<span>' + esc(cfg.tagline) + '</span></div><div class="actions" id="actions"></div></header><main id="view"></main>';
-    document.body.insertAdjacentHTML('beforeend', '<div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div><div id="players" class="modal" role="dialog" aria-modal="true" aria-labelledby="playersTitle" hidden></div><div id="toast" role="status" aria-live="polite"></div>');
+    document.body.insertAdjacentHTML('beforeend', '<div id="rules" class="modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle" hidden></div><div id="players" class="modal" role="dialog" aria-modal="true" aria-labelledby="playersTitle" hidden></div><div id="live" class="modal" role="dialog" aria-modal="true" aria-labelledby="liveTitle" hidden></div><div id="toast" role="status" aria-live="polite"></div>');
     const view = q('#view'), actions = q('#actions');
     const hashCode = () => (location.hash || '').replace('#', '').toUpperCase().trim();
 
@@ -107,6 +107,7 @@
       if (S.everConnected && !S.connected) h += '<span class="pill wait">Verbinde neu …</span>';
       h += '<button class="btn small" data-c="rules" aria-haspopup="dialog">Regeln</button>';
       if (r && r.status !== 'lobby' && isHost()) {
+        if (cfg.livePanel) h += '<button class="btn small" data-c="live" aria-haspopup="dialog">Sonderkarten</button>';
         h += '<button class="btn small" data-c="players" aria-haspopup="dialog">Mitspieler</button>';
         h += '<button class="btn small" data-c="toLobby">' + (Date.now() - S.confirmLobby < 4000 ? 'Wirklich zur Lobby?' : 'Zur Lobby') + '</button>';
       }
@@ -189,6 +190,7 @@
       if (S.room.status === 'lobby') return renderLobby();
       renderGame();
       if (!q('#players').hidden) openPlayers();
+      if (!q('#live').hidden) { if (isHost() && S.room.status !== 'lobby') openLive(); else q('#live').hidden = true; }
     }
 
     /* ---------- Regeln & Mitspieler ---------- */
@@ -206,13 +208,19 @@
         '<div class="field"><label class="label" for="invite2">Einladungslink</label><div class="row"><input type="text" id="invite2" readonly value="' + esc(location.origin + location.pathname + '#' + r.code) + '" style="flex:1"><button class="btn" data-c="copy">Kopieren</button></div></div></div>';
       el.hidden = false;
     }
-    function closeModals() { q('#rules').hidden = true; q('#players').hidden = true; }
+    function openLive() {
+      const el = q('#live'), r = S.room; if (!r || !cfg.livePanel) return;
+      el.innerHTML = '<div class="panel modalbox wide" style="max-width:600px"><div class="modalhead"><h2 id="liveTitle">Sonderkarten</h2><button class="btn small" data-c="closeModal">Fertig</button></div>' + cfg.livePanel(r, api) + '</div>';
+      el.hidden = false;
+    }
+    function closeModals() { q('#rules').hidden = true; q('#players').hidden = true; q('#live').hidden = true; }
 
     /* ---------- Klicks ---------- */
     const C = {
       sound() { Snd.on = !Snd.on; LS.set('zh.sound', Snd.on ? '1' : '0'); Snd.unlock(); renderBar(); if (Snd.on) Snd.play('click'); },
       rules() { openRules(); },
       players() { openPlayers(); },
+      live() { openLive(); },
       closeModal() { closeModals(); },
       create() { const n = (q('#nameInput').value || '').trim(); if (!n) { toast('Bitte gib zuerst deinen Namen ein.'); q('#nameInput').focus(); return; } S.name = n; LS.set('zh.name', n); send({ t: 'create', name: n }); },
       join() {
@@ -247,7 +255,7 @@
       if (s && !s.disabled && s.tagName !== 'SELECT') { let v = s.dataset.val; if (v === 'true') v = true; else if (v === 'false') v = false; send({ t: 'setting', key: s.dataset.set, value: v }); return; }
       const a = e.target.closest('[data-act]');
       if (a && !a.disabled && cfg.actions && cfg.actions[a.dataset.act]) cfg.actions[a.dataset.act](a, e, api);
-      if (e.target.classList && e.target.classList.contains('modal') && (e.target.id === 'rules' || e.target.id === 'players')) closeModals();
+      if (e.target.classList && e.target.classList.contains('modal') && (e.target.id === 'rules' || e.target.id === 'players' || e.target.id === 'live')) closeModals();
     });
     document.addEventListener('change', e => {
       const s = e.target.closest && e.target.closest('select[data-set]');
