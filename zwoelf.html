@@ -199,6 +199,10 @@ body.dragging,body.dragging *{cursor:grabbing!important;user-select:none}
 .cbtn.sel>.card{outline:3px solid var(--accent);outline-offset:2px}
 .tgt{outline:3px solid var(--accent);outline-offset:4px;border-radius:12px}
 .tgt.soft{outline-color:rgba(242,184,75,.45);animation:none}
+/* Ablagestapel: Rahmen nur um die Karten, nicht um den ganzen reservierten Platz */
+.dpile.tgt,.dpile.over{outline:none!important;transform:none}
+.dpile.tgt .stack{outline:3px solid var(--accent);outline-offset:4px;border-radius:var(--r)}
+.dpile.over .stack{outline:3px solid #fff;outline-offset:5px;border-radius:var(--r);transform:scale(1.05);transform-origin:top center;transition:transform .12s ease}
 @keyframes glow{50%{outline-color:rgba(242,184,75,.35)}}
 .land{animation:land .28s ease-out}
 @keyframes land{from{transform:scale(1.15) translateY(-6px)}to{transform:none}}
@@ -739,7 +743,7 @@ function onNewState(prev, g){
   S.game = g; render();
   if(g.status === 'finished' && g.stats && S.statsShownFor !== g.code + ':' + (g.round || 1)){
     S.statsShownFor = g.code + ':' + (g.round || 1);
-    clearTimeout(S.statsT); S.statsT = setTimeout(() => { if(S.game && S.game.status === 'finished') openStats(); }, 2600);
+    clearTimeout(S.statsT); S.statsT = setTimeout(() => { if(S.game && S.game.status === 'finished') openStats(); }, 1800);
   }
   if(!g.hand || g.status === 'lobby') return;
   const mine = myTurn();

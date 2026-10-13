@@ -87,8 +87,7 @@
           // Statistik ploppt nach jeder Runde einmal auf
           if (cfg.stats && m.room.status === 'over' && m.room.g) {
             const key = m.room.code + ':' + m.room.round;
-            if (prev && prev.status === 'playing' && S.statsShown !== key) { S.statsShown = key; clearTimeout(S.statsT); S.statsT = setTimeout(() => { if (S.room && S.room.status === 'over') openStats(); }, 2800); }
-            else if (!prev) S.statsShown = key;
+            if (S.statsShown !== key) { S.statsShown = key; clearTimeout(S.statsT); S.statsT = setTimeout(() => { if (S.room && S.room.status === 'over' && q('#stats').hidden) openStats(); }, 1800); }
           }
           const n = (m.room.chat || []).length ? m.room.chat[m.room.chat.length - 1].n : 0;
           if (prev && n > S.chatN && m.room.chat[m.room.chat.length - 1].id !== S.me) Snd.play('chat', .7);
