@@ -42,7 +42,7 @@ function nextRound(r, ctx) {
   const s = r.state;
   s.round++; s.turn = 0; s.roundPts = {}; s.ready = {};
   const deck = ctx.shuffle(Array.from({ length: 104 }, (_, i) => i + 1));
-  s.rows = []; for (let i = 0; i < ROWS; i++) s.rows.push([deck.pop()]);
+  s.rows = []; s.owner = {}; for (let i = 0; i < ROWS; i++) s.rows.push([deck.pop()]);
   for (const p of r.players) { s.hands[p.id] = deck.splice(0, HAND).sort((a, b) => a - b); s.roundPts[p.id] = 0; s.held[p.id] = s.held[p.id] || []; }
   // Sonderkarten: jeder Mensch bekommt pro Runde eine (höchstens 3 gleichzeitig)
   const on = SPECIALS.filter(k => spOn(r, k)), gifts = [];
@@ -112,7 +112,7 @@ function step(r, ctx) {
 function place(r, q, ri, reason, ctx) {
   const s = r.state, rev = s.revealed.find(x => x.pid === q.pid && x.v === q.v);
   if (reason) takeRow(r, q.pid, ri, q.v, reason);
-  else { s.rows[ri].push(q.v); event(s, { kind: 'place', pid: q.pid, v: q.v, row: ri }); }
+  else { s.rows[ri].push(q.v); (s.owner = s.owner || {})[q.v] = q.pid; event(s, { kind: 'place', pid: q.pid, v: q.v, row: ri }); }
   if (rev) { rev.row = ri; rev.took = !!reason; }
   s.queue.shift();
   ctx.timer(r, 'step', STEP_MS, () => { step(r, ctx); ctx.broadcast(r); });
@@ -127,7 +127,7 @@ function takeRow(r, pid, ri, v, reason) {
   p.rows++; p.points += pts; if (reason === 'full') p.full++; else p.low++;
   if (pts > p.biggest) { p.biggest = pts; p.biggestCards = cards.length; }
   if (cards.includes(55)) p.fives++;
-  s.rows[ri] = [v];
+  s.rows[ri] = [v]; (s.owner = s.owner || {})[v] = pid;
   event(s, { kind: 'take', pid, row: ri, v, cards, pts, raw, reason, shield, half });
 }
 const cheapestRow = s => s.rows.map((row, i) => ({ i, p: rowPts(row), n: row.length })).sort((a, b) => a.p - b.p || a.n - b.n)[0].i;
@@ -264,7 +264,7 @@ function view(r, id) {
   const s = r.state, over = r.status === 'over';
   return {
     round: s.round, turn: s.turn, turns: HAND, phase: s.phase, target: s.target,
-    rows: s.rows, rowPts: s.rows.map(rowPts),
+    rows: s.rows, rowPts: s.rows.map(rowPts), owner: s.owner || {},
     hand: s.hands[id] || [], myPick: s.picks[id] != null ? s.picks[id] : null,
     picked: Object.fromEntries(r.players.map(p => [p.id, s.picks[p.id] != null])),
     counts: Object.fromEntries(r.players.map(p => [p.id, (s.hands[p.id] || []).length])),

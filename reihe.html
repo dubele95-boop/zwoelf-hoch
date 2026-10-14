@@ -13,6 +13,12 @@
 .rc.pen2{--pc:var(--p2)}.rc.pen3{--pc:var(--p3)}.rc.pen5{--pc:var(--p5)}.rc.pen7{--pc:var(--p7)}
 .rc.pen7 .horns svg{color:#4a0a1f}
 .rc.pop{animation:pop .4s cubic-bezier(.2,.9,.3,1.3)}
+.rc.own{border:3px solid var(--oc);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 8px 16px rgba(0,0,0,.28)}
+.rc .ownr{position:absolute;left:50%;bottom:calc(var(--w) * -.16);transform:translateX(-50%);max-width:calc(var(--w) + 10px);background:var(--oc);color:#17121f;font:800 10.5px/1 var(--f-body);padding:3px 6px;border-radius:99px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 6px rgba(0,0,0,.4);z-index:1}
+.rc.own.pop{box-shadow:0 0 0 4px color-mix(in srgb,var(--oc) 55%,transparent),0 0 22px var(--oc)}
+.rrow{padding-bottom:16px !important}
+.pdot{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--oc);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.3)}
+.reveal .it .who{color:#17121f !important;background:var(--oc);padding:2px 7px;border-radius:99px}
 @keyframes pop{from{transform:translateY(-24px) scale(1.2);opacity:0}to{transform:none;opacity:1}}
 .rv-top{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between}
 .rv-top .t{display:flex;align-items:baseline;gap:10px}
@@ -76,6 +82,24 @@
 .endbox{display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center;padding:20px 16px}
 .endbox h2{font:900 clamp(40px,6vw,72px)/.95 var(--f-display);text-transform:uppercase}
 .banner{border-color:rgba(255,159,74,.55);background:rgba(255,159,74,.08);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.rrow .rc{--w:inherit}
+.rv-grid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:start}
+.rv-left{position:sticky;top:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.rv-left .players{flex-direction:column;flex-wrap:nowrap;gap:8px}
+.rv-left .pl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;min-width:0;min-height:84px}
+.rv-left .pl .info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rv-left .pl .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.rv-left .pl.now{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,159,74,.35)}
+.plcard{display:flex;flex-direction:column;align-items:center;gap:3px;width:52px;position:relative}
+.plcard small{font:700 11px/1 var(--f-body);color:var(--muted);white-space:nowrap;min-height:11px}
+.plcard.done .rc{opacity:.5}
+.plcard .ord{position:absolute;top:-6px;left:-4px;z-index:2;background:#17121f;color:var(--ink);border:1px solid var(--line-2);border-radius:99px;font:800 10px/1 var(--f-body);padding:2px 5px}
+.rc.mini{--w:42px}.rc.mini b{font-size:19px}.rc.mini .horns svg{width:5px;height:5px}
+.rc.back{background:repeating-linear-gradient(45deg,#3b2f5c 0 6px,#2c2346 6px 12px);border:2px solid var(--oc)}
+.rc.empty{background:none;border:1.5px dashed var(--line-2);box-shadow:none}
+.status{min-height:58px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.status.hot{border-color:rgba(255,159,74,.55);background:rgba(255,159,74,.08)}
+@media (max-width:900px){.rv-grid{grid-template-columns:minmax(0,1fr)}.rv-left{position:sticky;top:0;z-index:5;background:var(--table);padding:6px 0;margin:-6px 0}.rv-left .players{flex-direction:row;overflow-x:auto;gap:6px}.rv-left .pl{min-width:150px;min-height:0;padding:6px 8px}.rv-left .pl .sc{font-size:22px}.rv-left .pl .st{display:none}.rv-left .label{display:none}}
 @media (max-width:760px){.rrow{grid-template-columns:repeat(6,var(--w));--w:44px}.rrow .lbl{grid-column:1/-1;flex-direction:row;gap:10px;align-items:baseline}.rrow button.rowbtn{grid-column:1/-1;justify-self:start}.rc b{font-size:calc(var(--w) * .42)}.hand .cards button .rc{--w:56px}}
 </style></head><body>
 <div id="app"></div>
@@ -85,7 +109,10 @@
 const esc = Spieleabend.esc;
 const pen = v => v === 55 ? 7 : v % 11 === 0 ? 5 : v % 10 === 0 ? 3 : v % 5 === 0 ? 2 : 1;
 const HORN = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4c0 5 3 8 6 8h6c3 0 6-3 6-8-2 3-4 4-6 4H9C7 8 5 7 3 4zm5 9h8v3a4 4 0 0 1-8 0z"/></svg>';
-const card = (v, extra) => { const p = pen(v); return '<div class="rc pen' + p + (extra || '') + '" title="' + v + ' – ' + p + (p === 1 ? ' Strafpunkt' : ' Strafpunkte') + '"><span class="horns">' + HORN.repeat(p) + '</span><b>' + v + '</b><span class="horns">' + HORN.repeat(p) + '</span></div>'; };
+const PCOL = ['#4fd1c5', '#b48cff', '#ff7ab6', '#7ddc6f', '#5aa9ff', '#ffd166', '#ff8a4a', '#e8e8e8', '#3fe0ff', '#d6ff6b'];
+const pcol = (r, pid) => { const i = r.players.findIndex(p => p.id === pid); return PCOL[(i < 0 ? 0 : i) % PCOL.length]; };
+const card = (v, extra, own) => { const p = pen(v); return '<div class="rc pen' + p + (extra || '') + (own ? ' own" style="--oc:' + own.c : '') + '" title="' + v + ' – ' + p + (p === 1 ? ' Strafpunkt' : ' Strafpunkte') + (own ? ' · gelegt von ' + esc(own.n) : '') + '"><span class="horns">' + HORN.repeat(p) + '</span><b>' + v + '</b><span class="horns">' + HORN.repeat(p) + '</span>' + (own ? '<span class="ownr">' + esc(own.n) + '</span>' : '') + '</div>'; };
+const ownOf = (r, g, v) => { const pid = (g.owner || {})[v]; return pid ? { c: pcol(r, pid), n: pid === r.me ? 'Du' : api.pname(pid) } : null; };
 const SP = {
   schild: { name: 'Schutzschild', text: 'Musst du das nächste Mal eine Reihe nehmen, bekommst du keine Strafpunkte. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>' },
   halb: { name: 'Halbe Strafe', text: 'Die nächste Reihe, die du nehmen musst, zählt nur halb. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19L19 5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/></svg>' },
@@ -115,7 +142,7 @@ function rowsHTML(g, r) {
   const me = r.me, choosingMe = g.phase === 'choose' && g.choosing && g.choosing.pid === me, besen = L.mode === 'besen' && g.phase === 'select';
   return '<div class="rows">' + g.rows.map((row, i) => {
     const pts = g.rowPts[i], pickable = choosingMe || (besen && row.length > 1);
-    const cells = []; for (let k = 0; k < 6; k++) cells.push(row[k] != null ? card(row[k], k === row.length - 1 && L.popRow === i ? ' pop' : '') : (k === 5 ? '<div class="slot six">6. Karte<br>= nehmen</div>' : '<div class="slot"></div>'));
+    const cells = []; for (let k = 0; k < 6; k++) cells.push(row[k] != null ? card(row[k], k === row.length - 1 && L.popRow === i ? ' pop' : '', ownOf(r, g, row[k])) : (k === 5 ? '<div class="slot six">6. Karte<br>= nehmen</div>' : '<div class="slot"></div>'));
     return '<div class="rrow' + (pickable ? ' pick' : '') + (L.takenRow === i ? ' taken' : '') + '"' + (pickable ? ' data-act="' + (besen ? 'sweep' : 'take') + '" data-row="' + i + '" role="button" tabindex="0"' : '') + '>' +
       '<div class="lbl"><b>Reihe ' + (i + 1) + '</b><small class="' + (row.length >= 5 ? 'hot' : '') + '">' + pts + ' Strafpunkt' + (pts === 1 ? '' : 'e') + (row.length >= 5 ? ' · voll!' : '') + '</small></div>' + cells.join('') +
       (pickable ? '<button class="btn small primary rowbtn" data-act="' + (besen ? 'sweep' : 'take') + '" data-row="' + i + '">' + (besen ? 'Ausfegen' : 'Diese Reihe nehmen') + '</button>' : '') + '</div>';
@@ -127,24 +154,32 @@ function renderGame(r, el) {
   const me = r.me, mine = r.players.some(p => p.id === me);
   const timer = g.deadline && r.status === 'playing' && (g.phase === 'select' || g.phase === 'choose') ? '<div class="timer" data-timer>' + fmtT(g.deadline - Date.now() - L.off) + '</div>' : '';
   const top = '<div class="panel rv-top"><div class="t"><b>Runde ' + g.round + '</b><span>Zug ' + Math.min(g.turn, g.turns) + ' von ' + g.turns + ' · Spielende bei ' + g.target + ' Strafpunkten</span></div>' + timer + '</div>';
-  const players = '<div class="players">' + r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => {
-    const st = g.phase === 'select' ? (g.picked[p.id] ? '<span class="st ok">✓ hat gewählt</span>' : '<span class="st">wählt …</span>') : g.phase === 'roundEnd' ? (g.ready[p.id] ? '<span class="st ok">✓ bereit</span>' : '<span class="st">schaut …</span>') : '';
-    return '<div class="pl' + (p.id === me ? ' me' : '') + '"><div class="nm">' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.online ? '' : '<span class="pill">offline</span>') + '</div>' +
-      '<div class="sc">' + (g.scores[p.id] || 0) + (g.roundPts[p.id] ? '<small>+' + g.roundPts[p.id] + ' diese Runde</small>' : '') + '</div>' + st +
-      ((g.heldCounts || {})[p.id] ? '<span class="st" style="color:#ffd166">' + g.heldCounts[p.id] + ' Sonderkarte' + (g.heldCounts[p.id] > 1 ? 'n' : '') + '</span>' : '') + '</div>';
-  }).join('') + '</div>';
-  if (r.status === 'over') { el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + overHTML(r, g) + players + '</div>'; return; }
-  // Aufgedeckte Karten
-  const now = g.revealed.find(x => x.row == null);
-  const reveal = g.revealed.length ? '<div class="panel"><div class="label" style="margin-bottom:8px">Aufgedeckt – wird der Reihe nach einsortiert</div><div class="reveal">' + g.revealed.map(x => '<div class="it' + (x.row != null ? ' done' : '') + (now === x ? ' now' : '') + '">' + card(x.v) + '<span class="who">' + esc(api.pname(x.pid)) + '</span><span>' + (x.row != null ? (x.took ? 'nimmt Reihe ' + (x.row + 1) : '→ Reihe ' + (x.row + 1)) : '') + '</span></div>').join('') + '</div></div>' : '';
+  const nowX = g.revealed.find(x => x.row == null);
+  const slot = p => {
+    const i = g.revealed.findIndex(x => x.pid === p.id), x = g.revealed[i];
+    if (x) return '<div class="plcard' + (x.row != null ? ' done' : '') + '"><span class="ord">' + (i + 1) + '.</span>' + card(x.v, ' mini') + '<small>' + (x.row != null ? (x.took ? 'nimmt R' + (x.row + 1) : '→ Reihe ' + (x.row + 1)) : nowX === x ? 'ist dran' : '') + '</small></div>';
+    if (g.phase === 'select' && g.picked[p.id]) return '<div class="plcard"><div class="rc mini back" style="--oc:' + pcol(r, p.id) + '"></div><small>gewählt</small></div>';
+    return '<div class="plcard"><div class="rc mini empty"></div><small>' + (g.phase === 'select' && r.status === 'playing' ? 'wählt …' : '') + '</small></div>';
+  };
+  const players = '<div class="rv-left"><div class="label">Mitspieler</div><div class="players">' + r.players.map(p => {
+    const st = g.phase === 'roundEnd' ? (g.ready[p.id] ? '<span class="st ok">✓ bereit</span>' : '<span class="st">schaut …</span>') : '';
+    return '<div class="pl' + (p.id === me ? ' me' : '') + (nowX && nowX.pid === p.id ? ' now' : '') + '"><div class="info"><div class="nm"><span class="pdot" style="--oc:' + pcol(r, p.id) + '"></span>' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + (p.online ? '' : ' <span class="pill">offline</span>') + '</div>' +
+      '<div class="sc">' + (g.scores[p.id] || 0) + (g.roundPts[p.id] ? '<small>+' + g.roundPts[p.id] + '</small>' : '') + '</div>' + st +
+      ((g.heldCounts || {})[p.id] ? '<span class="st" style="color:#ffd166">' + g.heldCounts[p.id] + ' Sonderkarte' + (g.heldCounts[p.id] > 1 ? 'n' : '') + '</span>' : '') + '</div>' + (r.status === 'over' ? '' : slot(p)) + '</div>';
+  }).join('') + '</div></div>';
+  if (r.status === 'over') { el.innerHTML = '<div class="rv-grid">' + players + '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + top + overHTML(r, g) + '</div></div>'; return; }
   let banner = '';
   if (g.phase === 'choose' && g.choosing) banner = g.choosing.pid === me
-    ? '<div class="panel banner"><div><b>Deine ' + g.choosing.v + ' ist kleiner als alle Reihen.</b> Wähle eine Reihe, die du nimmst – deine Karte beginnt dort neu.</div><span class="pill wait">Klick auf eine Reihe</span></div>'
-    : '<div class="panel banner"><div><b>' + esc(api.pname(g.choosing.pid)) + '</b> hat die ' + g.choosing.v + ' gelegt – kleiner als alle Reihen – und sucht sich eine Reihe aus …</div></div>';
-  if (g.phase === 'select' && L.mode === 'besen') banner = '<div class="panel banner"><div><b>Besen:</b> Klick auf eine Reihe – alle Karten außer der letzten fliegen raus.</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div>';
+    ? '<div class="panel status hot"><div><b>Deine ' + g.choosing.v + ' ist kleiner als alle Reihen.</b> Wähle eine Reihe, die du nimmst – deine Karte beginnt dort neu.</div><span class="pill wait">Klick auf eine Reihe</span></div>'
+    : '<div class="panel status"><div><b>' + esc(api.pname(g.choosing.pid)) + '</b> hat die ' + g.choosing.v + ' gelegt – kleiner als alle Reihen – und sucht sich eine Reihe aus …</div></div>';
+  else if (g.phase === 'select' && L.mode === 'besen') banner = '<div class="panel status hot"><div><b>Besen:</b> Klick auf eine Reihe – alle Karten außer der letzten fliegen raus.</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div>';
+  else if (g.phase === 'select') { const n = r.players.filter(p => g.picked[p.id]).length; banner = '<div class="panel status"><div><b>Alle wählen gleichzeitig eine Karte.</b> <span class="muted">Danach wird bei den Mitspielern der Reihe nach aufgedeckt.</span></div><span class="pill">' + n + ' von ' + r.players.length + ' haben gewählt</span></div>'; }
+  else if (g.phase === 'reveal') banner = '<div class="panel status"><div><b>Aufgedeckt!</b> <span class="muted">Die Karten werden von klein nach groß einsortiert – siehe bei den Mitspielern.</span></div></div>';
+  else banner = '<div class="panel status"><div><b>Runde ' + g.round + ' vorbei.</b> <span class="muted">Die Punkte stehen unten.</span></div></div>';
+  let endbox = '';
   if (g.phase === 'roundEnd') {
     const last = g.history[g.history.length - 1] || { pts: {} };
-    banner = '<div class="panel endbox"><h2>Runde ' + g.round + ' vorbei</h2><table class="stattable" style="max-width:520px"><thead><tr><th>Spieler</th><th>diese Runde</th><th>gesamt</th></tr></thead><tbody>' +
+    endbox = '<div class="panel endbox"><h2>Runde ' + g.round + ' vorbei</h2><table class="stattable" style="max-width:520px"><thead><tr><th>Spieler</th><th>diese Runde</th><th>gesamt</th></tr></thead><tbody>' +
       r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => '<tr' + (p.id === me ? ' class="me"' : '') + '><td>' + esc(p.name) + '</td><td>' + (last.pts[p.id] ? '+' + last.pts[p.id] : '0') + '</td><td>' + (g.scores[p.id] || 0) + '</td></tr>').join('') + '</tbody></table>' +
       '<p class="muted">Gespielt wird, bis jemand ' + g.target + ' Strafpunkte erreicht. Die nächste Runde startet gleich von selbst.</p>' +
       (mine ? (g.ready[me] ? '<button class="btn big" disabled>Bereit</button>' : '<button class="btn primary big" data-act="next">Nächste Runde</button>') : '') + '</div>';
@@ -165,7 +200,7 @@ function renderGame(r, el) {
   const picker = L.pick && mine && (g.held || []).includes('tausch') && g.phase === 'select' ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:360px;border:2px solid #c9b8ff"><h2 style="font-size:24px">Mit wem tauschen?</h2><p class="muted" style="margin:0">Je eine zufällige Handkarte wechselt den Besitzer.</p><div class="row" style="justify-content:center;display:flex;flex-wrap:wrap;gap:8px">' +
     r.players.filter(p => p.id !== me && g.counts[p.id] > 0).map(p => '<button class="btn" data-act="swap" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div></div>' : '';
   if (!picker) L.pick = false;
-  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + banner + '<div class="panel">' + rowsHTML(g, r) + '</div>' + reveal + hand + players + '</div>' + picker;
+  el.innerHTML = '<div class="rv-grid">' + players + '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + top + banner + '<div class="panel">' + rowsHTML(g, r) + '</div>' + hand + endbox + '</div></div>' + picker;
   L.popRow = null; L.takenRow = null;
 }
 function overHTML(r, g) {
