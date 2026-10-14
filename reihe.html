@@ -175,14 +175,14 @@ function renderGame(r, el) {
   else if (g.phase === 'select' && L.mode === 'besen') banner = '<div class="panel status hot"><div><b>Besen:</b> Klick auf eine Reihe – alle Karten außer der letzten fliegen raus.</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div>';
   else if (g.phase === 'select') { const n = r.players.filter(p => g.picked[p.id]).length; banner = '<div class="panel status"><div><b>Alle wählen gleichzeitig eine Karte.</b> <span class="muted">Danach wird bei den Mitspielern der Reihe nach aufgedeckt.</span></div><span class="pill">' + n + ' von ' + r.players.length + ' haben gewählt</span></div>'; }
   else if (g.phase === 'reveal') banner = '<div class="panel status"><div><b>Aufgedeckt!</b> <span class="muted">Die Karten werden von klein nach groß einsortiert – siehe bei den Mitspielern.</span></div></div>';
-  else banner = '<div class="panel status"><div><b>Runde ' + g.round + ' vorbei.</b> <span class="muted">Die Punkte stehen unten.</span></div></div>';
+  else banner = '<div class="panel status"><div><b>Runde ' + g.round + ' vorbei.</b></div></div>';
   let endbox = '';
   if (g.phase === 'roundEnd') {
     const last = g.history[g.history.length - 1] || { pts: {} };
-    endbox = '<div class="panel endbox"><h2>Runde ' + g.round + ' vorbei</h2><table class="stattable" style="max-width:520px"><thead><tr><th>Spieler</th><th>diese Runde</th><th>gesamt</th></tr></thead><tbody>' +
-      r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => '<tr' + (p.id === me ? ' class="me"' : '') + '><td>' + esc(p.name) + '</td><td>' + (last.pts[p.id] ? '+' + last.pts[p.id] : '0') + '</td><td>' + (g.scores[p.id] || 0) + '</td></tr>').join('') + '</tbody></table>' +
-      '<p class="muted">Gespielt wird, bis jemand ' + g.target + ' Strafpunkte erreicht. Die nächste Runde startet gleich von selbst.</p>' +
-      (mine ? (g.ready[me] ? '<button class="btn big" disabled>Bereit</button>' : '<button class="btn primary big" data-act="next">Nächste Runde</button>') : '') + '</div>';
+    endbox = '<div class="modal" role="dialog" aria-label="Runde vorbei"><div class="panel modalbox endbox" style="max-width:560px;width:100%"><h2>Runde ' + g.round + ' vorbei</h2><table class="stattable" style="max-width:520px"><thead><tr><th>Spieler</th><th>diese Runde</th><th>gesamt</th><th></th></tr></thead><tbody>' +
+      r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => '<tr' + (p.id === me ? ' class="me"' : '') + '><td>' + esc(p.name) + '</td><td>' + (last.pts[p.id] ? '+' + last.pts[p.id] : '0') + '</td><td>' + (g.scores[p.id] || 0) + '</td><td>' + (g.ready[p.id] ? '<span class="pill live">bereit</span>' : '<span class="pill">schaut …</span>') + '</td></tr>').join('') + '</tbody></table>' +
+      '<p class="muted">Gespielt wird, bis jemand ' + g.target + ' Strafpunkte erreicht. Die nächste Runde beginnt, sobald alle auf „Nächste Runde“ gedrückt haben. Bots sind immer bereit.</p>' +
+      (mine ? (g.ready[me] ? '<button class="btn big" disabled>Bereit</button>' : '<button class="btn primary big" data-act="next">Nächste Runde</button>') : '') + '<small class="muted" data-roundat>' + (g.roundAt ? 'Startet sonst automatisch in ' + fmtT(g.roundAt - Date.now() - L.off) : '') + '</small></div></div>';
   }
   // Hand
   let hand = '';
@@ -307,7 +307,8 @@ function onState(prev, r) {
 // Uhr aktualisieren
 setInterval(() => {
   const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
-  const g = r.g, t = document.querySelector('[data-timer]'); if (!t || !g.deadline) return;
+  const g = r.g, ra = document.querySelector('[data-roundat]'); if (ra && g.roundAt) ra.textContent = 'Startet sonst automatisch in ' + fmtT(g.roundAt - Date.now() - L.off);
+  const t = document.querySelector('[data-timer]'); if (!t || !g.deadline) return;
   const ms = g.deadline - Date.now() - L.off, s = Math.ceil(ms / 1000);
   t.textContent = fmtT(ms); t.classList.toggle('low', ms < 10000);
   if (s <= 5 && s > 0 && L.tick !== s && ((g.phase === 'select' && g.myPick == null && g.hand.length) || (g.phase === 'choose' && g.choosing && g.choosing.pid === r.me))) { L.tick = s; api.Snd.play('tick'); }

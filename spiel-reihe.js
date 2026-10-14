@@ -2,7 +2,7 @@
 // Wer die 6. Karte in eine Reihe legt (oder eine zu kleine Karte hat), muss eine Reihe mit allen Strafpunkten nehmen.
 const meta = { id: 'reihe', name: 'Reihe voll!', min: 2, max: 10, bots: true, maxBots: 9 };
 const HAND = 10, ROWS = 4, ROW_MAX = 5;
-const STEP_MS = 1100, NEXT_MS = 900, ROUND_AUTO_MS = 12000;
+const STEP_MS = 1100, NEXT_MS = 900, ROUND_AUTO_MS = 60000;   // Sicherheitsnetz, falls jemand nicht mehr reagiert
 const TARGETS = [33, 66, 99], TIMERS = [0, 15, 30, 45, 60];
 const SPECIALS = ['schild', 'halb', 'besen', 'tausch'];
 const MAX_HELD = 3;
@@ -156,6 +156,7 @@ function endTurn(r, ctx) {
   s.phase = 'roundEnd'; s.ready = {};
   for (const p of r.players) if (p.bot) s.ready[p.id] = true;
   event(s, { kind: 'roundEnd', round: s.round });
+  s.roundAt = Date.now() + ROUND_AUTO_MS;
   ctx.timer(r, 'step', ROUND_AUTO_MS, () => { if (s.phase === 'roundEnd') { nextRound(r, ctx); ctx.broadcast(r); } });
 }
 
@@ -246,7 +247,7 @@ function removePlayer(r, id, ctx) {
 function resume(r, ctx) {
   const s = r.state; if (!s) return;
   if (s.phase === 'reveal') ctx.timer(r, 'step', STEP_MS, () => { s.queue.length ? step(r, ctx) : endTurn(r, ctx); ctx.broadcast(r); });
-  else if (s.phase === 'roundEnd') ctx.timer(r, 'step', ROUND_AUTO_MS, () => { if (s.phase === 'roundEnd') { nextRound(r, ctx); ctx.broadcast(r); } });
+  else if (s.phase === 'roundEnd') ctx.timer(r, 'step', Math.max(5000, (s.roundAt || 0) - Date.now()), () => { if (s.phase === 'roundEnd') { nextRound(r, ctx); ctx.broadcast(r); } });
   else armResume(r, ctx);
   botTick(r, ctx);
 }
@@ -272,7 +273,7 @@ function view(r, id) {
     scores: s.scores, roundPts: s.roundPts, ready: s.ready,
     held: s.held[id] || [], heldCounts: Object.fromEntries(r.players.map(p => [p.id, (s.held[p.id] || []).length])),
     specialsOn: SPECIALS.filter(k => spOn(r, k)),
-    deadline: s.deadline, limit: s.limit, now: Date.now(),
+    deadline: s.deadline, limit: s.limit, now: Date.now(), roundAt: s.phase === 'roundEnd' ? s.roundAt || null : null,
     ev: s.ev, history: s.history, winner: s.winner, started: s.started, ended: s.ended,
     ps: over || s.phase === 'roundEnd' ? s.ps : null
   };
