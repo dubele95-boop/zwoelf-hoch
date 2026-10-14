@@ -281,8 +281,9 @@ function renderGame(r, el) {
     el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top +
       '<div class="panel gk-ready">' + (lev ? '<p class="reward">Level ' + lev.level + ' geschafft!' + (lev.reward === 'life' ? ' Ihr bekommt ein Leben dazu.' : lev.reward === 'star' ? ' Ihr bekommt einen Stern dazu.' : '') + '</p>' : '') +
       '<h2>Level ' + g.level + '</h2><p class="muted">Jeder bekommt ' + g.level + (g.level === 1 ? ' Karte' : ' Karten') + ((g.specialsOn || []).length && g.level >= 2 ? ' (Sonderkarten zählen mit)' : '') + '.' + (+r.settings.timer ? ' Ihr habt <b>' + fmtS(10 + g.level * r.settings.timer) + '</b> Zeit.' : '') + ' Konzentriert euch – und dann: kein Wort mehr.</p>' +
-      (mine ? (g.ready[me] ? '<button class="btn big" disabled>Du bist bereit</button>' : '<button class="btn primary big" data-act="ready">Bereit</button>') : '') +
-      '<div class="who">' + r.players.map(p => '<span class="pill ' + (g.ready[p.id] ? 'live' : '') + '">' + esc(p.name) + (g.ready[p.id] ? ' ✓' : '') + '</span>').join('') + '</div></div>' + players + '</div>';
+      '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px">' + (mine ? (g.ready[me] ? '<button class="btn big" disabled>Du bist bereit</button>' : '<button class="btn primary big" data-act="ready">Bereit – los geht’s</button>') : '') + (api.isHost() ? '<button class="btn big" data-c="toLobbyNow">Zur Lobby</button>' : '') + '</div>' +
+      '<div class="who">' + r.players.map(p => '<span class="pill ' + (g.ready[p.id] ? 'live' : '') + '">' + esc(p.name) + (g.ready[p.id] ? ' ✓' : '') + '</span>').join('') + '</div>' +
+      (g.readyAt ? '<small class="muted" data-gkready>' + readyText(g) + '</small>' : '') + '</div>' + players + '</div>';
     return;
   }
   const last = g.pile[g.pile.length - 1];
@@ -353,10 +354,12 @@ function onState(prev, r) {
   if (e.kind === 'voteNo') api.toast(api.pname(e.pid) + ' möchte keinen Stern einsetzen.');
   if (r.status === 'over' && prev && prev.status !== 'over') S.play(g.phase === 'won' ? 'win' : 'lose');
 }
+function readyText(g) { const t = Math.max(0, Math.ceil((g.readyAt - Date.now() - (local.off || 0)) / 1000)); return 'Es geht los, sobald alle bereit sind – spätestens in ' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0') + '.'; }
 // Pausen-Countdown und Echo-Leuchten aktuell halten
 setInterval(() => {
   const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
   const g = r.g, now = Date.now() + (local.off || 0);
+  { const rd = document.querySelector('[data-gkready]'); if (rd && g.readyAt) rd.textContent = readyText(g); }
   const tm = document.querySelector('[data-gktimer]');
   if (tm && g.deadline && g.phase === 'play') {
     const paused = g.pausedUntil > now;

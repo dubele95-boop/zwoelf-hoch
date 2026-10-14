@@ -865,7 +865,8 @@ const H = {
   },
   startConfirmed(){ S.confirmStart = false; send({t:'start'}); },
   startCancel(){ S.confirmStart = false; render(); },
-  rematch(){ send({t:'newRound'}); },
+  rematch(){ const g = S.game; send({t:'newRound', off: !!(g && g.again && g.again.votes[S.me])}); },
+  lobbyNow(){ closeStats(); send({t:'backToLobby'}); },
   addBot(){ send({t:'addBot'}); },
   removeBot(_, b){ send({t:'removeBot', id:b.dataset.pid}); },
   skip(){ send({t:'skip'}); },
@@ -1078,7 +1079,7 @@ document.addEventListener('pointercancel', e => endDrag(e, true));
 view.addEventListener('click', e => { if(D.justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
 
 const manageEl = document.getElementById('manage');
-bind(view); bind(barActions); bind(manageEl);
+bind(view); bind(barActions); bind(manageEl); bind(document.getElementById('stats'));
 manageEl.addEventListener('click', e => { if(e.target === manageEl) closeManage(); });
 manageEl.addEventListener('change', e => onCfgChange(e));
 view.addEventListener('change', e => onCfgChange(e));
@@ -1143,7 +1144,7 @@ function openStats(){
     '<div class="label">Rangliste</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Platz</th><th>Spieler</th><th title="Karten, die am Ende noch im Spielerstapel lagen">Rest im Stapel</th><th title="Karten auf die Aufbaustapel gelegt">Karten gelegt</th><th title="davon vom Spielerstapel">vom Spieler&shy;stapel</th><th>Joker</th><th title="Aufbaustapel, die man selbst bei 12 (bzw. 1) abgeräumt hat">Stapel abge&shy;räumt</th><th title="Meiste Karten in einem Zug">Bester Zug</th><th>Züge</th>' + (specials ? '<th>Sonder&shy;karten</th>' : '') + '</tr></thead><tbody>' +
       ranked.map(row).join('') + '</tbody></table></div>' +
     (wl.length ? '<div class="label">Siege an diesem Tisch</div><div class="winlist">' + wl.map(p => '<span class="pill' + (p.id === g.winner ? ' live' : '') + '">' + esc(p.name) + ': ' + wins[p.id] + '</span>').join('') + '</div>' : '') +
-    (g.hand ? '<div class="row" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="rematchFromStats">Neue Runde</button></div>' : '') +
+    '<div data-zwagain>' + againHTML(g) + '</div>' +
     '</div>';
   el.hidden = false;
   const btn = el.querySelector('[data-close]'); if(btn) btn.focus();
@@ -1151,7 +1152,7 @@ function openStats(){
 function closeStats(){ const el = document.getElementById('stats'); el.hidden = true; el.innerHTML = ''; }
 document.getElementById('stats').addEventListener('click', e => {
   if(e.target.id === 'stats' || e.target.closest('[data-close]')) return closeStats();
-  if(e.target.closest('[data-act="rematchFromStats"]')){ closeStats(); send({t:'newRound'}); }
+
 });
 
 /* ---------- Regel-Übersicht während des Spiels ---------- */
@@ -1237,7 +1238,22 @@ function cardHTML(v, extra, style){
   return '<div class="card ' + g + '"' + (style ? ' style="' + style + '"' : '') + '><span class="c tl">' + t + '</span><span class="n">' + (v === 0 ? '★' : v) + '</span><span class="c br">' + t + '</span>' + (extra||'') + '</div>';
 }
 
+// „Nächste Runde“: jeder sagt Bescheid, los geht es, wenn alle bereit sind
+function againText(at){ if(!at) return 'Es geht los, sobald alle bereit sind. Bots sind immer bereit.'; const t = Math.max(0, Math.ceil((at - Date.now() - (S.againOff || 0)) / 1000)); return 'Es geht los, sobald alle bereit sind – spätestens in ' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0') + '.'; }
+function againHTML(g){
+  if(!g || g.status !== 'finished') return '';
+  const a = g.again || {votes:{}}, humans = g.players.filter(p => !p.bot), mine = humans.some(p => p.id === S.me), voted = !!a.votes[S.me];
+  if(a.now) S.againOff = a.now - Date.now();
+  return '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;margin-top:6px">' +
+    '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px">' + (mine ? (voted ? '<button type="button" class="btn" data-act="rematch">Doch noch nicht</button>' : '<button type="button" class="btn primary" data-act="rematch">Nächste Runde</button>') : '') +
+    (g.host === S.me ? '<button type="button" class="btn" data-act="lobbyNow">Zur Lobby</button>' : '') + '</div>' +
+    '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:6px">' + humans.map(p => '<span class="pill' + (a.votes[p.id] ? ' live' : '') + '">' + esc(p.name) + (a.votes[p.id] ? ' ✓ bereit' : (p.online ? ' schaut …' : ' offline')) + '</span>').join('') + '</div>' +
+    '<small class="muted" data-againat="' + (a.at || '') + '">' + againText(a.at) + '</small>' +
+    (g.host === S.me ? '<small class="muted">Die Einstellungen bleiben gleich. Ändern kannst du sie über „Zur Lobby“.</small>' : '') + '</div>';
+}
+setInterval(() => { document.querySelectorAll('[data-againat]').forEach(el => { const at = +el.dataset.againat; if(at) el.textContent = againText(at); }); }, 500);
 function render(){
+  { const za = document.querySelector('#stats [data-zwagain]'); if(za && S.game) za.innerHTML = againHTML(S.game); }
   if((!S.game || S.game.status === 'lobby') && !document.getElementById('rules').hidden) closeRules();
   if((!S.game || S.game.status !== 'finished') && !document.getElementById('stats').hidden) closeStats();
   renderBar();
@@ -1494,7 +1510,7 @@ function renderGame(){
   if(g.status === 'finished'){
     win = '<div class="winner"><div class="label">Runde vorbei</div><h2>' + esc(pn(g.winner)) + ' gewinnt</h2>' +
       (g.stats ? '<button class="btn" data-act="showStats">Statistik ansehen</button>' : '') +
-      (g.hand ? '<button class="btn primary" data-act="rematch">Neue Runde</button><p class="muted" style="margin:0">Alle kommen zurück in die Lobby. ' + (g.host === S.me ? 'Dort kannst du die Einstellungen anpassen.' : esc(pn(g.host)) + ' kann dort die Einstellungen anpassen.') + '</p>' : '<p class="muted" style="margin:0">Die Mitspieler können eine neue Runde starten.</p>') + '</div>';
+      againHTML(g) + '</div>';
   }
 
   let me = '';

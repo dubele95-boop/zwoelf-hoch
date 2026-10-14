@@ -130,7 +130,20 @@ function armDawn(r, ctx) {
     s.phase = 'lost'; s.why = 'dawn'; s.ended = Date.now(); s.contrib = []; s.pick = null; ctx.finish(r); ctx.broadcast(r);
   });
 }
-function resume(r, ctx) { const s = r.state; if (s && hektik(s) && !s.ended) armDawn(r, ctx); }
+function resume(r, ctx) { const s = r.state; if (s && hektik(s) && !s.ended) armDawn(r, ctx); if (s && s.phase === 'result') armNext(r, ctx); }
+// ruhiger Modus: nach dem Auflösen geht es weiter, wenn alle bereit sind – spätestens nach 60 Sekunden
+const NEXT_MS = 60000;
+function armNext(r, ctx, fresh) {
+  const s = r.state; if (!s || s.phase !== 'result') return;
+  if (fresh || !s.nextAt) { s.nextAt = Date.now() + NEXT_MS; s.nextVotes = {}; }
+  ctx.timer(r, 'next', s.nextAt - Date.now(), () => { if (r.state !== s || s.phase !== 'result') return; nextRound(r, ctx); ctx.broadcast(r); });
+}
+function checkNext(r, ctx) {
+  const s = r.state; if (!s || s.phase !== 'result') return;
+  const humans = r.players.filter(p => ctx.isOnline(p.id));
+  if (!humans.length || humans.every(p => (s.nextVotes || {})[p.id])) nextRound(r, ctx);
+}
+function onPresence(r, ctx) { checkNext(r, ctx); }
 // Hektik: Handkarten werden sofort wieder aufgefüllt
 function refill(r, ctx) {
   const s = r.state, n = r.players.length;
@@ -143,16 +156,25 @@ function hektikCheck(r, ctx) {
   if (success(r)) resolve(r, ctx);
 }
 function event(s, e) { s.seq++; s.ev = { ...e, seq: s.seq }; }
-const evById = id => EVENTS.find(e => e.id === id);
+// Hektik: Vor dem Dorf wartet der Wächter – er braucht Punkte in allen vier Farben
+const BOSS = { id: 'waechter', name: 'Der Wächter am Dorftor', text: 'Ein riesiger Steinwächter versperrt das Tor. Nur mit allem, was ihr habt, kommt ihr vorbei!', boss: true, need: { kraft: 3, mut: 3, wissen: 3, geschick: 3 }, win: {}, fail: { hp: -2, stop: true } };
+const BOSS_BASE = { leicht: 2, normal: 3, schwer: 4 };
+const POWER = { jaegerin: 'Kraftakt: zählt als Kraft 4', ritter: 'Mutprobe: zählt als Mut 4', gelehrte: 'Geistesblitz: zählt als Wissen 4', akrobat: 'Salto: zählt als Geschick 4', heiler: 'Heilkreis: +2 Ausdauer', spaeherin: 'Schleichweg: Ereignis ohne Strafe überspringen' };
+const evById = id => id === 'waechter' ? BOSS : EVENTS.find(e => e.id === id);
+const isReal = x => !x.card.power;   // Heldenkraft-Karten sind nur gedacht, keine echten Karten
 function needOf(r, ev) {
   if (!ev.need) return null;
   const s = r.state, n = r.players.length, late = (hektik(s) ? s.solved >= 5 : s.round >= 6) ? 1 : 0, out = {};
+  if (ev.boss) { const b = BOSS_BASE[r.settings.diff] || 3; for (const c of COLORS) out[c] = Math.max(1, Math.round(b * SCALE[Math.min(6, n)])); return out; }
   for (const [c, b] of Object.entries(ev.need)) out[c] = Math.max(1, Math.round((b + late) * SCALE[Math.min(6, n)]));
   return out;
 }
 function nextRound(r, ctx) {
   const s = r.state;
+  ctx.clearTimer(r, 'next'); s.nextAt = null; s.nextVotes = {};
   s.round++; s.phase = 'plan'; s.contrib = []; s.used = []; s.ready = {}; s.healed = {}; s.result = null; s.hour = {}; s.pick = null;
+  s.powered = {};
+  if (s.boss) { s.event = 'waechter'; event(s, { kind: 'event', id: s.event, boss: true }); return; }
   if (!s.events.length) s.events = ctx.shuffle(EVENTS.map(e => e.id));
   s.event = s.events.pop();
   if (!s.events.length) s.events = ctx.shuffle(EVENTS.map(e => e.id).filter(x => x !== s.event));
@@ -161,7 +183,7 @@ function nextRound(r, ctx) {
 }
 function totals(r) {
   const s = r.state, t = { kraft: 0, mut: 0, wissen: 0, geschick: 0 };
-  for (const x of s.contrib) { const ch = CHARS[s.chars[x.pid]]; t[x.card.c] += x.card.v + (!x.card.sp && ch && ch.color === x.card.c ? 1 : 0); }
+  for (const x of s.contrib) { const ch = CHARS[s.chars[x.pid]]; t[x.card.c] += x.card.v + (!x.card.sp && !x.card.power && ch && ch.color === x.card.c ? 1 : 0); }
   if (s.used.includes('seil')) t.geschick += 3;
   if (s.used.includes('fackel') && !evById(s.event).dark) t.mut += 2;
   return t;
@@ -179,13 +201,13 @@ function resolve(r, ctx) {
   const eff = lucky ? {} : (ok ? ev.win : ev.fail) || {};
   const res = { ok, id: ev.id, hp: 0, move: 0, item: null, lost: null, discard: 0, stop: !!eff.stop, skipped: false, lucky: !!lucky, shortcut: false };
   res.totals = totals(r); res.contrib = s.contrib.slice(); res.used = s.used.slice();
-  for (const x of s.contrib) { const ch = CHARS[s.chars[x.pid]], pts = x.card.v + (!x.card.sp && ch && ch.color === x.card.c ? 1 : 0), p = pst(s, x.pid);
+  for (const x of s.contrib) { const ch = CHARS[s.chars[x.pid]], pts = x.card.v + (!x.card.sp && !x.card.power && ch && ch.color === x.card.c ? 1 : 0), p = pst(s, x.pid);
     p.cards++; p.points += pts; p.colors[x.card.c] = (p.colors[x.card.c] || 0) + pts; }
   if (ok) s.team.won++; else s.team.lost++;
   if (hektik(s)) s.solved = (s.solved || 0) + 1;
   if (lucky) s.team.lucky++;
   // ausgespielte Karten wandern auf den Ablagestapel
-  for (const x of s.contrib) s.discard.push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card);
+  for (const x of s.contrib) if (isReal(x)) s.discard.push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card);
   s.contrib = [];
   if (eff.hp) { const before = s.hp; s.hp = Math.max(0, Math.min(s.hpMax, s.hp + eff.hp)); res.hp = s.hp - before; }
   if (eff.item) { const it = Object.keys(ITEMS)[ctx.rand(4)]; s.items.push(it); res.item = it; }
@@ -201,18 +223,23 @@ function resolve(r, ctx) {
   if (hektik(s)) { for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < extra && h.length < HAND_MAX(n); k++) { const c = draw(s, ctx, r); if (c) h.push(c); } } refill(r, ctx); }
   else for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < REFILL(n) + extra && h.length < HAND_MAX(n); k++) { const c = draw(s, ctx, r); if (c) h.push(c); } }
   s.result = res; s.history.push({ round: s.round, id: ev.id, ok, move: step, hp: res.hp });
-  s.phase = 'result';
+  s.phase = 'result'; if (!hektik(s)) armNext(r, ctx, true);
   event(s, { kind: 'result', ok });
   if (s.hp <= 0) { s.phase = 'lost'; s.why = 'hp'; s.ended = Date.now(); ctx.finish(r); }
-  else if (s.pos >= s.goal) { s.phase = 'won'; s.ended = Date.now(); ctx.finish(r); }
-  else if (hektik(s)) { nextRound(r, ctx); s.result = res; event(s, { kind: 'result', ok, id: ev.id }); hektikCheck(r, ctx); }
+  else if (ev.boss && ok) { s.phase = 'won'; s.ended = Date.now(); ctx.finish(r); }
+  else if (!hektik(s) && s.pos >= s.goal) { s.phase = 'won'; s.ended = Date.now(); ctx.finish(r); }
+  else if (hektik(s)) { if (s.pos >= s.goal) s.boss = true; nextRound(r, ctx); s.result = res; event(s, { kind: 'result', ok, id: ev.id }); hektikCheck(r, ctx); }
   else if (s.round >= s.rounds) { s.phase = 'lost'; s.why = 'dawn'; s.ended = Date.now(); ctx.finish(r); }
-  if (s.ended) ctx.clearTimer(r, 'dawn');
+  if (s.ended) { ctx.clearTimer(r, 'dawn'); ctx.clearTimer(r, 'next'); }
 }
 
 function act(r, id, m, ctx) {
   const s = r.state, hand = s.hands[id];
-  if (m.a === 'next') { ctx.must(s.phase === 'result', 'Die Runde läuft noch.'); nextRound(r, ctx); return; }
+  if (m.a === 'next') {
+    ctx.must(s.phase === 'result', 'Die Runde läuft noch.');
+    s.nextVotes = s.nextVotes || {}; if (s.nextVotes[id]) delete s.nextVotes[id]; else s.nextVotes[id] = true;
+    checkNext(r, ctx); return;
+  }
   ctx.must(s.phase === 'plan', 'Gerade wird nichts geplant.');
   if (hektik(s)) ctx.must(Date.now() < s.deadline, 'Die Zeit ist um.');
   actInner(r, id, m, ctx);
@@ -235,7 +262,7 @@ function actInner(r, id, m, ctx) {
   } else if (m.a === 'item') {
     const it = m.item, k = s.items.indexOf(it); ctx.must(k >= 0, 'Diesen Gegenstand habt ihr nicht.'); pst(s, id).items++;
     if (it === 'trank') { ctx.must(s.hp < s.hpMax, 'Ihr seid schon fit.'); s.items.splice(k, 1); s.hp = Math.min(s.hpMax, s.hp + 2); event(s, { kind: 'item', it, pid: id }); }
-    else if (it === 'kompass') { s.items.splice(k, 1); s.pos = Math.min(s.goal, s.pos + 1); event(s, { kind: 'item', it, pid: id }); if (s.pos >= s.goal) { s.phase = 'won'; s.ended = Date.now(); ctx.finish(r); return; } }
+    else if (it === 'kompass') { s.items.splice(k, 1); s.pos = Math.min(s.goal, s.pos + 1); event(s, { kind: 'item', it, pid: id }); if (s.pos >= s.goal && !hektik(s)) { s.phase = 'won'; s.ended = Date.now(); ctx.finish(r); return; } }
     else { ctx.must(!s.used.includes(it), 'Schon eingesetzt.'); s.items.splice(k, 1); s.used.push(it); event(s, { kind: 'item', it, pid: id }); }
     s.ready = {};
   } else if (m.a === 'unitem') {
@@ -246,15 +273,48 @@ function actInner(r, id, m, ctx) {
     s.discard.push(hand.splice(k, 1)[0]); s.hp++; s.healed[id] = true; pst(s, id).heals++; s.team.hpGained++; event(s, { kind: 'heal', pid: id });
   } else if (m.a === 'skip') {
     ctx.must(s.chars[id] === 'spaeherin', 'Nur die Späherin kann das.'); ctx.must(!s.skipUsed, 'Das geht nur einmal pro Nacht.');
+    ctx.must(!evById(s.event).boss, 'Am Wächter kommt ihr nicht vorbei – ihr müsst ihn schaffen.');
     s.skipUsed = true;
-    for (const x of s.contrib) s.hands[x.pid].push(x.card);
+    for (const x of s.contrib) if (isReal(x)) s.hands[x.pid].push(x.card);
     for (const it of s.used) s.items.push(it);
-    s.contrib = []; s.used = []; s.ready = {};
+    s.contrib = []; s.used = []; s.ready = {}; s.powered = {};
     const old = s.event; s.event = s.events.pop(); if (!s.events.length) s.events = ctx.shuffle(EVENTS.map(e => e.id).filter(x => x !== s.event && x !== old));
     s.next = s.events[s.events.length - 1];
     event(s, { kind: 'skip', pid: id, from: old });
+  } else if (m.a === 'power') {
+    ctx.must(hektik(s), 'Die Heldenkraft gibt es nur im Hektik-Modus.');
+    s.powered = s.powered || {}; ctx.must(!s.powered[id], 'Deine Heldenkraft hast du bei diesem Ereignis schon eingesetzt.');
+    const ids = Array.isArray(m.cards) ? [...new Set(m.cards)] : [];
+    ctx.must(ids.length === 3 && ids.every(cid => hand.some(c => c.id === cid && !c.sp)), 'Wähle 3 normale Handkarten zum Abwerfen.');
+    const ch = s.chars[id], ev = evById(s.event);
+    if (ch === 'spaeherin') ctx.must(!ev.boss, 'Am Wächter kommt ihr nicht vorbei – ihr müsst ihn schaffen.');
+    if (ch === 'heiler') ctx.must(s.hp < s.hpMax, 'Ihr seid schon fit.');
+    for (const cid of ids) s.discard.push(hand.splice(hand.findIndex(c => c.id === cid), 1)[0]);
+    s.powered[id] = true; pst(s, id).powers = (pst(s, id).powers || 0) + 1; s.team.powers = (s.team.powers || 0) + 1;
+    const color = (CHARS[ch] || {}).color;
+    if (color) s.contrib.push({ pid: id, card: { id: 'P' + (++cardId), c: color, v: 4, power: true } });
+    else if (ch === 'heiler') { const b = s.hp; s.hp = Math.min(s.hpMax, s.hp + 2); s.team.hpGained += s.hp - b; }
+    event(s, { kind: 'power', pid: id, ch });
+    if (ch === 'spaeherin') {
+      for (const x of s.contrib) if (isReal(x)) s.hands[x.pid].push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card);
+      for (const it of s.used) s.items.push(it);
+      s.contrib = []; s.used = [];
+      const old = s.event; s.event = s.events.pop(); if (!s.events.length) s.events = ctx.shuffle(EVENTS.map(e => e.id).filter(x => x !== s.event && x !== old));
+      s.next = s.events[s.events.length - 1]; s.powered = {}; s.hour = {};
+      event(s, { kind: 'skip', pid: id, from: old, power: true });
+    }
   } else if (m.a === 'giveup') {
     ctx.must(hektik(s), 'Das gibt es nur im Hektik-Modus.');
+    if (evById(s.event).boss) {
+      // Rückzug vom Wächter: -1 Ausdauer, alle bekommen neue Handkarten, das Gelegte bleibt liegen
+      const b = s.hp; s.hp = Math.max(0, s.hp - 1); s.team.hpLost += b - s.hp; s.team.retreats = (s.team.retreats || 0) + 1;
+      for (const p of r.players) { const h = s.hands[p.id] || []; s.hands[p.id] = h.filter(c => c.sp); for (const c of h) if (!c.sp) s.discard.push(c); }
+      s.powered = {};
+      s.history.push({ round: s.round, id: 'waechter', ok: false, move: 0, hp: s.hp - b });
+      event(s, { kind: 'retreat', pid: id });
+      if (s.hp <= 0) { s.phase = 'lost'; s.why = 'hp'; s.ended = Date.now(); ctx.clearTimer(r, 'dawn'); ctx.finish(r); }
+      return;
+    }
     event(s, { kind: 'giveup', pid: id }); resolve(r, ctx);
   } else if (m.a === 'ready') {
     ctx.must(!hektik(s), 'Im Hektik-Modus geht es automatisch weiter.');
@@ -289,7 +349,7 @@ function useSpecial(r, id, m, ctx) {
   }
   if (sp === 'lagerfeuer') {
     done();
-    for (const x of s.contrib) s.hands[x.pid].push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card);
+    for (const x of s.contrib) if (isReal(x)) s.hands[x.pid].push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card);
     for (const it of s.used) s.items.push(it);
     s.contrib = []; s.used = [];
     const before = s.hp; s.hp = Math.min(s.hpMax, s.hp + 1); s.team.rests++; s.team.hpGained += s.hp - before;
@@ -297,7 +357,7 @@ function useSpecial(r, id, m, ctx) {
     s.events.push(s.event);                       // das Ereignis wartet auf die nächste Stunde
     s.result = { ok: true, rest: true, id: 'rast', hp: s.hp - before, move: 0, totals: totals(r), contrib: [], used: [] };
     s.history.push({ round: s.round, id: 'rast', ok: true, move: 0, hp: s.hp - before });
-    s.phase = 'result';
+    s.phase = 'result'; armNext(r, ctx, true);
     event(s, { kind: 'sp', sp, pid: id });
     if (s.round >= s.rounds) { s.phase = 'lost'; s.why = 'dawn'; s.ended = Date.now(); ctx.finish(r); }
     return;
@@ -328,8 +388,10 @@ function removePlayer(r, id, ctx) {
   for (const c of s.hands[id] || []) s.discard.push(c);
   delete s.hands[id]; delete s.ready[id];
   if (s.pick && s.pick.pid === id) s.pick = null;
-  s.contrib = s.contrib.filter(x => { if (x.pid === id) { s.discard.push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card); return false; } return true; });
+  s.contrib = s.contrib.filter(x => { if (x.pid === id) { if (isReal(x)) s.discard.push(x.card.sp ? { id: x.card.id, sp: x.card.sp } : x.card); return false; } return true; });
+  s.nextVotes = s.nextVotes || {}; s.nextVotes[id] = true;   // wer geht, hält niemanden auf
   if (hektik(s)) { if (r.players.length) hektikCheck(r, ctx); return; }
+  if (s.phase === 'result') { checkNext(r, ctx); return; }
   if (s.phase === 'plan' && r.players.length && r.players.every(p => s.ready[p.id])) resolve(r, ctx);
 }
 function record(r, rec) {
@@ -341,10 +403,12 @@ const sortHand = h => h.slice().sort((a, b) => (a.sp ? 9 : COLORS.indexOf(a.c)) 
 function view(r, id) {
   const s = r.state, ev = evById(s.event), scout = Object.values(s.chars).includes('spaeherin');
   return {
+    nextVotes: s.nextVotes || {}, nextAt: s.phase === 'result' ? s.nextAt || null : null,
     mode: s.mode || 'ruhig', deadline: s.deadline || null, now: Date.now(), solved: s.solved || 0,
     round: s.round, rounds: s.rounds, hp: s.hp, hpMax: s.hpMax, pos: s.pos, goal: s.goal, phase: s.phase, why: s.why || null,
     chars: s.chars, items: s.items, used: s.used, ready: s.ready, healed: s.healed, skipUsed: s.skipUsed,
     hand: sortHand(s.hands[id] || []),
+    powered: s.powered || {}, boss: !!s.boss,
     hour: s.hour || {}, pick: s.pick && (s.pick.pid === id ? s.pick : { pid: s.pick.pid }),
     pickOpts: s.pick && s.pick.pid === id ? s.pick.opts.map(evById) : null,
     others: s.hour && s.hour.eule ? Object.fromEntries(r.players.filter(p => p.id !== id).map(p => [p.id, sortHand(s.hands[p.id] || [])])) : null,
@@ -357,5 +421,5 @@ function view(r, id) {
     result: s.result, history: s.history, ev: s.ev, deck: s.deck.length, started: s.started, ended: s.ended
   };
 }
-const catalog = { CHARS, ITEMS, CNAME, SPECIALS, EVENTS: { ...Object.fromEntries(EVENTS.map(e => [e.id, e])), rast: { id: 'rast', name: 'Rast am Lagerfeuer' } } };
-module.exports = { meta, catalog, record, defaults, setting, liveSetting, lobbyAct, start, act, view, removePlayer, resume, CHARS, ITEMS, EVENTS };
+const catalog = { CHARS, ITEMS, CNAME, SPECIALS, POWER, EVENTS: { ...Object.fromEntries(EVENTS.map(e => [e.id, e])), waechter: BOSS, rast: { id: 'rast', name: 'Rast am Lagerfeuer' } } };
+module.exports = { meta, catalog, record, defaults, setting, liveSetting, lobbyAct, start, act, view, removePlayer, resume, onPresence, CHARS, ITEMS, EVENTS };

@@ -187,7 +187,7 @@ const api = Spieleabend.start({
   },
   render: renderGame, onState,
   stats: (r, api) => bbStats(r, api),
-  againLabel: r => r.g && r.g.level ? (r.g.phase === 'won' && r.g.level < r.g.levels ? 'Weiter zu Level ' + (r.g.level + 1) : 'Nochmal versuchen') : 'Nochmal spielen',
+  againLabel: r => r.g && r.g.level && r.settings.mode !== 'frei' ? ((r.settings.level || 1) > r.g.level ? 'Weiter zu Level ' + r.settings.level : r.g.phase === 'won' ? 'Level ' + r.g.level + ' nochmal' : 'Nochmal versuchen') : 'Nochmal spielen',
   actions: {
     cut: el => { api.Snd.play('snip'); api.act('cut', { m: +el.dataset.m, k: +el.dataset.k }); },
     sym: el => api.act('sym', { m: +el.dataset.m, k: +el.dataset.k }),
@@ -196,7 +196,7 @@ const api = Spieleabend.start({
     down: el => { pwStep(+el.dataset.m, +el.dataset.k, 1); },
     word: el => { const m = +el.dataset.m, d = api.room.g.detail[m], pos = L.pw[m] || [0, 0, 0, 0, 0]; api.act('word', { m, word: d.cols.map((c, i) => c[pos[i]]).join('') }); },
     tab: el => { L.tab = el.dataset.k; api.render(); },
-    replay: () => { const g = api.room.g; api.send({ t: 'setting', key: 'level', value: g.level }); api.send({ t: 'start' }); }
+    replay: el => { api.send({ t: 'setting', key: 'level', value: +el.dataset.lv }); }
   },
   sounds: {
     tick: (S, t, v) => S.tone(1800, t, .03, 'square', .03 * v),
@@ -327,11 +327,10 @@ function bbStats(r, api) {
       (best ? '<div class="label">Bestzeiten</div><div class="records">' + best + '</div>' : '') + (defs ? '<div class="label">Entschärfer-Bilanz</div><div class="records">' + defs + '</div>' : '') : '');
 }
 function endButtons(r, g, won) {
-  if (!g.level) return api.overButtons(r);
-  if (!api.isHost()) return '<div class="row" style="justify-content:center">' + api.statsButton() + '</div><p class="muted" style="text-align:center">' + esc(api.pname(r.host)) + ' startet gleich ' + (won && g.level < g.levels ? 'Level ' + (g.level + 1) : 'die nächste Runde') + '.</p>';
-  const next = won && g.level < g.levels;
-  return '<div class="row" style="justify-content:center">' + (next ? '<button class="btn primary big" data-c="again">Weiter zu Level ' + (g.level + 1) + '</button><button class="btn big" data-act="replay">Level ' + g.level + ' nochmal</button>'
-    : '<button class="btn primary big" data-' + (won ? 'act="replay"' : 'c="again"') + '>' + (won ? 'Level ' + g.level + ' nochmal' : 'Nochmal versuchen') + '</button>') + api.statsButton() + '<button class="btn big" data-c="toLobby">Zur Lobby</button></div>';
+  if (!g.level || r.settings.mode === 'frei') return api.overButtons(r);
+  const nextLv = r.settings.level || 1, canNext = won && g.level < g.levels;
+  const alt = api.isHost() && canNext ? (nextLv > g.level ? '<button class="btn small" data-act="replay" data-lv="' + g.level + '">Lieber Level ' + g.level + ' nochmal</button>' : '<button class="btn small" data-act="replay" data-lv="' + (g.level + 1) + '">Doch weiter zu Level ' + (g.level + 1) + '</button>') : '';
+  return api.overButtons(r) + (alt ? '<div class="row" style="justify-content:center">' + alt + '</div>' : '');
 }
 function renderGame(r, el) {
   const g = r.g; if (!g) { el.innerHTML = ''; return; }

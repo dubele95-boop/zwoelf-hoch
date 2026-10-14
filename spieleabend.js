@@ -79,6 +79,7 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
       watching: !r.players.some(p => p.id === id),
       settings: r.settings, chat: (r.chat || []).slice(-60), notice: r.notice || null,
       catalog: G.catalog || null, records: r.records || {},
+      again: r.status === 'over' ? { votes: r.againVotes || {}, at: r.againAt || null, now: Date.now() } : null,
       g: r.state ? G.view(r, id) : null
     };
   }
@@ -107,8 +108,23 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
     if (r.chat.length > 80) r.chat.splice(0, r.chat.length - 80);
   }
   ctx.say = (r, text) => addChat(r, null, '', text, true);
+  const AGAIN_MS = 60000;
+  function doStart(r) {
+    const G = GAMES[r.game];
+    if (r.status === 'over') toLobby(r);
+    must(r.players.length >= G.meta.min, 'Es braucht mindestens ' + G.meta.min + ' Spieler.');
+    if (G.canStart) { const e = G.canStart(r); must(!e, e); }
+    clearTimers(r.code); r.againVotes = {}; r.againAt = null;
+    r.status = 'playing'; r.notice = null; r.round = (r.round || 0) + 1;
+    G.start(r, ctx);
+  }
+  function checkAgain(r) {
+    if (r.status !== 'over' || !r.againAt) return;
+    const humans = r.players.filter(p => !p.bot && isOnline(p.id));
+    if (humans.length && humans.every(p => r.againVotes[p.id])) { try { doStart(r); } catch (e) { r.againVotes = {}; r.againAt = null; clearTimer(r, 'again'); ctx.say(r, e.message); } }
+  }
   function toLobby(r, notice) {
-    clearTimers(r.code);
+    clearTimers(r.code); r.againVotes = {}; r.againAt = null;
     r.status = 'lobby'; r.state = null; r.notice = notice || null;
     for (const w of r.waiting || []) if (!r.players.some(p => p.id === w.id)) r.players.push(w);
     r.waiting = [];
@@ -121,6 +137,8 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
     const humans = r.players.filter(p => !p.bot);
     if (!humans.length) { dropRoom(r.code); return false; }
     if (r.host === id) r.host = humans[0].id;
+    if (r.againVotes) delete r.againVotes[id];
+    checkAgain(r);
     return true;
   }
 
@@ -166,7 +184,9 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
       must(r.host === ws.pid, 'Nur der Gastgeber kann das ändern.');
       const G = GAMES[r.game], key = String(m.key);
       must(r.status !== 'playing' || (G.liveSetting && G.liveSetting(key)), 'Einstellungen kannst du zwischen den Runden ändern.');
-      G.setting(r, key, m.value, ctx); broadcast(r);
+      G.setting(r, key, m.value, ctx);
+      if (r.status === 'over' && r.againAt && !m.keepVotes) { r.againVotes = {}; r.againAt = null; clearTimer(r, 'again'); }
+      broadcast(r);
     },
     addBot(ws, m, r) {
       const G = GAMES[r.game];
@@ -195,20 +215,27 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
       broadcast(r);
     },
     start(ws, m, r) {
-      const G = GAMES[r.game];
       must(r.host === ws.pid, 'Nur der Gastgeber kann starten.');
       must(r.status !== 'playing', 'Das Spiel läuft schon.');
-      if (r.status === 'over') toLobby(r);
-      must(r.players.length >= G.meta.min, 'Es braucht mindestens ' + G.meta.min + ' Spieler.');
-      if (G.canStart) { const e = G.canStart(r); must(!e, e); }
-      clearTimers(r.code);
-      r.status = 'playing'; r.notice = null; r.round = (r.round || 0) + 1;
-      G.start(r, ctx); broadcast(r);
+      if (r.status === 'over') { H.again(ws, m, r); return; }
+      doStart(r); broadcast(r);
+    },
+    // nach Spielende: jeder drückt „Nochmal“ – los geht es, wenn alle bereit sind (spätestens nach 60 Sek.)
+    again(ws, m, r) {
+      must(r.status === 'over', 'Das Spiel läuft noch.');
+      must(r.players.some(p => p.id === ws.pid && !p.bot), 'Nur Mitspieler können das.');
+      r.againVotes = r.againVotes || {};
+      r.againVotes[ws.pid] = m.off ? undefined : true; if (m.off) delete r.againVotes[ws.pid];
+      if (!r.againAt && Object.keys(r.againVotes).length) {
+        r.againAt = Date.now() + AGAIN_MS;
+        timer(r, 'again', AGAIN_MS, () => { if (r.status !== 'over') return; try { doStart(r); } catch (e) { r.againVotes = {}; r.againAt = null; ctx.say(r, e.message); } broadcast(r); });
+      }
+      checkAgain(r); broadcast(r);
     },
     toLobby(ws, m, r) {
       must(r.host === ws.pid, 'Nur der Gastgeber kann alle in die Lobby holen.');
       must(r.status !== 'lobby', 'Ihr seid schon in der Lobby.');
-      toLobby(r, r.status === 'playing' ? 'aborted' : null); broadcast(r);
+      toLobby(r, r.status === 'playing' && !m.calm ? 'aborted' : null); broadcast(r);
     },
     endGame(ws, m, r) {
       must(r.host === ws.pid, 'Nur der Gastgeber kann den Tisch auflösen.');
@@ -265,7 +292,7 @@ module.exports = function spieleabend({ store, WebSocketServer }) {
     });
     ws.on('close', () => {
       const set = sockets.get(ws.pid); if (set) set.delete(ws);
-      const r = rooms.get(ws.room); if (r) { broadcast(r); const G = GAMES[r.game]; if (G.onPresence && r.status === 'playing') G.onPresence(r, ctx); }
+      const r = rooms.get(ws.room); if (r) { checkAgain(r); broadcast(r); const G = GAMES[r.game]; if (G.onPresence && r.status === 'playing') G.onPresence(r, ctx); }
     });
   });
   setInterval(() => { for (const ws of wss.clients) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; ws.ping(); } }, 25000);

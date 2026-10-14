@@ -236,7 +236,7 @@ function viewFor(g, me) {
     discards: g.discards[p.id] || [[], [], [], []]
   }));
   return {
-    code: g.code, status: g.status, host: g.host, round: g.round || 1, rematchBy: g.rematchBy || null, lobbyBy: g.lobbyBy || null, next: g.next || null, wins: g.wins || {}, stats: g.status === 'finished' ? g.stats || null : null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
+    code: g.code, status: g.status, host: g.host, round: g.round || 1, again: g.status === 'finished' ? { votes: g.againVotes || {}, at: g.againAt || null, now: Date.now() } : null, rematchBy: g.rematchBy || null, lobbyBy: g.lobbyBy || null, next: g.next || null, wins: g.wins || {}, stats: g.status === 'finished' ? g.stats || null : null, stackSize: g.stackSize, specials: g.specials || {}, decks: decksFor(g.players.length, g.stackSize),
     players, build: g.build, bval: g.bval || [0, 0, 0, 0], bdir: g.bdir || [1, 1, 1, 1], piles: pileCount(g), downPiles: downCount(g), drawCount: g.draw.length, doneCount: g.done.length,
     spy: g.spy ? (g.spy.pid === me ? { pid: g.spy.pid, target: g.spy.target, hand: g.hands[g.spy.target] } : { pid: g.spy.pid, target: g.spy.target }) : null,
     choose: g.choose || null, skips: g.skips || {}, slog: (g.slog || []).map(e => ({ k: e.k, t: e.priv && e.priv[me] ? e.priv[me] : e.t, n: e.n })),
@@ -348,12 +348,17 @@ const handlers = {
     must(STACK_SIZES.includes(m.n), 'Ungültige Stapelgröße.');
     cfg(g).stackSize = m.n; broadcast(g);
   },
-  // nach Spielende: jeder Mitspieler darf eine neue Runde anstoßen -> alle zurück in die Lobby
+  // nach Spielende: jeder sagt „Nächste Runde“ – los geht es, wenn alle bereit sind (spätestens nach 60 Sek.)
   newRound(ws, m, g) {
     must(g.status === 'finished', 'Die Runde läuft noch.');
-    must(g.players.some(p => p.id === ws.pid), 'Nur Mitspieler können eine neue Runde starten.');
-    g.round = (g.round || 1) + 1; toLobby(g, ws.pid);
-    broadcast(g);
+    must(g.players.some(p => p.id === ws.pid && !p.bot), 'Nur Mitspieler können eine neue Runde starten.');
+    g.againVotes = g.againVotes || {};
+    if (m.off) delete g.againVotes[ws.pid]; else g.againVotes[ws.pid] = true;
+    if (!g.againAt && Object.keys(g.againVotes).length) {
+      g.againAt = Date.now() + AGAIN_MS; clearTimeout(againTimers.get(g.code));
+      againTimers.set(g.code, setTimeout(() => { againTimers.delete(g.code); if (games.get(g.code) === g && g.status === 'finished' && g.againAt) { nextGame(g); broadcast(g); } }, AGAIN_MS));
+    }
+    checkAgain(g); broadcast(g);
   },
   // Gastgeber holt alle zurück in die Lobby (bricht eine laufende Runde ab)
   backToLobby(ws, m, g) {
@@ -727,7 +732,19 @@ function cfg(g) {
   return g.next;
 }
 function applyNext(g) { if (g.next) { Object.assign(g, g.next); delete g.next; } }
+const AGAIN_MS = 60000, againTimers = new Map();
+function clearAgain(g) { g.againVotes = {}; g.againAt = null; clearTimeout(againTimers.get(g.code)); againTimers.delete(g.code); }
+function nextGame(g) {
+  if (g.players.length < 2) { clearAgain(g); g.round = (g.round || 1) + 1; toLobby(g, null); return; }
+  g.round = (g.round || 1) + 1; toLobby(g, null); g.rematchBy = null; g.lobbyBy = null; startRound(g);
+}
+function checkAgain(g) {
+  if (g.status !== 'finished' || !g.againAt) return;
+  const humans = g.players.filter(p => !p.bot && isOnline(p.id));
+  if (humans.length && humans.every(p => (g.againVotes || {})[p.id])) nextGame(g);
+}
 function toLobby(g, by) {
+  clearAgain(g);
   g.status = 'lobby'; g.rematchBy = by; g.lobbyBy = null;
   applyNext(g);
   g.hands = {}; g.stocks = {}; g.discards = {}; g.draw = []; g.done = [];
@@ -828,7 +845,7 @@ wss.on('connection', ws => {
   });
   ws.on('close', () => {
     const set = sockets.get(ws.pid); if (set) set.delete(ws);
-    const g = games.get(ws.gameCode); if (g) broadcast(g);
+    const g = games.get(ws.gameCode); if (g) { checkAgain(g); broadcast(g); }
   });
 });
 

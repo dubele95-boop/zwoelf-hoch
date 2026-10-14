@@ -34,10 +34,19 @@ function start(r, ctx) {
     stats: { mistakes: {}, played: {}, starsUsed: 0, livesLost: 0, specials: 0, shieldsUsed: 0, early: {}, bestJump: null, fastest: null, streak: 0, bestStreak: 0, perfect: 0, levelMistakes: 0, starsProposed: {}, specialsBy: {}, levelsDone: 0, timeouts: 0 },
     cards: {}, shields: 0, dir: 1, ref: 0, pausedUntil: 0, echo: null
   };
+  armReady(r, ctx, true);
   botTick(r, ctx);
+}
+// zwischen den Leveln: los geht es, wenn alle bereit sind – spätestens nach 60 Sekunden
+const READY_MS = 60000;
+function armReady(r, ctx, fresh) {
+  const s = r.state; if (!s || s.phase !== 'ready') return;
+  if (fresh || !s.readyAt) s.readyAt = Date.now() + READY_MS;
+  ctx.timer(r, 'ready', s.readyAt - Date.now(), () => { if (r.state !== s || s.phase !== 'ready') return; deal(r, ctx); ctx.broadcast(r); botTick(r, ctx); });
 }
 
 function deal(r, ctx) {
+  ctx.clearTimer(r, 'ready'); r.state.readyAt = null;
   const s = r.state, deck = ctx.shuffle(Array.from({ length: 100 }, (_, i) => i + 1));
   s.hands = {};
   for (const p of r.players) s.hands[p.id] = deck.splice(0, s.level).sort((a, b) => a - b);
@@ -76,7 +85,7 @@ function timeUp(r, ctx) {
   s.deadline = 0; s.vote = null; s.pausedUntil = 0;
   event(s, { kind: 'timeup', level: s.level, left: left.length });
   if (s.lives <= 0) { s.phase = 'lost'; s.why = 'time'; s.ended = Date.now(); ctx.finish(r); return; }
-  s.phase = 'ready'; s.ready = {};          // das Level wird mit neuen Karten wiederholt
+  s.phase = 'ready'; s.ready = {}; armReady(r, ctx, true);          // das Level wird mit neuen Karten wiederholt
 }
 function event(s, e) { s.seq++; s.ev = { ...e, seq: s.seq }; }
 const name = (r, id) => (r.players.find(p => p.id === id) || {}).name || 'Jemand';
@@ -95,7 +104,7 @@ function checkLevel(r, ctx) {
   if (rw === 'life' && s.lives < MAX_LIVES) { s.lives++; reward = 'life'; }
   if (rw === 'star' && s.stars < MAX_STARS) { s.stars++; reward = 'star'; }
   event(s, { kind: 'level', level: s.level, reward });
-  s.level++; s.phase = 'ready'; s.ready = {}; s.vote = null;
+  s.level++; s.phase = 'ready'; s.ready = {}; s.vote = null; armReady(r, ctx, true);
 }
 
 function play(r, id, ctx) {
@@ -248,7 +257,7 @@ function removePlayer(r, id, ctx) {
 }
 const resume = (r, ctx) => {
   const s = r.state;
-  if (s) { armClock(r, ctx); s.changed = Date.now(); s.botPlan = null; if (s.pausedUntil > Date.now()) ctx.timer(r, 'pause', s.pausedUntil - Date.now(), () => { s.changed = Date.now(); event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); }); }
+  if (s) { armReady(r, ctx); armClock(r, ctx); s.changed = Date.now(); s.botPlan = null; if (s.pausedUntil > Date.now()) ctx.timer(r, 'pause', s.pausedUntil - Date.now(), () => { s.changed = Date.now(); event(s, { kind: 'pauseEnd' }); ctx.broadcast(r); botTick(r, ctx); }); }
   botTick(r, ctx);
 };
 const onPresence = (r, ctx) => botTick(r, ctx);
@@ -264,7 +273,7 @@ function view(r, id) {
   const s = r.state;
   return {
     level: s.level, maxLevel: s.maxLevel, lives: s.lives, stars: s.stars, phase: s.phase,
-    ready: s.ready, vote: s.vote, ev: s.ev,
+    ready: s.ready, vote: s.vote, ev: s.ev, readyAt: s.phase === 'ready' ? s.readyAt || null : null,
     hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(), deadline: s.deadline || 0, limit: s.limit || 0, why: s.why || null,
     myCards: (s.cards && s.cards[id]) || [], shields: Object.values(s.cards || {}).flat().filter(k => k === 'schild').length,
     pausedUntil: s.pausedUntil || 0, echo: s.echo && s.echo.until > Date.now() ? s.echo : null,

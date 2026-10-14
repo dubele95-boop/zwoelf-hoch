@@ -197,6 +197,7 @@
       if (!S.room) return renderHome();
       if (S.room.status === 'lobby') return renderLobby();
       renderGame();
+      { const ab = q('#stats [data-againbox]'); if (ab && !q('#stats').hidden) ab.innerHTML = againInner(S.room); }
       if (!q('#players').hidden) openPlayers();
       if (!q('#live').hidden) { if (isHost() && S.room.status !== 'lobby') openLive(); else q('#live').hidden = true; }
     }
@@ -224,9 +225,24 @@
     function openStats() {
       const r = S.room, el = q('#stats'); if (!r || !r.g || !cfg.stats) return;
       el.innerHTML = '<div class="panel modalbox wide statsbox"><div class="modalhead"><h2 id="statsTitle">Statistik</h2><button class="btn small" data-c="closeModal">Schließen</button></div>' + cfg.stats(r, api) +
-        (r.status === 'over' && isHost() ? '<div class="row" style="justify-content:center"><button class="btn primary" data-c="againStats">' + (cfg.againLabel ? cfg.againLabel(r) : 'Nochmal spielen') + '</button></div>' : '') + '</div>';
+        (r.status === 'over' ? againBox(r) : '') + '</div>';
       el.hidden = false;
     }
+    // „Nochmal spielen“: jeder sagt Bescheid, los geht es, wenn alle bereit sind
+    function againInner(r) {
+      if (!r || r.status !== 'over') return '';
+      const a = r.again || { votes: {} }, humans = r.players.filter(p => !p.bot), mine = humans.some(p => p.id === S.me), voted = !!a.votes[S.me];
+      if (a.now) S.againOff = a.now - Date.now();
+      const label = cfg.againLabel ? cfg.againLabel(r) : 'Nochmal spielen';
+      const chips = humans.map(p => '<span class="pill' + (a.votes[p.id] ? ' live' : '') + '">' + esc(p.name) + (a.votes[p.id] ? ' ✓ bereit' : (p.online ? ' schaut …' : ' offline')) + '</span>').join('');
+      const lob = isHost() ? '<button class="btn big" data-c="toLobbyNow">Zur Lobby</button>' : '';
+      return '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px">' + (mine ? (voted ? '<button class="btn big" data-c="again">Doch noch nicht</button>' : '<button class="btn primary big" data-c="again">' + label + '</button>') : '') + lob + '</div>' +
+        '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:6px">' + chips + '</div>' +
+        '<small class="muted" data-againat="' + (a.at || '') + '">' + againText(a.at) + '</small>';
+    }
+    function againText(at) { if (!at) return 'Es geht los, sobald alle bereit sind. Bots sind immer bereit.'; const t = Math.max(0, Math.ceil((at - Date.now() - (S.againOff || 0)) / 1000)); return 'Es geht los, sobald alle bereit sind – spätestens in ' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0') + '.'; }
+    function againBox(r) { return '<div class="againbox" data-againbox style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">' + againInner(r) + '</div>'; }
+    setInterval(() => { document.querySelectorAll('[data-againat]').forEach(el => { const at = +el.dataset.againat; if (at) el.textContent = againText(at); }); }, 500);
     function closeModals() { q('#rules').hidden = true; q('#players').hidden = true; q('#live').hidden = true; q('#stats').hidden = true; }
 
     /* ---------- Klicks ---------- */
@@ -236,7 +252,8 @@
       players() { openPlayers(); },
       live() { openLive(); },
       stats() { openStats(); },
-      againStats() { closeModals(); send({ t: 'start' }); },
+      againStats() { C.again(); },
+      toLobbyNow() { closeModals(); send({ t: 'toLobby', calm: true }); },
       closeModal() { closeModals(); },
       create() { const n = (q('#nameInput').value || '').trim(); if (!n) { toast('Bitte gib zuerst deinen Namen ein.'); q('#nameInput').focus(); return; } S.name = n; LS.set('zh.name', n); send({ t: 'create', name: n }); },
       join() {
@@ -262,7 +279,7 @@
         if (S.room && S.room.status === 'playing' && Date.now() - S.confirmLobby > 4000) { S.confirmLobby = Date.now(); renderBar(); setTimeout(renderBar, 4100); toast('Nochmal klicken: Die Runde wird abgebrochen und alle kommen zurück in die Lobby.'); return; }
         S.confirmLobby = 0; send({ t: 'toLobby' });
       },
-      again() { send({ t: 'start' }); }
+      again() { const r = S.room; if (!r) return; if (r.status === 'over') send({ t: 'again', off: !!(r.again && r.again.votes[S.me]) }); else send({ t: 'start' }); }
     };
     document.addEventListener('click', e => {
       const c = e.target.closest('[data-c]');
@@ -295,8 +312,7 @@
       statsButton: () => cfg.stats ? '<button class="btn big" data-c="stats">Statistik ansehen</button>' : '',
       overButtons(r) {
         const sb = cfg.stats ? '<button class="btn big" data-c="stats">Statistik ansehen</button>' : '';
-        return isHost() ? '<div class="row" style="justify-content:center"><button class="btn primary big" data-c="again">Nochmal spielen</button>' + sb + '<button class="btn big" data-c="toLobby">Zur Lobby</button></div>'
-          : '<div class="row" style="justify-content:center">' + sb + '</div><p class="muted" style="text-align:center">' + esc(pname(r.host)) + ' kann gleich eine neue Runde starten.</p>';
+        return againBox(r) + (sb ? '<div class="row" style="justify-content:center">' + sb + '</div>' : '');
       },
       fmtDur(ms) { if (ms < 1000) return 'unter 1 Sek.'; const t = Math.max(0, Math.round(ms / 1000)), m = Math.floor(t / 60); return m ? m + ' Min. ' + (t % 60) + ' Sek.' : t + ' Sek.'; },
       // Auszeichnung: wer hat den höchsten Wert? (gleichstand -> alle)
