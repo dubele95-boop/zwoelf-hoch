@@ -45,17 +45,19 @@ function deal(r, ctx) {
   s.dir = 1; s.ref = 0; s.pausedUntil = 0; s.echo = null; s.stats.levelMistakes = 0;
   const ms = timeFor(s.level, r.settings.timer || 0); s.deadline = ms ? Date.now() + ms : 0; s.limit = ms;
   armClock(r, ctx);
-  // Sonderkarten verteilen
+  // Sonderkarten werden wie Zahlenkarten ausgeteilt: Wer eine bekommt, hat dafür eine Zahlenkarte weniger.
+  // Am Ende des Levels verfallen übrige Sonderkarten.
   const on = SPECIALS.filter(k => (r.settings.specials || {})[k]);
   const gifts = [];
+  s.cards = {};
   const count = !on.length || s.level < 2 ? 0 : s.level >= 5 ? 2 : 1;
   const humans = r.players.filter(p => !p.bot);
-  for (let i = 0; i < count; i++) {
-    const kind = on[ctx.rand(on.length)];
-    if (kind === 'schild') { if (s.shields < MAX_SHIELDS) { s.shields++; gifts.push({ kind, pid: null }); } continue; }
-    if (!humans.length) continue;
-    const p = humans[ctx.rand(humans.length)];
-    s.cards = s.cards || {}; (s.cards[p.id] = s.cards[p.id] || []).push(kind);
+  for (let i = 0; i < count && humans.length; i++) {
+    const cand = humans.filter(p => (s.hands[p.id] || []).length > 1);   // jeder behält mindestens eine Zahl
+    if (!cand.length) break;
+    const kind = on[ctx.rand(on.length)], p = cand[ctx.rand(cand.length)], h = s.hands[p.id];
+    h.splice(ctx.rand(h.length), 1);                // eine Zahlenkarte weniger
+    (s.cards[p.id] = s.cards[p.id] || []).push(kind);
     gifts.push({ kind, pid: p.id });
   }
   event(s, { kind: 'deal', gifts });
@@ -109,8 +111,10 @@ function play(r, id, ctx) {
   const lower = [];
   for (const p of r.players) { const hh = s.hands[p.id] || []; while (hh.length && (s.dir === 1 ? hh[0] < v : hh[hh.length - 1] > v)) lower.push({ v: takeNext(s, hh), pid: p.id }); }
   if (lower.length) {
-    const shield = s.shields > 0;
-    if (shield) { s.shields--; s.stats.shieldsUsed++; } else { s.lives--; s.stats.livesLost++; }
+    // ein Schutzschild auf irgendeiner Hand fängt den Fehler für das ganze Team ab
+    const holder = Object.keys(s.cards || {}).find(pid => (s.cards[pid] || []).includes('schild'));
+    const shield = !!holder;
+    if (shield) { const c = s.cards[holder]; c.splice(c.indexOf('schild'), 1); s.stats.shieldsUsed++; s.stats.specialsBy[holder] = (s.stats.specialsBy[holder] || 0) + 1; } else { s.lives--; s.stats.livesLost++; }
     for (const x of lower) s.stats.mistakes[x.pid] = (s.stats.mistakes[x.pid] || 0) + 1;
     s.out.push(...lower);
     const st = s.stats; st.early[id] = (st.early[id] || 0) + 1; st.streak = 0; st.levelMistakes++;
@@ -153,6 +157,7 @@ function act(r, id, m, ctx) {
 
 function useSpecial(r, id, m, ctx) {
   const s = r.state, mine = (s.cards && s.cards[id]) || [], k = mine.indexOf(m.kind);
+  if (m.kind === 'schild') ctx.must(false, 'Das Schutzschild wirkt automatisch beim nächsten Fehler.');
   ctx.must(k >= 0, 'Diese Sonderkarte hast du nicht.');
   ctx.must(s.phase === 'play', 'Sonderkarten kannst du nur während des Legens einsetzen.');
   ctx.must(!s.vote, 'Erst über den Stern abstimmen.');
@@ -261,7 +266,7 @@ function view(r, id) {
     level: s.level, maxLevel: s.maxLevel, lives: s.lives, stars: s.stars, phase: s.phase,
     ready: s.ready, vote: s.vote, ev: s.ev,
     hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(), deadline: s.deadline || 0, limit: s.limit || 0, why: s.why || null,
-    myCards: (s.cards && s.cards[id]) || [], shields: s.shields || 0, maxShields: MAX_SHIELDS,
+    myCards: (s.cards && s.cards[id]) || [], shields: Object.values(s.cards || {}).flat().filter(k => k === 'schild').length,
     pausedUntil: s.pausedUntil || 0, echo: s.echo && s.echo.until > Date.now() ? s.echo : null,
     cardCounts: Object.fromEntries(r.players.map(p => [p.id, ((s.cards && s.cards[p.id]) || []).length])),
     specialsOn: SPECIALS.filter(k => (r.settings.specials || {})[k]),

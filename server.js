@@ -18,7 +18,7 @@ const STACK_SIZES = [5, 10, 15, 20, 25, 30];
 /* ---------------- HTTP ---------------- */
 // Die Dateien dürfen direkt neben server.js oder im Ordner public liegen
 const fileOf = name => [path.join(__dirname, name), path.join(__dirname, 'public', name)].find(f => fs.existsSync(f));
-const PAGES = { '/': 'index.html', '/zwoelf': 'zwoelf.html', '/gleichklang': 'gleichklang.html', '/bombe': 'bombe.html', '/nacht': 'nacht.html' };
+const PAGES = { '/': 'index.html', '/zwoelf': 'zwoelf.html', '/gleichklang': 'gleichklang.html', '/bombe': 'bombe.html', '/nacht': 'nacht.html', '/reihe': 'reihe.html' };
 const ASSETS = { '/common.js': 'text/javascript', '/common.css': 'text/css', '/bombe-regeln.js': 'text/javascript' };
 const server = http.createServer((req, res) => {
   const url = req.url.split(/[?#]/)[0].replace(/\/+$/, '') || '/';

@@ -7,13 +7,14 @@ class Err extends Error {}
 const must = (cond, msg) => { if (!cond) throw new Err(msg); };
 const cleanName = n => String(n || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 18);
 const rid = (n = 9) => crypto.randomBytes(n).toString('base64url');
-const BOT_NAMES = ['Bruno', 'Clara', 'Emil', 'Frieda', 'Gustav'];
+const BOT_NAMES = ['Bruno', 'Clara', 'Emil', 'Frieda', 'Gustav', 'Hanna', 'Ida', 'Jonas', 'Karla'];
 
 module.exports = function spieleabend({ store, WebSocketServer }) {
   const GAMES = {
     gleichklang: require('./spiel-gleichklang'),
     bombe: require('./spiel-bombe'),
-    nacht: require('./spiel-nacht')
+    nacht: require('./spiel-nacht'),
+    reihe: require('./spiel-reihe')
   };
   const rooms = new Map();      // Code -> Tisch
   const sockets = new Map();    // Spieler-ID -> Set<ws>

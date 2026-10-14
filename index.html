@@ -24,7 +24,7 @@ if (/^#[A-Za-z]{4}$/.test(location.hash)) location.replace('/zwoelf' + location.
 .tile .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
 .tile .tags .pill{color:var(--ink);border-color:color-mix(in srgb,var(--c) 55%,transparent)}
 .tile .go{align-self:flex-start;margin-top:6px;background:var(--c);color:#1a1424;border-color:var(--c)}
-.t-zwoelf{--c:#f2b84b}.t-gleich{--c:#4fd1c5}.t-bombe{--c:#ff6b5b}.t-nacht{--c:#a78bfa}
+.t-zwoelf{--c:#f2b84b}.t-gleich{--c:#4fd1c5}.t-bombe{--c:#ff6b5b}.t-nacht{--c:#a78bfa}.t-reihe{--c:#ff9f4a}
 /* kleine Bilder */
 .mini-card{width:54px;height:76px;border-radius:8px;background:var(--card);color:var(--card-ink);display:grid;place-items:center;font:900 30px/1 var(--f-display);box-shadow:0 6px 14px rgba(0,0,0,.35);border:2px solid rgba(0,0,0,.08)}
 .fan{display:flex}.fan .mini-card{margin-left:-14px}.fan .mini-card:first-child{margin-left:0}
@@ -34,7 +34,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
 <div id="app">
   <header class="hubhead">
     <h1>Spiele<em>abend</em></h1>
-    <p>Vier Spiele für euren Abend. Tisch erstellen, Link an die Freunde schicken, losspielen – ohne Anmeldung.</p>
+    <p>Fünf Spiele für euren Abend. Tisch erstellen, Link an die Freunde schicken, losspielen – ohne Anmeldung.</p>
   </header>
   <main class="tiles">
     <a class="tile t-zwoelf" href="/zwoelf">
@@ -71,6 +71,14 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
       <div class="body"><h2>Durch die <em>Nacht</em></h2>
         <p>Ein gemeinsames Abenteuer: Bringt eure Gruppe vom Lagerfeuer bis ins Dorf, bevor die Sonne aufgeht – Wölfe, Nebel und Gewitter inklusive.</p>
         <div class="tags"><span class="pill">Miteinander</span><span class="pill">1–6 Spieler</span><span class="pill">Abenteuer</span></div>
+        <span class="btn go">Spielen</span></div>
+    </a>
+    <a class="tile t-reihe" href="/reihe">
+      <div class="art" aria-hidden="true"><div class="fan">
+        <div class="mini-card" style="color:#2a2230;background:#f6efe1">12</div><div class="mini-card" style="color:#2a2230;background:#cfe6ff;margin-left:8px">25</div><div class="mini-card" style="color:#2a2230;background:#ffe08a;margin-left:8px">40</div><div class="mini-card" style="color:#2a2230;background:#ffb27a;margin-left:8px">44</div><div class="mini-card" style="color:#fff;background:#d84a5c;margin-left:8px;transform:rotate(8deg)">55</div></div></div>
+      <div class="body"><h2>Reihe <em>voll!</em></h2>
+        <p>Alle legen gleichzeitig eine Karte – wer die sechste in eine Reihe legt, muss sie nehmen. Wer am Ende die wenigsten Strafpunkte hat, gewinnt.</p>
+        <div class="tags"><span class="pill">Gegeneinander</span><span class="pill">2–10 Spieler</span><span class="pill">mit Bots</span></div>
         <span class="btn go">Spielen</span></div>
     </a>
   </main>

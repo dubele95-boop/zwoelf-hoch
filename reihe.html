@@ -1,0 +1,282 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Reihe voll!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="/common.css">
+<style>
+:root{--accent:#ff9f4a;--accent-ink:#2a1405;--p1:#f6efe1;--p2:#cfe6ff;--p3:#ffe08a;--p5:#ffb27a;--p7:#ff8fae}
+.rc{--w:64px;width:var(--w);aspect-ratio:5/7;border-radius:calc(var(--w) * .13);background:var(--pc,var(--p1));color:#2a2230;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(var(--w) * .07) 2px;box-shadow:0 2px 0 rgba(0,0,0,.25),0 8px 16px rgba(0,0,0,.28);border:2px solid rgba(0,0,0,.12);flex:none;position:relative}
+.rc b{font:900 calc(var(--w) * .46)/1 var(--f-display)}
+.rc .horns{display:flex;flex-wrap:wrap;justify-content:center;gap:1px;max-width:92%;min-height:calc(var(--w) * .16)}
+.rc .horns svg{width:calc(var(--w) * .15);height:calc(var(--w) * .15);color:#7a2f3c}
+.rc.pen2{--pc:var(--p2)}.rc.pen3{--pc:var(--p3)}.rc.pen5{--pc:var(--p5)}.rc.pen7{--pc:var(--p7)}
+.rc.pen7 .horns svg{color:#4a0a1f}
+.rc.pop{animation:pop .4s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes pop{from{transform:translateY(-24px) scale(1.2);opacity:0}to{transform:none;opacity:1}}
+.rv-top{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between}
+.rv-top .t{display:flex;align-items:baseline;gap:10px}
+.rv-top .t b{font:900 44px/1 var(--f-display)}
+.rv-top .t span{color:var(--muted);font-weight:700}
+.timer{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums;padding:6px 12px;border-radius:10px;border:1px solid var(--line-2);background:rgba(0,0,0,.25)}
+.timer.low{color:#ff8f7a;border-color:rgba(255,110,90,.6)}
+.rows{display:flex;flex-direction:column;gap:10px}
+.rrow{display:grid;grid-template-columns:86px repeat(6,var(--w)) minmax(0,1fr);gap:8px;align-items:center;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.18);border:2px solid transparent;--w:64px}
+.rrow .lbl{display:flex;flex-direction:column;gap:2px}
+.rrow .lbl b{font:800 18px/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em}
+.rrow .lbl small{color:var(--muted);font-weight:700}
+.rrow .lbl small.hot{color:#ff9d8a}
+.slot{width:var(--w);aspect-ratio:5/7;border-radius:calc(var(--w) * .13);border:1.5px dashed var(--line-2)}
+.slot.six{border-color:rgba(255,110,90,.55);display:grid;place-items:center;color:rgba(255,140,120,.8);font:800 12px/1.1 var(--f-body);text-align:center}
+.rrow.pick{cursor:pointer;border-color:var(--accent);background:rgba(255,159,74,.08)}
+.rrow.pick:hover{background:rgba(255,159,74,.18)}
+.rrow.taken{animation:taken .9s ease}
+@keyframes taken{30%{background:rgba(255,90,80,.35)}}
+.rrow button.rowbtn{grid-column:8;justify-self:end}
+.reveal{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;min-height:118px}
+.reveal .it{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);transition:opacity .3s}
+.reveal .it.done{opacity:.4}
+.reveal .it.now .rc{outline:3px solid var(--accent);outline-offset:3px}
+.reveal .it .who{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--ink)}
+.players{display:flex;flex-wrap:wrap;gap:10px}
+.pl{min-width:120px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:4px}
+.pl.me{border-color:rgba(255,159,74,.55)}
+.pl .nm{font-weight:700;display:flex;gap:6px;align-items:center}
+.pl .sc{font:900 30px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.pl .sc small{font:700 13px/1 var(--f-body);color:#ff9d8a;margin-left:6px}
+.pl .st{font-size:12px;color:var(--muted)}
+.pl .st.ok{color:var(--ok)}
+.hand .cards{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;min-height:110px}
+.hand .cards button{padding:0;border:0;background:none;border-radius:10px}
+.hand .cards button .rc{transition:transform .15s ease;--w:72px}
+.hand .cards button:not(:disabled):hover .rc{transform:translateY(-8px)}
+.hand .cards button.sel .rc{transform:translateY(-14px);outline:3px solid var(--accent);outline-offset:3px}
+.hand .cards button:disabled{cursor:default}
+.hand .cards button:disabled .rc{filter:saturate(.7) brightness(.85)}
+.handgap{width:6px;align-self:stretch;border-left:2px dashed var(--line-2);margin:0 4px}
+.sp{--w:72px;width:var(--w);aspect-ratio:5/7;border-radius:10px;background:linear-gradient(165deg,color-mix(in srgb,var(--sc) 92%,#fff),color-mix(in srgb,var(--sc) 65%,#1a1530));color:#16122a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 4px;text-align:center;border:2px solid color-mix(in srgb,var(--sc) 60%,#fff);box-shadow:0 8px 16px rgba(0,0,0,.28);position:relative}
+.sp .ico{width:50%;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.55);display:grid;place-items:center}
+.sp .ico svg{width:62%;height:62%}
+.sp b{font:800 11px/1.1 var(--f-body);hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
+.sp i{font:700 9px/1 var(--f-body);font-style:normal;opacity:.75}
+.sp-schild{--sc:#9be38a}.sp-halb{--sc:#7fd6ff}.sp-besen{--sc:#ffb86b}.sp-tausch{--sc:#c9b8ff}
+.side .it{display:flex;gap:10px;align-items:flex-start}
+.side .ic{width:30px;height:30px;border-radius:8px;background:var(--sc);color:#16122a;display:grid;place-items:center;flex:none}
+.side .ic svg{width:18px;height:18px}
+.side b{display:block;font-size:14px}
+.side small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.legend .rc{--w:34px}.legend .rc b{font-size:15px}
+.spl{display:flex;flex-direction:column;gap:6px}
+.spl .spx{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--sc);background:color-mix(in srgb,var(--sc) 12%,transparent)}
+.spl .spx .ic{width:32px;height:32px;border-radius:8px;background:var(--sc);color:#16122a;display:grid;place-items:center;flex:none}
+.spl .spx .ic svg{width:18px;height:18px}
+.spl .spx > div{flex:1;min-width:0}
+.spl .spx small{display:block;color:var(--muted);font-size:12.5px}
+.endbox{display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center;padding:20px 16px}
+.endbox h2{font:900 clamp(40px,6vw,72px)/.95 var(--f-display);text-transform:uppercase}
+.banner{border-color:rgba(255,159,74,.55);background:rgba(255,159,74,.08);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+@media (max-width:760px){.rrow{grid-template-columns:repeat(6,var(--w));--w:44px}.rrow .lbl{grid-column:1/-1;flex-direction:row;gap:10px;align-items:baseline}.rrow button.rowbtn{grid-column:1/-1;justify-self:start}.rc b{font-size:calc(var(--w) * .42)}.hand .cards button .rc{--w:56px}}
+</style></head><body>
+<div id="app"></div>
+<script src="/common.js"></script>
+<script>
+(function(){
+const esc = Spieleabend.esc;
+const pen = v => v === 55 ? 7 : v % 11 === 0 ? 5 : v % 10 === 0 ? 3 : v % 5 === 0 ? 2 : 1;
+const HORN = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4c0 5 3 8 6 8h6c3 0 6-3 6-8-2 3-4 4-6 4H9C7 8 5 7 3 4zm5 9h8v3a4 4 0 0 1-8 0z"/></svg>';
+const card = (v, extra) => { const p = pen(v); return '<div class="rc pen' + p + (extra || '') + '" title="' + v + ' – ' + p + (p === 1 ? ' Strafpunkt' : ' Strafpunkte') + '"><span class="horns">' + HORN.repeat(p) + '</span><b>' + v + '</b><span class="horns">' + HORN.repeat(p) + '</span></div>'; };
+const SP = {
+  schild: { name: 'Schutzschild', text: 'Musst du das nächste Mal eine Reihe nehmen, bekommst du keine Strafpunkte. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>' },
+  halb: { name: 'Halbe Strafe', text: 'Die nächste Reihe, die du nehmen musst, zählt nur halb. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19L19 5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/></svg>' },
+  besen: { name: 'Besen', text: 'Wähle eine Reihe: Alle Karten außer der letzten fliegen raus – niemand bekommt sie.', ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 2l2 2-7 7-2-2zM11 10l3 3-1 1c-1 4-4 7-9 8 1-5 4-8 8-9z"/></svg>' },
+  tausch: { name: 'Tausch', text: 'Du tauschst eine zufällige Handkarte mit einer zufälligen Karte eines Mitspielers.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>' }
+};
+const AI = {
+  clean: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>',
+  horn: HORN,
+  full: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="7" width="3" height="10" rx="1"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="10" y="7" width="3" height="10" rx="1"/><rect x="14" y="7" width="3" height="10" rx="1"/><rect x="18" y="7" width="4" height="10" rx="1" opacity=".5"/></svg>',
+  low: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M5 13l7 7 7-7"/></svg>',
+  big: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4a4 4 0 0 1 8 0h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1zm2 0h4a2 2 0 0 0-4 0z"/></svg>',
+  angel: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>',
+  five: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l10 18H2zm-1 7v5h2V9zm0 7v2h2v-2z"/></svg>'
+};
+const L = { lastSeq: 0, mode: null, pick: false, renderedSeq: 0, off: 0 };
+const fmtT = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+
+function spSettings(r, host) {
+  const on = r.settings.specials || {}, all = Object.keys(SP).every(k => on[k]);
+  return '<div class="field"><div class="row" style="justify-content:space-between;display:flex"><span class="label">Sonderkarten</span>' + (host ? '<button type="button" class="btn small" data-set="allSpecials" data-val="' + !all + '">' + (all ? 'Alle ausschalten' : 'Alle einschalten') + '</button>' : '') + '</div><div class="spl">' +
+    Object.entries(SP).map(([k, x]) => '<div class="spx sp-' + k + '"><span class="ic">' + x.ico + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div>' +
+      (host ? '<button type="button" class="toggle" role="switch" aria-checked="' + !!on[k] + '" aria-label="' + x.name + '" data-set="sp_' + k + '" data-val="' + !on[k] + '"><i></i></button>' : '<span class="pill' + (on[k] ? ' live' : '') + '">' + (on[k] ? 'an' : 'aus') + '</span>') + '</div>').join('') +
+    '</div><small class="muted">Jeder Mensch bekommt pro Runde eine Sonderkarte (höchstens 3 auf der Hand). Bots spielen ohne.</small></div>';
+}
+function rowsHTML(g, r) {
+  const me = r.me, choosingMe = g.phase === 'choose' && g.choosing && g.choosing.pid === me, besen = L.mode === 'besen' && g.phase === 'select';
+  return '<div class="rows">' + g.rows.map((row, i) => {
+    const pts = g.rowPts[i], pickable = choosingMe || (besen && row.length > 1);
+    const cells = []; for (let k = 0; k < 6; k++) cells.push(row[k] != null ? card(row[k], k === row.length - 1 && L.popRow === i ? ' pop' : '') : (k === 5 ? '<div class="slot six">6. Karte<br>= nehmen</div>' : '<div class="slot"></div>'));
+    return '<div class="rrow' + (pickable ? ' pick' : '') + (L.takenRow === i ? ' taken' : '') + '"' + (pickable ? ' data-act="' + (besen ? 'sweep' : 'take') + '" data-row="' + i + '" role="button" tabindex="0"' : '') + '>' +
+      '<div class="lbl"><b>Reihe ' + (i + 1) + '</b><small class="' + (row.length >= 5 ? 'hot' : '') + '">' + pts + ' Strafpunkt' + (pts === 1 ? '' : 'e') + (row.length >= 5 ? ' · voll!' : '') + '</small></div>' + cells.join('') +
+      (pickable ? '<button class="btn small primary rowbtn" data-act="' + (besen ? 'sweep' : 'take') + '" data-row="' + i + '">' + (besen ? 'Ausfegen' : 'Diese Reihe nehmen') + '</button>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+function renderGame(r, el) {
+  const g = r.g; if (!g) { el.innerHTML = ''; return; }
+  L.off = (g.now || Date.now()) - Date.now();
+  const me = r.me, mine = r.players.some(p => p.id === me);
+  const timer = g.deadline && r.status === 'playing' && (g.phase === 'select' || g.phase === 'choose') ? '<div class="timer" data-timer>' + fmtT(g.deadline - Date.now() - L.off) + '</div>' : '';
+  const top = '<div class="panel rv-top"><div class="t"><b>Runde ' + g.round + '</b><span>Zug ' + Math.min(g.turn, g.turns) + ' von ' + g.turns + ' · Spielende bei ' + g.target + ' Strafpunkten</span></div>' + timer + '</div>';
+  const players = '<div class="players">' + r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => {
+    const st = g.phase === 'select' ? (g.picked[p.id] ? '<span class="st ok">✓ hat gewählt</span>' : '<span class="st">wählt …</span>') : g.phase === 'roundEnd' ? (g.ready[p.id] ? '<span class="st ok">✓ bereit</span>' : '<span class="st">schaut …</span>') : '';
+    return '<div class="pl' + (p.id === me ? ' me' : '') + '"><div class="nm">' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? '<span class="pill bot">Bot</span>' : '') + (p.online ? '' : '<span class="pill">offline</span>') + '</div>' +
+      '<div class="sc">' + (g.scores[p.id] || 0) + (g.roundPts[p.id] ? '<small>+' + g.roundPts[p.id] + ' diese Runde</small>' : '') + '</div>' + st +
+      ((g.heldCounts || {})[p.id] ? '<span class="st" style="color:#ffd166">' + g.heldCounts[p.id] + ' Sonderkarte' + (g.heldCounts[p.id] > 1 ? 'n' : '') + '</span>' : '') + '</div>';
+  }).join('') + '</div>';
+  if (r.status === 'over') { el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + overHTML(r, g) + players + '</div>'; return; }
+  // Aufgedeckte Karten
+  const now = g.revealed.find(x => x.row == null);
+  const reveal = g.revealed.length ? '<div class="panel"><div class="label" style="margin-bottom:8px">Aufgedeckt – wird der Reihe nach einsortiert</div><div class="reveal">' + g.revealed.map(x => '<div class="it' + (x.row != null ? ' done' : '') + (now === x ? ' now' : '') + '">' + card(x.v) + '<span class="who">' + esc(api.pname(x.pid)) + '</span><span>' + (x.row != null ? (x.took ? 'nimmt Reihe ' + (x.row + 1) : '→ Reihe ' + (x.row + 1)) : '') + '</span></div>').join('') + '</div></div>' : '';
+  let banner = '';
+  if (g.phase === 'choose' && g.choosing) banner = g.choosing.pid === me
+    ? '<div class="panel banner"><div><b>Deine ' + g.choosing.v + ' ist kleiner als alle Reihen.</b> Wähle eine Reihe, die du nimmst – deine Karte beginnt dort neu.</div><span class="pill wait">Klick auf eine Reihe</span></div>'
+    : '<div class="panel banner"><div><b>' + esc(api.pname(g.choosing.pid)) + '</b> hat die ' + g.choosing.v + ' gelegt – kleiner als alle Reihen – und sucht sich eine Reihe aus …</div></div>';
+  if (g.phase === 'select' && L.mode === 'besen') banner = '<div class="panel banner"><div><b>Besen:</b> Klick auf eine Reihe – alle Karten außer der letzten fliegen raus.</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div>';
+  if (g.phase === 'roundEnd') {
+    const last = g.history[g.history.length - 1] || { pts: {} };
+    banner = '<div class="panel endbox"><h2>Runde ' + g.round + ' vorbei</h2><table class="stattable" style="max-width:520px"><thead><tr><th>Spieler</th><th>diese Runde</th><th>gesamt</th></tr></thead><tbody>' +
+      r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => '<tr' + (p.id === me ? ' class="me"' : '') + '><td>' + esc(p.name) + '</td><td>' + (last.pts[p.id] ? '+' + last.pts[p.id] : '0') + '</td><td>' + (g.scores[p.id] || 0) + '</td></tr>').join('') + '</tbody></table>' +
+      '<p class="muted">Gespielt wird, bis jemand ' + g.target + ' Strafpunkte erreicht. Die nächste Runde startet gleich von selbst.</p>' +
+      (mine ? (g.ready[me] ? '<button class="btn big" disabled>Bereit</button>' : '<button class="btn primary big" data-act="next">Nächste Runde</button>') : '') + '</div>';
+  }
+  // Hand
+  let hand = '';
+  if (mine && g.phase !== 'roundEnd') {
+    const sel = g.phase === 'select' && !L.mode;
+    const held = g.held || [];
+    const spH = held.map(k => { const off = SP[k].auto || g.phase !== 'select' || L.mode || (k === 'tausch' && !g.hand.length);
+      return '<button type="button" ' + (off ? 'disabled' : 'data-act="sp" data-k="' + k + '"') + ' title="' + esc(SP[k].name + ': ' + SP[k].text) + '"><div class="sp sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b>' + (SP[k].auto ? '<i>wirkt automatisch</i>' : '') + '</div></button>'; }).join('');
+    hand = '<div class="panel hand"><div class="row" style="justify-content:space-between;display:flex;align-items:center;margin-bottom:8px"><div class="label">Deine Karten</div>' +
+      (g.phase === 'select' ? (g.myPick != null ? '<span class="pill live">Du spielst die ' + g.myPick + ' – du kannst noch wechseln</span>' : '<span class="pill wait">Wähle eine Karte</span>') : '') + '</div>' +
+      '<div class="cards">' + g.hand.map(v => '<button type="button" ' + (sel ? 'data-act="pick" data-v="' + v + '"' : 'disabled') + (g.myPick === v ? ' class="sel"' : '') + ' aria-label="' + v + ' spielen">' + card(v) + '</button>').join('') +
+      (held.length && g.hand.length ? '<span class="handgap"></span>' : '') + spH + '</div>' +
+      (!g.hand.length ? '<p class="muted">Keine Karten mehr in dieser Runde.</p>' : '') + '</div>';
+  }
+  const picker = L.pick && mine && (g.held || []).includes('tausch') && g.phase === 'select' ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:360px;border:2px solid #c9b8ff"><h2 style="font-size:24px">Mit wem tauschen?</h2><p class="muted" style="margin:0">Je eine zufällige Handkarte wechselt den Besitzer.</p><div class="row" style="justify-content:center;display:flex;flex-wrap:wrap;gap:8px">' +
+    r.players.filter(p => p.id !== me && g.counts[p.id] > 0).map(p => '<button class="btn" data-act="swap" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div></div>' : '';
+  if (!picker) L.pick = false;
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top + banner + '<div class="panel">' + rowsHTML(g, r) + '</div>' + reveal + hand + players + '</div>' + picker;
+  L.popRow = null; L.takenRow = null;
+}
+function overHTML(r, g) {
+  const win = (g.winner || []).map(id => esc(api.pname(id)));
+  const rows = r.players.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map((p, i) => '<tr' + (p.id === r.me ? ' class="me"' : '') + '><td>' + (i + 1) + '. ' + esc(p.name) + '</td>' + g.history.map(h => '<td>' + (h.pts[p.id] || 0) + '</td>').join('') + '<td><b>' + (g.scores[p.id] || 0) + '</b></td></tr>').join('');
+  return '<div class="panel endbox"><h2>' + api.names(win) + (win.length > 1 ? ' gewinnen!' : ' gewinnt!') + '</h2><p class="muted" style="font-size:17px">Mit den wenigsten Strafpunkten nach ' + g.history.length + (g.history.length === 1 ? ' Runde' : ' Runden') + '.</p>' +
+    '<div class="tablewrap" style="width:100%;max-width:760px"><table class="stattable"><thead><tr><th>Spieler</th>' + g.history.map(h => '<th>R' + h.round + '</th>').join('') + '<th>Gesamt</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + api.overButtons(r) + '</div>';
+}
+function rvStats(r, api) {
+  const g = r.g, ps = g.ps || {}, P = r.players;
+  const kpi = (v, t) => '<div class="kpi"><b>' + v + '</b><span>' + t + '</span></div>';
+  const list = f => P.map(p => ({ name: p.name, n: f(ps[p.id] || {}, p) || 0 }));
+  const aw = [], win = (g.winner || []).map(id => esc(api.pname(id)));
+  { const low = Math.min(...P.map(p => g.scores[p.id] || 0)); aw.push(api.award(AI.clean, 'Sauberste Weste', api.names(win) + ' mit nur ' + low + ' Strafpunkten.')); }
+  { const b = api.best(list((x, p) => g.scores[p.id] || 0), 1); if (b) aw.push(api.award(AI.horn, 'Hornträger', api.names(b.names) + (b.names.length > 1 ? ' sammelten je ' : ' sammelte ') + b.n + ' Strafpunkte.')); }
+  { const b = api.best(list(x => x.biggest), 5); if (b) aw.push(api.award(AI.big, 'Dicker Fang', api.names(b.names) + (b.names.length > 1 ? ' nahmen je ' : ' nahm ') + 'eine Reihe mit ' + b.n + ' Strafpunkten auf einmal.')); }
+  { const b = api.best(list(x => x.full)); if (b) aw.push(api.award(AI.full, 'Die 6. Karte', api.names(b.names) + (b.names.length > 1 ? ' legten je ' : ' legte ') + b.n + 'x die 6. Karte in eine volle Reihe.')); }
+  { const b = api.best(list(x => x.low)); if (b) aw.push(api.award(AI.low, 'Zu klein', api.names(b.names) + (b.names.length > 1 ? ' hatten je ' : ' hatte ') + b.n + 'x eine Karte, die kleiner war als alle Reihen.')); }
+  { const b = api.best(list(x => x.clean)); if (b) aw.push(api.award(AI.clean, 'Weiße Weste', api.names(b.names) + (b.names.length > 1 ? ' blieben je ' : ' blieb ') + b.n + (b.n === 1 ? ' Runde' : ' Runden') + ' ganz ohne Strafpunkte.')); }
+  { const b = api.best(list(x => x.saved)); if (b) aw.push(api.award(AI.angel, 'Schutzengel', 'Sonderkarten haben ' + api.names(b.names) + ' ' + b.n + ' Strafpunkte erspart.')); }
+  { const b = api.best(list(x => x.fives)); if (b) aw.push(api.award(AI.five, 'Die 55 erwischt', api.names(b.names) + ' musste' + (b.names.length > 1 ? 'n' : '') + ' die gefürchtete 55 (7 Strafpunkte) nehmen.')); }
+  const rows = P.slice().sort((a, b) => (g.scores[a.id] || 0) - (g.scores[b.id] || 0)).map(p => { const x = ps[p.id] || {}; return '<tr' + (p.id === r.me ? ' class="me"' : '') + '><td>' + esc(p.name) + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + '</td><td><b>' + (g.scores[p.id] || 0) + '</b></td><td>' + (x.rows || 0) + '</td><td>' + (x.full || 0) + ' / ' + (x.low || 0) + '</td><td>' + (x.biggest || 0) + '</td><td>' + (x.clean || 0) + '</td><td>' + (x.specials || 0) + '</td></tr>'; }).join('');
+  const sumRows = P.reduce((a, p) => a + ((ps[p.id] || {}).rows || 0), 0), sumPts = P.reduce((a, p) => a + (g.scores[p.id] || 0), 0);
+  const rec = (r.records || {}).rv;
+  return '<div class="statshead"><span class="big-title" style="color:var(--ok)">' + api.names(win) + (win.length > 1 ? ' gewinnen' : ' gewinnt') + '</span><span class="muted">' + g.history.length + (g.history.length === 1 ? ' Runde' : ' Runden') + ' · ' + api.fmtDur((g.ended || Date.now()) - g.started) + '</span></div>' +
+    '<div class="kpis">' + kpi(g.history.length, 'Runden gespielt') + kpi(sumRows, 'Reihen genommen') + kpi(sumPts, 'Strafpunkte insgesamt') + kpi(Math.min(...P.map(p => g.scores[p.id] || 0)) + ' – ' + Math.max(...P.map(p => g.scores[p.id] || 0)), 'wenigste – meiste Punkte') + '</div>' +
+    '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' +
+    '<div class="label">Spieler</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Spieler</th><th>Straf&shy;punkte</th><th>Reihen genommen</th><th>6. Karte / zu klein</th><th>größte Reihe</th><th>Runden ohne Punkte</th><th>Sonder&shy;karten</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    (rec ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + rec.games + (rec.games === 1 ? ' Spiel' : ' Spiele') + '</span>' + P.filter(p => rec.wins[p.id]).map(p => '<span class="pill">' + esc(p.name) + ': ' + rec.wins[p.id] + (rec.wins[p.id] === 1 ? ' Sieg' : ' Siege') + '</span>').join('') + (rec.best ? '<span class="pill">bester Sieg: ' + rec.best.pts + ' Punkte (' + esc(rec.best.name) + ')</span>' : '') + '</div>' : '');
+}
+function sideInfo(r) {
+  const g = r.g; if (!g) return '';
+  const on = g.specialsOn || [];
+  return '<div class="panel side" style="display:flex;flex-direction:column;gap:10px"><div class="label">Strafpunkte</div><div class="legend">' + [7, 15, 30, 44, 55].map(v => card(v)).join('') + '</div><small class="muted">1, 2, 3, 5 oder 7 Hörner = so viele Strafpunkte. Die 55 ist mit 7 am teuersten.</small>' +
+    (on.length ? '<div class="label" style="margin-top:4px">Sonderkarten</div>' + on.map(k => '<div class="it"><span class="ic sp-' + k + '" style="background:var(--sc)">' + SP[k].ico + '</span><div><b>' + SP[k].name + ((g.held || []).includes(k) ? ' <span style="color:var(--accent);font-size:11px">· du hast sie</span>' : '') + '</b><small>' + SP[k].text + '</small></div></div>').join('') : '') + '</div>';
+}
+
+const api = Spieleabend.start({
+  game: 'reihe', title: 'Reihe voll!', tagline: 'Wer die sechste Karte legt, nimmt die Reihe',
+  brand: '<b>Reihe <i>voll!</i></b>',
+  meta: { min: 2, max: 10, bots: true, maxBots: 9 },
+  hero: '<h1>Reihe <em>voll!</em></h1><p>Alle legen gleichzeitig verdeckt eine Karte. Dann wird aufgedeckt und die Karten wandern der Größe nach in vier Reihen. Wer die sechste Karte in eine Reihe legt, muss die ganze Reihe nehmen – mit allen Strafpunkten. Wer am Ende die wenigsten hat, gewinnt.</p>' +
+    '<div class="art row" aria-hidden="true" style="display:flex;gap:8px">' + [12, 33, 55, 70, 104].map(v => card(v)).join('') + '</div>' +
+    '<ol class="steps"><li>Tisch erstellen und den Link verschicken – oder Bots dazunehmen (2 bis 10 Spieler).</li><li>Jeder bekommt 10 Karten. In jedem Zug wählen alle gleichzeitig eine aus.</li><li>Wer zuerst die Punktgrenze erreicht, beendet das Spiel. Die wenigsten Strafpunkte gewinnen.</li></ol>',
+  rules: () => '<p>Ziel: möglichst <b>wenige Strafpunkte</b> sammeln. Jede Karte hat 1 bis 7 Strafpunkte (die kleinen Hörner).</p>' +
+    '<h3>Aufbau</h3><ul><li>Es gibt Karten von 1 bis 104. Jeder bekommt 10 Karten, in der Mitte liegen 4 Reihen mit je einer Karte.</li></ul>' +
+    '<h3>Ein Zug</h3><ol><li>Alle wählen <b>gleichzeitig</b> eine Handkarte aus. Bis alle gewählt haben, darfst du noch wechseln.</li><li>Dann wird aufgedeckt. Die Karten werden von der <b>kleinsten zur größten</b> einsortiert.</li><li>Jede Karte kommt an die Reihe, deren letzte Karte <b>am nächsten darunter</b> liegt.</li><li>Wäre deine Karte die <b>6. Karte</b> einer Reihe, nimmst du die 5 Karten dieser Reihe. Deine Karte beginnt die Reihe neu.</li><li>Ist deine Karte <b>kleiner als alle Reihen</b>, suchst du dir eine Reihe aus, nimmst sie und deine Karte beginnt dort neu.</li></ol>' +
+    '<h3>Rundenende und Sieg</h3><ul><li>Nach 10 Zügen ist eine Runde vorbei, dann wird neu gemischt.</li><li>Erreicht jemand die eingestellte Grenze (33, 66 oder 99 Strafpunkte), ist das Spiel aus. Wer die <b>wenigsten</b> Strafpunkte hat, gewinnt.</li></ul>' +
+    '<h3>Strafpunkte</h3><ul><li>Die meisten Karten: 1 · Endet auf 5: 2 · Endet auf 0: 3 · Doppelzahl (11, 22 …): 5 · Die 55: 7.</li></ul>' +
+    '<h3>Zeitlimit</h3><ul><li>Ist ein Zeitlimit eingestellt und du hast nicht rechtzeitig gewählt, wird eine zufällige Karte für dich gelegt. Musst du eine Reihe wählen und die Zeit läuft ab, nimmst du automatisch die günstigste.</li></ul>' +
+    '<h3>Sonderkarten</h3><div class="spl">' + Object.entries(SP).map(([k, x]) => '<div class="spx sp-' + k + '"><span class="ic">' + x.ico + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div></div>').join('') + '</div><p class="muted">Pro Runde bekommt jeder Mensch eine Sonderkarte. Besen und Tausch setzt du ein, solange noch alle auswählen.</p>',
+  lobby: (r, host) => {
+    const s = r.settings, seg = (key, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button type="button" data-set="' + key + '" data-val="' + v + '" aria-pressed="' + (String(s[key]) === String(v)) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>').join('') + '</div>';
+    return '<div class="field"><span class="label">Spielende bei</span>' + seg('target', [[33, '33 Punkten'], [66, '66 Punkten'], [99, '99 Punkten']]) + '<small class="muted">Sobald jemand so viele Strafpunkte hat, endet das Spiel. 66 ist die klassische Länge.</small></div>' +
+      '<div class="field"><span class="label">Zeit pro Zug</span>' + seg('timer', [[0, 'Aus'], [60, '60 Sek.'], [45, '45 Sek.'], [30, '30 Sek.'], [15, '15 Sek.']]) + '<small class="muted">' + (+s.timer ? 'Wer nicht rechtzeitig wählt, spielt eine zufällige Karte.' : 'Jeder hat so viel Zeit, wie er braucht.') + '</small></div>' + spSettings(r, host);
+  },
+  livePanel: r => '<p class="muted" style="margin:0">Gilt ab der nächsten Runde. Karten, die schon auf der Hand sind, bleiben.</p>' + spSettings(r, true),
+  sideExtra: r => sideInfo(r),
+  stats: (r, api) => rvStats(r, api),
+  render: renderGame, onState,
+  actions: {
+    pick: el => { const v = +el.dataset.v, g = api.room.g; if (g.myPick === v) api.act('unpick'); else { api.Snd.play('click', .6); api.act('pick', { v }); } },
+    take: el => api.act('row', { row: +el.dataset.row }),
+    sweep: el => { L.mode = null; api.act('special', { kind: 'besen', row: +el.dataset.row }); },
+    sp: el => { const k = el.dataset.k; if (k === 'besen') { L.mode = 'besen'; api.render(); return; } if (k === 'tausch') { L.pick = true; api.render(); return; } },
+    swap: el => { L.pick = false; api.act('special', { kind: 'tausch', target: el.dataset.pid }); },
+    cancelMode: () => { L.mode = null; L.pick = false; api.render(); },
+    next: () => api.act('next')
+  },
+  onEscape: () => { if (L.mode || L.pick) { L.mode = null; L.pick = false; api.render(); } },
+  sounds: {
+    flip: (S, t, v) => { S.noise(t, .12, .35 * v, 2500); },
+    place: (S, t, v) => { S.noise(t, .05, .4 * v, 2600); S.tone(420, t + .01, .18, 'triangle', .12 * v); },
+    take: (S, t, v) => { S.tone(220, t, .2, 'sawtooth', .07 * v); S.tone(165, t + .16, .3, 'sawtooth', .07 * v); },
+    shield: (S, t, v) => { S.tone(440, t, .3, 'triangle', .14 * v); S.tone(880, t + .05, .5, 'sine', .1 * v); },
+    tick: (S, t, v) => S.tone(1500, t, .05, 'square', .04 * v),
+    sweepfx: (S, t, v) => S.noise(t, .35, .5 * v, 1200)
+  }
+});
+
+function onState(prev, r) {
+  const g = r.g; if (!g) return;
+  if (L.evKey !== g.started) { L.evKey = g.started; L.lastSeq = (!prev || !prev.g) && g.ev ? g.ev.seq : 0; if (!prev || !prev.g) return; }
+  if (!g.ev || g.ev.seq === L.lastSeq) return;
+  L.lastSeq = g.ev.seq;
+  const e = g.ev, S = api.Snd, nm = id => id === r.me ? 'Du' : api.pname(id);
+  if (e.kind === 'reveal') S.play('flip');
+  if (e.kind === 'place') { S.play('place'); L.popRow = e.row; api.render(); }
+  if (e.kind === 'take') {
+    L.takenRow = e.row; L.popRow = e.row; api.render();
+    if (e.shield || e.half) S.play('shield'); else S.play('take', e.pid === r.me ? 1 : .6);
+    const why = e.reason === 'full' ? 'legt die 6. Karte in Reihe ' + (e.row + 1) : 'nimmt mit der ' + e.v + ' Reihe ' + (e.row + 1);
+    api.toast(nm(e.pid) + ' ' + (e.pid === r.me ? why.replace('legt', 'legst').replace('nimmt', 'nimmst') : why) + ': ' + (e.shield ? 'Schutzschild – 0 statt ' + e.raw + ' Strafpunkte!' : e.half ? 'halbe Strafe – ' + e.pts + ' statt ' + e.raw + ' Strafpunkte.' : e.pts + (e.pts === 1 ? ' Strafpunkt.' : ' Strafpunkte.')) + (e.auto ? ' (Zeit abgelaufen)' : ''), 4500);
+  }
+  if (e.kind === 'choose' && e.pid === r.me) { S.play('error'); api.toast('Deine ' + e.v + ' ist zu klein – wähle eine Reihe, die du nimmst.', 5000); }
+  if (e.kind === 'round' && e.round > 1) S.play('ok');
+  if (e.kind === 'round' && e.gifts) { const mine = e.gifts.filter(x => x.pid === r.me); if (mine.length) setTimeout(() => api.toast('Neue Sonderkarte: ' + SP[mine[0].kind].name + '.'), 400); }
+  if (e.kind === 'besen') { S.play('sweepfx'); api.toast(nm(e.pid) + ' fegt Reihe ' + (e.row + 1) + ' aus – ' + e.n + (e.n === 1 ? ' Karte fliegt' : ' Karten fliegen') + ' raus.'); }
+  if (e.kind === 'tausch') { S.play('ok'); api.toast(e.target === r.me ? api.pname(e.pid) + ' tauscht mit dir: Du gibst die ' + e.got + ' ab und bekommst die ' + e.gave + '.' : e.pid === r.me ? 'Tausch mit ' + api.pname(e.target) + ': Du gibst die ' + e.gave + ' ab und bekommst die ' + e.got + '.' : api.pname(e.pid) + ' tauscht eine Karte mit ' + api.pname(e.target) + '.', 5000); }
+  if (e.kind === 'timeout') api.toast('Zeit um! Für ' + e.pids.map(id => id === r.me ? 'dich' : api.pname(id)).join(', ') + ' wurde eine zufällige Karte gelegt.');
+  if (e.kind === 'roundEnd') S.play('ok');
+  if (e.kind === 'over') S.play('win');
+}
+// Uhr aktualisieren
+setInterval(() => {
+  const r = api.room; if (!r || !r.g || r.status !== 'playing') return;
+  const g = r.g, t = document.querySelector('[data-timer]'); if (!t || !g.deadline) return;
+  const ms = g.deadline - Date.now() - L.off, s = Math.ceil(ms / 1000);
+  t.textContent = fmtT(ms); t.classList.toggle('low', ms < 10000);
+  if (s <= 5 && s > 0 && L.tick !== s && ((g.phase === 'select' && g.myPick == null && g.hand.length) || (g.phase === 'choose' && g.choosing && g.choosing.pid === r.me))) { L.tick = s; api.Snd.play('tick'); }
+}, 250);
+})();
+</script>
+</body></html>
