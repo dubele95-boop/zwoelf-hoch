@@ -65,7 +65,10 @@
 .sp .ico svg{width:62%;height:62%}
 .sp b{font:800 11px/1.1 var(--f-body);hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}
 .sp i{font:700 9px/1 var(--f-body);font-style:normal;opacity:.75}
-.sp-schild{--sc:#9be38a}.sp-halb{--sc:#7fd6ff}.sp-besen{--sc:#ffb86b}.sp-tausch{--sc:#c9b8ff}
+.sp-schild{--sc:#9be38a}.sp-halb{--sc:#7fd6ff}.sp-besen{--sc:#ffb86b}.sp-tausch{--sc:#c9b8ff}.sp-leer{--sc:#e6e1d6}
+.hand .cards button.sel .sp{transform:translateY(-14px);outline:3px solid var(--accent);outline-offset:3px}
+.sp.mini{--w:42px;padding:3px 2px;gap:2px;border-radius:7px}.sp.mini b{font-size:7.5px}.sp.mini .ico{width:60%}
+.picklist{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.picklist button{padding:0;border:0;background:none;border-radius:10px}.picklist button.sel .rc{outline:3px solid var(--accent);outline-offset:2px}.picklist .rc{--w:48px}
 .side .it{display:flex;gap:10px;align-items:flex-start}
 .side .ic{width:30px;height:30px;border-radius:8px;background:var(--sc);color:#16122a;display:grid;place-items:center;flex:none}
 .side .ic svg{width:18px;height:18px}
@@ -114,11 +117,14 @@ const pcol = (r, pid) => { const i = r.players.findIndex(p => p.id === pid); ret
 const card = (v, extra, own) => { const p = pen(v); return '<div class="rc pen' + p + (extra || '') + (own ? ' own" style="--oc:' + own.c : '') + '" title="' + v + ' – ' + p + (p === 1 ? ' Strafpunkt' : ' Strafpunkte') + (own ? ' · gelegt von ' + esc(own.n) : '') + '"><span class="horns">' + HORN.repeat(p) + '</span><b>' + v + '</b><span class="horns">' + HORN.repeat(p) + '</span>' + (own ? '<span class="ownr">' + esc(own.n) + '</span>' : '') + '</div>'; };
 const ownOf = (r, g, v) => { const pid = (g.owner || {})[v]; return pid ? { c: pcol(r, pid), n: pid === r.me ? 'Du' : api.pname(pid) } : null; };
 const SP = {
-  schild: { name: 'Schutzschild', text: 'Musst du das nächste Mal eine Reihe nehmen, bekommst du keine Strafpunkte. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>' },
-  halb: { name: 'Halbe Strafe', text: 'Die nächste Reihe, die du nehmen musst, zählt nur halb. Wirkt automatisch.', auto: true, ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19L19 5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/></svg>' },
+  schild: { name: 'Schutzschild', text: 'Statt einer Zahl legen: Musst du danach das nächste Mal eine Reihe nehmen, bekommst du keine Strafpunkte.', ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/></svg>' },
+  halb: { name: 'Halbe Strafe', text: 'Statt einer Zahl legen: Die nächste Reihe, die du danach nehmen musst, zählt nur halb.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 19L19 5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/></svg>' },
   besen: { name: 'Besen', text: 'Wähle eine Reihe: Alle Karten außer der letzten fliegen raus – niemand bekommt sie.', ico: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 2l2 2-7 7-2-2zM11 10l3 3-1 1c-1 4-4 7-9 8 1-5 4-8 8-9z"/></svg>' },
-  tausch: { name: 'Tausch', text: 'Du tauschst eine zufällige Handkarte mit einer zufälligen Karte eines Mitspielers.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>' }
+  tausch: { name: 'Tausch', text: 'Du suchst dir eine deiner Karten aus und gibst sie einem Mitspieler. Er gibt dir dafür eine zufällige Karte zurück.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>' }
 };
+SP.leer = { name: 'Leere Karte', text: 'Hat keinen Wert: Du spielst sie statt einer Zahl und musst diesen Zug nirgends anlegen.', ico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 12h6"/></svg>' };
+const PLAYABLE = ['besen', 'tausch', 'leer'];
+const spMini = k => '<div class="sp mini sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b></div>';
 const AI = {
   clean: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.3L12 17.8 5.7 21.5l1.7-7.3L2 9.5l7.1-.6z"/></svg>',
   horn: HORN,
@@ -154,9 +160,10 @@ function renderGame(r, el) {
   const me = r.me, mine = r.players.some(p => p.id === me);
   const timer = g.deadline && r.status === 'playing' && (g.phase === 'select' || g.phase === 'choose') ? '<div class="timer" data-timer>' + fmtT(g.deadline - Date.now() - L.off) + '</div>' : '';
   const top = '<div class="panel rv-top"><div class="t"><b>Runde ' + g.round + '</b><span>Zug ' + Math.min(g.turn, g.turns) + ' von ' + g.turns + ' · Spielende bei ' + g.target + ' Strafpunkten</span></div>' + timer + '</div>';
-  const nowX = g.revealed.find(x => x.row == null);
+  const nowX = g.revealed.find(x => !x.sp && x.row == null);
   const slot = p => {
     const i = g.revealed.findIndex(x => x.pid === p.id), x = g.revealed[i];
+    if (x && x.sp) { const f = x.info || {}; return '<div class="plcard done"><span class="ord">' + (i + 1) + '.</span>' + spMini(x.sp) + '<small>' + (x.sp === 'besen' ? (f.row != null ? 'fegt R' + (f.row + 1) : 'Besen') : x.sp === 'tausch' ? (f.failed ? 'Tausch klappt nicht' : 'tauscht') : x.sp === 'schild' ? 'Schutz an' : x.sp === 'halb' ? 'Halb an' : 'legt nichts') + '</small></div>'; }
     if (x) return '<div class="plcard' + (x.row != null ? ' done' : '') + '"><span class="ord">' + (i + 1) + '.</span>' + card(x.v, ' mini') + '<small>' + (x.row != null ? (x.took ? 'nimmt R' + (x.row + 1) : '→ Reihe ' + (x.row + 1)) : nowX === x ? 'ist dran' : '') + '</small></div>';
     if (g.phase === 'select' && g.picked[p.id]) return '<div class="plcard"><div class="rc mini back" style="--oc:' + pcol(r, p.id) + '"></div><small>gewählt</small></div>';
     return '<div class="plcard"><div class="rc mini empty"></div><small>' + (g.phase === 'select' && r.status === 'playing' ? 'wählt …' : '') + '</small></div>';
@@ -165,6 +172,7 @@ function renderGame(r, el) {
     const st = g.phase === 'roundEnd' ? (g.ready[p.id] ? '<span class="st ok">✓ bereit</span>' : '<span class="st">schaut …</span>') : '';
     return '<div class="pl' + (p.id === me ? ' me' : '') + (nowX && nowX.pid === p.id ? ' now' : '') + '"><div class="info"><div class="nm"><span class="pdot" style="--oc:' + pcol(r, p.id) + '"></span>' + esc(p.name) + (p.id === me ? ' <span class="muted">(du)</span>' : '') + (p.bot ? ' <span class="pill bot">Bot</span>' : '') + (p.online ? '' : ' <span class="pill">offline</span>') + '</div>' +
       '<div class="sc">' + (g.scores[p.id] || 0) + (g.roundPts[p.id] ? '<small>+' + g.roundPts[p.id] + '</small>' : '') + '</div>' + st +
+      (((g.armed || {})[p.id] || []).length ? '<span class="st" style="color:#9be38a">' + g.armed[p.id].map(k => k === 'schild' ? '🛡 Schild aktiv' : '½ Halbe Strafe aktiv').join(' · ') + '</span>' : '') +
       ((g.heldCounts || {})[p.id] ? '<span class="st" style="color:#ffd166">' + g.heldCounts[p.id] + ' Sonderkarte' + (g.heldCounts[p.id] > 1 ? 'n' : '') + '</span>' : '') + '</div>' + (r.status === 'over' ? '' : slot(p)) + '</div>';
   }).join('') + '</div></div>';
   if (r.status === 'over') { el.innerHTML = '<div class="rv-grid">' + players + '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + top + overHTML(r, g) + '</div></div>'; return; }
@@ -188,17 +196,20 @@ function renderGame(r, el) {
   let hand = '';
   if (mine && g.phase !== 'roundEnd') {
     const sel = g.phase === 'select' && !L.mode;
-    const held = g.held || [];
-    const spH = held.map(k => { const off = SP[k].auto || g.phase !== 'select' || L.mode || (k === 'tausch' && !g.hand.length);
-      return '<button type="button" ' + (off ? 'disabled' : 'data-act="sp" data-k="' + k + '"') + ' title="' + esc(SP[k].name + ': ' + SP[k].text) + '"><div class="sp sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b>' + (SP[k].auto ? '<i>wirkt automatisch</i>' : '') + '</div></button>'; }).join('');
+    const held = g.held || [], ms = g.mySp;
+    const spH = held.map((k, n) => { const off = SP[k].auto || g.phase !== 'select' || L.mode || !g.hand.length, on = ms && ms.sp === k && held.indexOf(k) === n;
+      return '<button type="button" ' + (off ? 'disabled' : 'data-act="sp" data-k="' + k + '"') + (on ? ' class="sel"' : '') + ' title="' + esc(SP[k].name + ': ' + SP[k].text) + '"><div class="sp sp-' + k + '"><span class="ico">' + SP[k].ico + '</span><b>' + SP[k].name + '</b>' + (SP[k].auto ? '<i>wirkt automatisch</i>' : '<i>statt einer Zahl</i>') + '</div></button>'; }).join('');
+    const spTxt = ms ? (ms.sp === 'besen' ? 'den Besen auf Reihe ' + (ms.row + 1) : ms.sp === 'tausch' ? 'den Tausch: deine ' + ms.give + ' an ' + esc(api.pname(ms.target)) : ms.sp === 'schild' ? 'das Schutzschild' : ms.sp === 'halb' ? 'die Halbe Strafe' : 'die Leere Karte') : '';
     hand = '<div class="panel hand"><div class="row" style="justify-content:space-between;display:flex;align-items:center;margin-bottom:8px"><div class="label">Deine Karten</div>' +
-      (g.phase === 'select' ? (g.myPick != null ? '<span class="pill live">Du spielst die ' + g.myPick + ' – du kannst noch wechseln</span>' : '<span class="pill wait">Wähle eine Karte</span>') : '') + '</div>' +
+      (g.phase === 'select' ? (g.myPick != null ? '<span class="pill live">Du spielst die ' + g.myPick + ' – du kannst noch wechseln</span>' : ms ? '<span class="pill live">Du spielst ' + spTxt + ' – du kannst noch wechseln</span>' : '<span class="pill wait">Wähle eine Karte</span>') : '') + '</div>' +
       '<div class="cards">' + g.hand.map(v => '<button type="button" ' + (sel ? 'data-act="pick" data-v="' + v + '"' : 'disabled') + (g.myPick === v ? ' class="sel"' : '') + ' aria-label="' + v + ' spielen">' + card(v) + '</button>').join('') +
       (held.length && g.hand.length ? '<span class="handgap"></span>' : '') + spH + '</div>' +
       (!g.hand.length ? '<p class="muted">Keine Karten mehr in dieser Runde.</p>' : '') + '</div>';
   }
-  const picker = L.pick && mine && (g.held || []).includes('tausch') && g.phase === 'select' ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:360px;border:2px solid #c9b8ff"><h2 style="font-size:24px">Mit wem tauschen?</h2><p class="muted" style="margin:0">Je eine zufällige Handkarte wechselt den Besitzer.</p><div class="row" style="justify-content:center;display:flex;flex-wrap:wrap;gap:8px">' +
-    r.players.filter(p => p.id !== me && g.counts[p.id] > 0).map(p => '<button class="btn" data-act="swap" data-pid="' + esc(p.id) + '">' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div></div>' : '';
+  const picker = L.pick && mine && (g.held || []).includes('tausch') && g.phase === 'select' ? '<div class="modal side" role="dialog" aria-label="Tausch"><div class="panel modalbox" style="max-width:380px;border:2px solid #c9b8ff"><h2 style="font-size:24px">Tausch</h2>' +
+    '<p class="muted" style="margin:0"><b>1.</b> Welche Karte gibst du ab?</p><div class="picklist">' + g.hand.map(v => '<button type="button" data-act="swapCard" data-v="' + v + '"' + (L.give === v ? ' class="sel"' : '') + '>' + card(v) + '</button>').join('') + '</div>' +
+    '<p class="muted" style="margin:0"><b>2.</b> An wen? Er gibt dir eine zufällige Karte zurück.</p><div class="row" style="justify-content:center;display:flex;flex-wrap:wrap;gap:8px">' +
+    r.players.filter(p => p.id !== me && g.counts[p.id] > 1).map(p => '<button class="btn' + (L.give != null ? ' primary' : '') + '" data-act="swap" data-pid="' + esc(p.id) + '"' + (L.give == null ? ' disabled' : '') + '>' + esc(p.name) + '</button>').join('') + '</div><button class="btn small" data-act="cancelMode">Abbrechen</button></div></div>' : '';
   if (!picker) L.pick = false;
   el.innerHTML = '<div class="rv-grid">' + players + '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + top + banner + '<div class="panel">' + rowsHTML(g, r) + '</div>' + hand + endbox + '</div></div>' + picker;
   L.popRow = null; L.takenRow = null;
@@ -248,10 +259,10 @@ const api = Spieleabend.start({
   rules: () => '<p>Ziel: möglichst <b>wenige Strafpunkte</b> sammeln. Jede Karte hat 1 bis 7 Strafpunkte (die kleinen Hörner).</p>' +
     '<h3>Aufbau</h3><ul><li>Es gibt Karten von 1 bis 104. Jeder bekommt 10 Karten, in der Mitte liegen 4 Reihen mit je einer Karte.</li></ul>' +
     '<h3>Ein Zug</h3><ol><li>Alle wählen <b>gleichzeitig</b> eine Handkarte aus. Bis alle gewählt haben, darfst du noch wechseln.</li><li>Dann wird aufgedeckt. Die Karten werden von der <b>kleinsten zur größten</b> einsortiert.</li><li>Jede Karte kommt an die Reihe, deren letzte Karte <b>am nächsten darunter</b> liegt.</li><li>Wäre deine Karte die <b>6. Karte</b> einer Reihe, nimmst du die 5 Karten dieser Reihe. Deine Karte beginnt die Reihe neu.</li><li>Ist deine Karte <b>kleiner als alle Reihen</b>, suchst du dir eine Reihe aus, nimmst sie und deine Karte beginnt dort neu.</li></ol>' +
-    '<h3>Rundenende und Sieg</h3><ul><li>Nach 10 Zügen ist eine Runde vorbei, dann wird neu gemischt.</li><li>Erreicht jemand die eingestellte Grenze (33, 66 oder 99 Strafpunkte), ist das Spiel aus. Wer die <b>wenigsten</b> Strafpunkte hat, gewinnt.</li></ul>' +
+    '<h3>Rundenende und Sieg</h3><ul><li>Sind alle Zahlenkarten gespielt (normalerweise nach 10 Zügen), ist die Runde vorbei, dann wird neu gemischt.</li><li>Erreicht jemand die eingestellte Grenze (33, 66 oder 99 Strafpunkte), ist das Spiel aus. Wer die <b>wenigsten</b> Strafpunkte hat, gewinnt.</li></ul>' +
     '<h3>Strafpunkte</h3><ul><li>Die meisten Karten: 1 · Endet auf 5: 2 · Endet auf 0: 3 · Doppelzahl (11, 22 …): 5 · Die 55: 7.</li></ul>' +
     '<h3>Zeitlimit</h3><ul><li>Ist ein Zeitlimit eingestellt und du hast nicht rechtzeitig gewählt, wird eine zufällige Karte für dich gelegt. Musst du eine Reihe wählen und die Zeit läuft ab, nimmst du automatisch die günstigste.</li></ul>' +
-    '<h3>Sonderkarten</h3><div class="spl">' + Object.entries(SP).map(([k, x]) => '<div class="spx sp-' + k + '"><span class="ic">' + x.ico + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div></div>').join('') + '</div><p class="muted">Pro Runde bekommt jeder Mensch eine Sonderkarte. Besen und Tausch setzt du ein, solange noch alle auswählen.</p>',
+    '<h3>Sonderkarten</h3><p>Alle Sonderkarten spielst du <b>statt einer Zahlenkarte</b>: Du wählst sie wie eine normale Karte aus und musst in diesem Zug nichts anlegen. Sie wirken beim Aufdecken, noch bevor die Zahlen einsortiert werden. Deine übrige Zahlenkarte spielst du später – die Runde dauert dann einen Zug länger.</p><div class="spl">' + Object.entries(SP).map(([k, x]) => '<div class="spx sp-' + k + '"><span class="ic">' + x.ico + '</span><div><b>' + x.name + '</b><small>' + x.text + '</small></div></div>').join('') + '</div><p class="muted">Pro Runde bekommt jeder Mensch eine Sonderkarte. Besen und Tausch setzt du ein, solange noch alle auswählen.</p>',
   lobby: (r, host) => {
     const s = r.settings, seg = (key, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button type="button" data-set="' + key + '" data-val="' + v + '" aria-pressed="' + (String(s[key]) === String(v)) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>').join('') + '</div>';
     return '<div class="field"><span class="label">Spielende bei</span>' + seg('target', [[33, '33 Punkten'], [66, '66 Punkten'], [99, '99 Punkten']]) + '<small class="muted">Sobald jemand so viele Strafpunkte hat, endet das Spiel. 66 ist die klassische Länge.</small></div>' +
@@ -265,9 +276,11 @@ const api = Spieleabend.start({
     pick: el => { const v = +el.dataset.v, g = api.room.g; if (g.myPick === v) api.act('unpick'); else { api.Snd.play('click', .6); api.act('pick', { v }); } },
     take: el => api.act('row', { row: +el.dataset.row }),
     sweep: el => { L.mode = null; api.act('special', { kind: 'besen', row: +el.dataset.row }); },
-    sp: el => { const k = el.dataset.k; if (k === 'besen') { L.mode = 'besen'; api.render(); return; } if (k === 'tausch') { L.pick = true; api.render(); return; } },
-    swap: el => { L.pick = false; api.act('special', { kind: 'tausch', target: el.dataset.pid }); },
-    cancelMode: () => { L.mode = null; L.pick = false; api.render(); },
+    sp: el => { const k = el.dataset.k, g = api.room.g; if (g.mySp && g.mySp.sp === k) { api.act('unpick'); return; }
+      if (k === 'besen') { L.mode = 'besen'; api.render(); return; } if (k === 'tausch') { L.pick = true; L.give = null; api.render(); return; } api.act('special', { kind: k }); },
+    swapCard: el => { L.give = +el.dataset.v; api.render(); },
+    swap: el => { L.pick = false; const give = L.give; L.give = null; api.act('special', { kind: 'tausch', target: el.dataset.pid, give }); },
+    cancelMode: () => { L.mode = null; L.pick = false; L.give = null; api.render(); },
     next: () => api.act('next')
   },
   onEscape: () => { if (L.mode || L.pick) { L.mode = null; L.pick = false; api.render(); } },
@@ -287,7 +300,13 @@ function onState(prev, r) {
   if (!g.ev || g.ev.seq === L.lastSeq) return;
   L.lastSeq = g.ev.seq;
   const e = g.ev, S = api.Snd, nm = id => id === r.me ? 'Du' : api.pname(id);
-  if (e.kind === 'reveal') S.play('flip');
+  if (e.kind === 'reveal') { S.play('flip');
+    (e.specials || []).forEach((x, n) => setTimeout(() => {
+      if (x.sp === 'besen' && x.row != null) { S.play('sweepfx'); api.toast(nm(x.pid) + ' fegt Reihe ' + (x.row + 1) + ' aus – ' + x.n + (x.n === 1 ? ' Karte fliegt' : ' Karten fliegen') + ' raus.'); }
+      if (x.sp === 'tausch') api.toast(x.failed ? 'Der Tausch von ' + nm(x.pid) + ' hat nicht geklappt.' : x.target === r.me ? api.pname(x.pid) + ' gibt dir die ' + x.gave + ' und bekommt deine ' + x.got + '.' : x.pid === r.me ? 'Du gibst ' + api.pname(x.target) + ' die ' + x.gave + ' und bekommst die ' + x.got + '.' : api.pname(x.pid) + ' tauscht eine Karte mit ' + api.pname(x.target) + '.', 5000);
+      if (x.sp === 'schild' || x.sp === 'halb') api.toast(nm(x.pid) + ' ' + (x.pid === r.me ? 'legst' : 'legt') + (x.sp === 'schild' ? ' ein Schutzschild: Die nächste Reihe kostet keine Strafpunkte.' : ' die Halbe Strafe: Die nächste Reihe zählt nur halb.'));
+      if (x.sp === 'leer') api.toast(nm(x.pid) + ' ' + (x.pid === r.me ? 'spielst' : 'spielt') + ' die Leere Karte und legt nichts an.');
+    }, n * 1600)); }
   if (e.kind === 'place') { S.play('place'); L.popRow = e.row; api.render(); }
   if (e.kind === 'take') {
     L.takenRow = e.row; L.popRow = e.row; api.render();

@@ -4,14 +4,16 @@ const meta = { id: 'reihe', name: 'Reihe voll!', min: 2, max: 10, bots: true, ma
 const HAND = 10, ROWS = 4, ROW_MAX = 5;
 const STEP_MS = 1100, NEXT_MS = 900, ROUND_AUTO_MS = 60000;   // Sicherheitsnetz, falls jemand nicht mehr reagiert
 const TARGETS = [33, 66, 99], TIMERS = [0, 15, 30, 45, 60];
-const SPECIALS = ['schild', 'halb', 'besen', 'tausch'];
+const SPECIALS = ['schild', 'halb', 'besen', 'tausch', 'leer'];
+const PLAYABLE = ['schild', 'halb', 'besen', 'tausch', 'leer'];   // werden statt einer Zahlenkarte gelegt
+const isSp = v => v != null && typeof v === 'object';
 const MAX_HELD = 3;
 
 // Strafpunkte einer Karte
 function pen(v) { if (v === 55) return 7; if (v % 11 === 0) return 5; if (v % 10 === 0) return 3; if (v % 5 === 0) return 2; return 1; }
 const rowPts = row => row.reduce((a, v) => a + pen(v), 0);
 
-function defaults() { return { target: 66, timer: 0, specials: { schild: true, halb: true, besen: true, tausch: false } }; }
+function defaults() { return { target: 66, timer: 0, specials: { schild: true, halb: true, besen: true, tausch: true, leer: true } }; }
 const liveSetting = key => key === 'allSpecials' || key.startsWith('sp_');
 function setting(r, key, value, ctx) {
   const st = r.settings;
@@ -86,11 +88,15 @@ function allPicked(r, ctx) {
   const active = r.players.filter(p => (s.hands[p.id] || []).length);
   if (!active.length || !active.every(p => s.picks[p.id] != null)) return;
   ctx.clearTimer(r, 'clock'); s.deadline = 0;
-  s.queue = active.map(p => ({ pid: p.id, v: s.picks[p.id] })).sort((a, b) => a.v - b.v);
+  const spPlays = active.filter(p => isSp(s.picks[p.id])).map(p => ({ pid: p.id, ...s.picks[p.id] }));
+  s.queue = active.filter(p => !isSp(s.picks[p.id])).map(p => ({ pid: p.id, v: s.picks[p.id] })).sort((a, b) => a.v - b.v);
   for (const q of s.queue) { const h = s.hands[q.pid]; h.splice(h.indexOf(q.v), 1); ps(s, q.pid).played++; }
-  s.revealed = s.queue.map(q => ({ ...q, row: null, took: false }));
+  // Sonderkarten wirken zuerst, danach werden die Zahlen einsortiert
+  const results = spPlays.map(x => playSpecial(r, x, ctx)).filter(Boolean);
+  s.revealed = results.map(x => ({ pid: x.pid, sp: x.sp, row: x.row != null ? x.row : null, took: false, done: true, info: x }))
+    .concat(s.queue.map(q => ({ ...q, row: null, took: false })));
   s.phase = 'reveal';
-  event(s, { kind: 'reveal', cards: s.revealed.map(x => ({ pid: x.pid, v: x.v })) });
+  event(s, { kind: 'reveal', cards: s.revealed.map(x => ({ pid: x.pid, v: x.v, sp: x.sp })), specials: results });
   ctx.timer(r, 'step', STEP_MS + 400, () => { step(r, ctx); ctx.broadcast(r); });
 }
 // eine aufgedeckte Karte nach der anderen einsortieren
@@ -110,7 +116,7 @@ function step(r, ctx) {
   place(r, q, best, s.rows[best].length >= ROW_MAX ? 'full' : null, ctx);
 }
 function place(r, q, ri, reason, ctx) {
-  const s = r.state, rev = s.revealed.find(x => x.pid === q.pid && x.v === q.v);
+  const s = r.state, rev = s.revealed.find(x => x.pid === q.pid && x.v === q.v && !x.sp);
   if (reason) takeRow(r, q.pid, ri, q.v, reason);
   else { s.rows[ri].push(q.v); (s.owner = s.owner || {})[q.v] = q.pid; event(s, { kind: 'place', pid: q.pid, v: q.v, row: ri }); }
   if (rev) { rev.row = ri; rev.took = !!reason; }
@@ -118,7 +124,7 @@ function place(r, q, ri, reason, ctx) {
   ctx.timer(r, 'step', STEP_MS, () => { step(r, ctx); ctx.broadcast(r); });
 }
 function takeRow(r, pid, ri, v, reason) {
-  const s = r.state, cards = s.rows[ri].slice(), raw = rowPts(cards), held = s.held[pid] || [], p = ps(s, pid);
+  const s = r.state, cards = s.rows[ri].slice(), raw = rowPts(cards), held = (s.armed = s.armed || {})[pid] || [], p = ps(s, pid);   // gelegte (aktive) Schutzkarten
   let pts = raw, shield = false, half = false;
   const k1 = held.indexOf('schild');
   if (k1 >= 0) { held.splice(k1, 1); pts = 0; shield = true; p.specials++; p.saved += raw; }
@@ -160,27 +166,42 @@ function endTurn(r, ctx) {
   ctx.timer(r, 'step', ROUND_AUTO_MS, () => { if (s.phase === 'roundEnd') { nextRound(r, ctx); ctx.broadcast(r); } });
 }
 
-function useSpecial(r, id, m, ctx) {
-  const s = r.state, held = s.held[id] || [], k = held.indexOf(m.kind);
-  ctx.must(k >= 0, 'Diese Sonderkarte hast du nicht.');
-  ctx.must(s.phase === 'select', 'Sonderkarten setzt du ein, solange alle noch auswählen.');
-  if (m.kind === 'besen') {
-    const ri = +m.row; ctx.must(Number.isInteger(ri) && ri >= 0 && ri < ROWS, 'Wähle eine Reihe.');
-    ctx.must(s.rows[ri].length > 1, 'In dieser Reihe liegt nur eine Karte.');
+// eine gelegte Sonderkarte ausführen (beim Aufdecken)
+function playSpecial(r, x, ctx) {
+  const s = r.state, held = s.held[x.pid] || [], k = held.indexOf(x.sp);
+  if (k < 0) return null;
+  held.splice(k, 1); ps(s, x.pid).specials++;
+  if (x.sp === 'schild' || x.sp === 'halb') { s.armed = s.armed || {}; (s.armed[x.pid] = s.armed[x.pid] || []).push(x.sp); return { pid: x.pid, sp: x.sp }; }
+  if (x.sp === 'besen') {
+    const ri = x.row; if (!(ri >= 0 && ri < ROWS)) return { pid: x.pid, sp: 'besen', row: null, n: 0 };
     const gone = s.rows[ri].slice(0, -1); s.rows[ri] = s.rows[ri].slice(-1);
-    ps(s, id).swept += gone.length;
-    event(s, { kind: 'besen', pid: id, row: ri, n: gone.length });
-  } else if (m.kind === 'tausch') {
+    ps(s, x.pid).swept += gone.length;
+    return { pid: x.pid, sp: 'besen', row: ri, n: gone.length };
+  }
+  if (x.sp === 'tausch') {
+    const ha = s.hands[x.pid] || [], hb = s.hands[x.target] || [];
+    if (!ha.includes(x.give) || !hb.length || !r.players.some(p => p.id === x.target)) return { pid: x.pid, sp: 'tausch', target: x.target, failed: true };
+    const y = hb[ctx.rand(hb.length)];
+    ha.splice(ha.indexOf(x.give), 1, y); hb.splice(hb.indexOf(y), 1, x.give); ha.sort((p, q) => p - q); hb.sort((p, q) => p - q);
+    return { pid: x.pid, sp: 'tausch', target: x.target, gave: x.give, got: y };
+  }
+  return { pid: x.pid, sp: 'leer' };
+}
+// Sonderkarte als eigene Karte auswählen (statt einer Zahl)
+function pickSpecial(r, id, m, ctx) {
+  const s = r.state, held = s.held[id] || [];
+  ctx.must(s.phase === 'select', 'Gerade wird keine Karte ausgewählt.');
+  ctx.must(PLAYABLE.includes(m.kind) && held.includes(m.kind), 'Diese Sonderkarte hast du nicht.');
+  ctx.must((s.hands[id] || []).length, 'Du hast in dieser Runde keine Karten mehr.');
+  const pick = { sp: m.kind };
+  if (m.kind === 'besen') { const ri = +m.row; ctx.must(Number.isInteger(ri) && ri >= 0 && ri < ROWS, 'Wähle eine Reihe.'); ctx.must(s.rows[ri].length > 1, 'In dieser Reihe liegt nur eine Karte.'); pick.row = ri; }
+  if (m.kind === 'tausch') {
     const t = r.players.find(p => p.id === m.target); ctx.must(t && t.id !== id, 'Wähle einen Mitspieler.');
-    const a = (s.hands[id] || []).filter(v => v !== s.picks[id]), b = (s.hands[t.id] || []).filter(v => v !== s.picks[t.id]);
-    ctx.must(a.length && b.length, 'Ihr braucht beide noch eine freie Handkarte.');
-    const x = a[ctx.rand(a.length)], y = b[ctx.rand(b.length)];
-    const ha = s.hands[id], hb = s.hands[t.id];
-    ha.splice(ha.indexOf(x), 1, y); hb.splice(hb.indexOf(y), 1, x); ha.sort((p, q) => p - q); hb.sort((p, q) => p - q);
-    event(s, { kind: 'tausch', pid: id, target: t.id, gave: x, got: y });
-  } else ctx.must(false, 'Diese Karte wirkt automatisch, wenn du eine Reihe nehmen musst.');
-  held.splice(k, 1); ps(s, id).specials++;
-  botTick(r, ctx);
+    ctx.must((s.hands[t.id] || []).length > 1, pname(r, t.id) + ' hat nicht genug Karten zum Tauschen.');
+    const give = +m.give; ctx.must((s.hands[id] || []).includes(give), 'Diese Karte hast du nicht.');
+    pick.target = t.id; pick.give = give;
+  }
+  s.picks[id] = pick; allPicked(r, ctx);
 }
 
 function act(r, id, m, ctx) {
@@ -194,7 +215,7 @@ function act(r, id, m, ctx) {
   } else if (m.a === 'row') {
     chooseRow(r, id, +m.row, ctx);
   } else if (m.a === 'special') {
-    useSpecial(r, id, m, ctx);
+    pickSpecial(r, id, m, ctx);
   } else if (m.a === 'next') {
     ctx.must(s.phase === 'roundEnd', 'Die Runde läuft noch.');
     s.ready[id] = true;
@@ -264,13 +285,14 @@ function record(r, rec) {
 function view(r, id) {
   const s = r.state, over = r.status === 'over';
   return {
-    round: s.round, turn: s.turn, turns: HAND, phase: s.phase, target: s.target,
+    round: s.round, turn: s.turn, turns: Math.max(s.turn, s.turn - (s.phase === 'select' ? 1 : 0) + Math.max(0, ...r.players.map(p => (s.hands[p.id] || []).length))), phase: s.phase, target: s.target,
     rows: s.rows, rowPts: s.rows.map(rowPts), owner: s.owner || {},
-    hand: s.hands[id] || [], myPick: s.picks[id] != null ? s.picks[id] : null,
+    hand: s.hands[id] || [], myPick: s.picks[id] != null && !isSp(s.picks[id]) ? s.picks[id] : null, mySp: isSp(s.picks[id]) ? s.picks[id] : null,
     picked: Object.fromEntries(r.players.map(p => [p.id, s.picks[p.id] != null])),
     counts: Object.fromEntries(r.players.map(p => [p.id, (s.hands[p.id] || []).length])),
     revealed: s.phase === 'select' ? [] : s.revealed, choosing: s.choosing,
     scores: s.scores, roundPts: s.roundPts, ready: s.ready,
+    armed: s.armed || {},
     held: s.held[id] || [], heldCounts: Object.fromEntries(r.players.map(p => [p.id, (s.held[p.id] || []).length])),
     specialsOn: SPECIALS.filter(k => spOn(r, k)),
     deadline: s.deadline, limit: s.limit, now: Date.now(), roundAt: s.phase === 'roundEnd' ? s.roundAt || null : null,
