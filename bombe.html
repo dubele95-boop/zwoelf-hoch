@@ -56,7 +56,8 @@
 .wire:disabled{cursor:default}
 /* Knopf */
 .kn{display:flex;align-items:center;justify-content:center;gap:22px;flex:1}
-.kn-btn{width:132px;height:132px;border-radius:50%;border:6px solid rgba(0,0,0,.35);background:var(--kc);color:var(--kt);font:900 20px/1 var(--f-display);letter-spacing:.06em;box-shadow:0 8px 0 rgba(0,0,0,.45),inset 0 6px 10px rgba(255,255,255,.35);touch-action:none;user-select:none}
+.edition{padding:8px 12px;border-radius:10px;background:rgba(255,107,91,.12);border:1px solid rgba(255,107,91,.45)}
+.kn-btn{width:132px;height:132px;border-radius:50%;border:6px solid rgba(0,0,0,.35);background:var(--kc);color:var(--kt);font:900 19px/1 var(--f-display);letter-spacing:.06em;box-shadow:0 8px 0 rgba(0,0,0,.45),inset 0 6px 10px rgba(255,255,255,.35);touch-action:none;user-select:none}
 .kn-btn.down{transform:translateY(6px);box-shadow:0 2px 0 rgba(0,0,0,.45),inset 0 6px 10px rgba(255,255,255,.2)}
 .strip{width:22px;height:132px;border-radius:6px;background:#15171b;border:2px solid #0d0e10}
 .strip.on{background:var(--sc);box-shadow:0 0 18px var(--sc)}
@@ -81,6 +82,54 @@
 .pw .col button{width:38px;height:26px;border-radius:6px;border:1px solid #111;background:#3c4148;color:#ddd;font-size:12px;padding:0}
 .pw .letter{width:42px;height:52px;border-radius:6px;background:#0f1a10;color:#6dff8f;font:800 32px/52px "Courier New",ui-monospace,monospace;text-align:center;text-shadow:0 0 10px rgba(80,255,120,.6);border:2px solid #0a0f0a}
 .pw-send{align-self:center}
+/* Labyrinth */
+.maze{display:grid;grid-template-columns:repeat(6,26px);grid-template-rows:repeat(6,26px);gap:3px;justify-content:center;background:#1a1d21;padding:8px;border-radius:8px;border:2px solid #111}
+.maze i{display:grid;place-items:center;border-radius:4px;background:#2b2f35}
+.maze i.mk::after{content:"";width:16px;height:16px;border-radius:50%;border:3px solid #4cff8a}
+.maze i.pos::after{content:"";width:14px;height:14px;background:#fff;border-radius:2px;box-shadow:0 0 8px #fff}
+.maze i.goal::after{content:"";width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #ff4a3d}
+.maze i.mk.pos::after{border-color:#fff;background:#fff}
+.arrows{display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,32px);gap:4px;justify-content:center}
+.arrows button{border-radius:6px;border:1px solid #111;background:#3c4148;color:#ddd;padding:0;font-size:16px}
+.arrows [data-d=u]{grid-area:1/2}.arrows [data-d=l]{grid-area:2/1}.arrows [data-d=d]{grid-area:2/2}.arrows [data-d=r]{grid-area:2/3}
+/* Morse */
+.morse{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;justify-content:center}
+.lamp{width:46px;height:46px;border-radius:50%;background:#3a2a12;border:3px solid #111;transition:background .03s}
+.lamp.on{background:#ffcf4a;box-shadow:0 0 26px #ffb020}
+.freq{display:flex;align-items:center;gap:8px}
+.freq b{font:800 22px/1 "Courier New",ui-monospace,monospace;color:#6dff8f;background:#0f1a10;padding:6px 10px;border-radius:6px;border:2px solid #0a0f0a;min-width:7.2em;text-align:center}
+.freq button,.dials button{border-radius:6px;border:1px solid #111;background:#3c4148;color:#ddd;padding:4px 10px}
+/* Drehschalter */
+.dials{display:flex;justify-content:center;gap:14px;align-items:center;flex:1}
+.dial{display:flex;flex-direction:column;align-items:center;gap:4px}
+.dial span{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7d838c,#3a3e44);border:3px solid #111;display:grid;place-items:center;font:800 24px/1 var(--f-display);color:#fff}
+.modeplate{align-self:center;background:#f4f1e8;color:#1b1b1b;border-radius:4px;padding:3px 12px;font:800 15px/1.2 ui-monospace,monospace}
+/* Tastenfeld */
+.memo{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;justify-content:center}
+.memo .scr{width:90px;height:60px;border-radius:8px;background:#0f1a10;border:2px solid #0a0f0a;color:#6dff8f;font:800 40px/56px "Courier New",ui-monospace,monospace;text-align:center;text-shadow:0 0 10px rgba(80,255,120,.6)}
+.memo .keys{display:flex;gap:8px}
+.memo .keys button{width:48px;height:58px;border-radius:8px;border:2px solid #111;background:#d8d2c2;color:#1c1c1c;font:900 26px/1 var(--f-display);box-shadow:0 4px 0 #6e6a5f}
+.memo .lvls{display:flex;gap:5px}.memo .lvls i{width:12px;height:12px;border-radius:3px;background:#3a1010;border:1px solid #111}.memo .lvls i.on{background:#4cff8a;box-shadow:0 0 6px #4cff8a}
+/* Kabelsalat */
+.salat{display:flex;justify-content:center;gap:10px;flex:1;align-items:stretch}
+.sw{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;padding:0;color:#ddd}
+.sw .ledx{width:12px;height:12px;border-radius:50%;background:#333;border:1px solid #111}.sw .ledx.on{background:#fff6c8;box-shadow:0 0 8px #ffe680}
+.sw .vl{width:12px;flex:1;min-height:110px;border-radius:6px;background:var(--wc);box-shadow:inset 2px 0 0 rgba(255,255,255,.25),0 2px 0 rgba(0,0,0,.4)}
+.sw.cut .vl{background:linear-gradient(180deg,var(--wc) 0 42%,transparent 42% 58%,var(--wc) 58%)}
+.sw .st{height:18px;font-size:16px;color:#ffd23d}
+.sw:disabled{cursor:default}
+/* Druckventil */
+.vent{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;justify-content:center}
+.vent .scr{min-width:150px;padding:8px 12px;border-radius:8px;background:#0f1a10;border:2px solid #0a0f0a;color:#6dff8f;font:800 26px/1 "Courier New",ui-monospace,monospace;text-align:center}
+.vent.hot .scr{color:#ff6a4a;background:#1a0d0b;animation:blink 1s steps(2) infinite}
+.vent .valves{display:flex;gap:8px}.vent .valves button{width:52px;height:44px;border-radius:8px;border:2px solid #111;background:#5a6068;color:#fff;font:900 22px/1 var(--f-display)}
+.vent small{color:#aab}
+.mod.needy{border-color:#4a3b16}
+/* Handbuch – neue Kapitel */
+.mazes{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.mazes svg{width:100%;height:auto;background:#fbf8ef;border:1px solid #9b9584;border-radius:6px}
+.morsetab{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:2px 10px;font:700 15px/1.5 ui-monospace,monospace}
+.salattab td{text-align:center;font:800 16px/1 ui-monospace,monospace}
 /* Handbuch */
 .manual{background:#f3eee0;color:#24211c;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 14px 34px rgba(0,0,0,.35)}
 .manual h2{font:900 28px/1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:#8a1f12}
@@ -124,6 +173,7 @@ const R = window.BombeRegeln, esc = Spieleabend.esc;
 const WC = { rot: '#e53935', blau: '#2f6fe0', gelb: '#f4c430', weiss: '#f2f2f2', schwarz: '#1b1b1b' };
 const KC = { rot: ['#d93b2b', '#fff'], blau: ['#2f6fe0', '#fff'], gelb: ['#f4c430', '#2a2205'], weiss: ['#f2f2f2', '#222'] };
 const SC = { blau: '#3d7bff', gelb: '#ffd23d', rot: '#ff4040', weiss: '#ffffff' };
+const SALW = { weiss: '#f2f2f2', rot: '#e53935', blau: '#2f6fe0', rotblau: 'repeating-linear-gradient(180deg,#e53935 0 10px,#2f6fe0 10px 20px)' };
 // 27 Symbole (eigene Zeichnungen)
 const SY = [
   '<path d="M4 20 Q20 6 36 20 Q20 34 4 20 Z"/><circle cx="20" cy="20" r="5" fill="currentColor"/>',
@@ -152,7 +202,21 @@ const SY = [
   '<path d="M10 30 A6 6 0 0 1 10 18 A9 9 0 0 1 27 14 A7.5 7.5 0 0 1 31 30 Z"/>',
   '<circle cx="17" cy="19" r="9"/><path d="M17 19 m-4 0 a4 4 0 1 0 4 -4 M4 31 H32 Q37 31 36 24"/>',
   '<path d="M14 6 V34 M26 6 V34 M6 14 H34 M6 26 H34"/>',
-  '<path d="M7 34 H15 Q6 26 8 16 Q12 6 20 6 Q28 6 32 16 Q34 26 25 34 H33"/>'
+  '<path d="M7 34 H15 Q6 26 8 16 Q12 6 20 6 Q28 6 32 16 Q34 26 25 34 H33"/>',
+  '<path d="M6 20 L20 6 L34 20 M10 17 V34 H30 V17"/><path d="M17 34 V25 H23 V34"/>',
+  '<path d="M30 12 A12 12 0 1 0 32 24"/><path d="M30 4 V12 H22"/>',
+  '<path d="M6 20 Q16 8 28 20 Q16 32 6 20 Z M28 20 L36 12 V28 Z"/><circle cx="13" cy="18" r="1.5" fill="currentColor"/>',
+  '<path d="M6 20 Q6 6 20 6 Q34 6 34 20 Z M15 20 V32 Q15 35 20 35 Q25 35 25 32 V20"/>',
+  '<path d="M20 4 L32 18 H25 L33 28 H7 L15 18 H8 Z M20 28 V36"/>',
+  '<path d="M30 8 Q20 2 12 8 Q6 14 14 18 L26 22 Q34 26 28 32 Q20 38 10 32"/>',
+  '<path d="M20 6 V34 M6 20 H34"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="28" cy="28" r="2" fill="currentColor"/>',
+  '<circle cx="20" cy="20" r="15"/><rect x="13" y="13" width="14" height="14"/>',
+  '<path d="M20 4 L24 16 L36 20 L24 24 L20 36 L16 24 L4 20 L16 16 Z"/>',
+  '<circle cx="12" cy="20" r="6"/><circle cx="28" cy="20" r="6"/><circle cx="12" cy="20" r="2" fill="currentColor"/><circle cx="28" cy="20" r="2" fill="currentColor"/>',
+  '<circle cx="20" cy="12" r="6"/><circle cx="12" cy="22" r="6"/><circle cx="28" cy="22" r="6"/><path d="M20 26 V36"/>',
+  '<path d="M4 34 H14 V24 H24 V14 H34 V4"/>',
+  '<path d="M20 3 L23 8 V26 H17 V8 Z M11 26 H29 M20 26 V36"/>',
+  '<path d="M20 20 C14 10 4 12 4 20 C4 28 14 30 20 20 C26 10 36 12 36 20 C36 28 26 30 20 20 Z"/>'
 ];
 const sym = i => '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + SY[i] + '</svg>';
 const LOCK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>';
@@ -167,22 +231,23 @@ const api = Spieleabend.start({
     '<ol class="steps"><li>Startet einen Anruf (z. B. WhatsApp, Discord, Telefon) – reden geht am schnellsten.</li><li>Tisch erstellen, Link verschicken, mindestens 2 Spieler.</li><li>Wer die Bombe hat, beschreibt. Wer das Handbuch hat, sagt, was zu tun ist.</li></ol>',
   rules: () => '<h3>Rollen</h3><ul><li><b>Entschärfer:</b> sieht die Bombe mit allen Modulen, aber kein Handbuch. Nur er kann Kabel schneiden und Knöpfe drücken.</li><li><b>Experten:</b> haben das Handbuch, sehen die Bombe aber nicht. Wenn ihr mehrere seid, bekommt jeder nur einen Teil der Kapitel.</li></ul>' +
     '<h3>Ziel</h3><ul><li>Löst alle Module, bevor der Timer abläuft. Jedes gelöste Modul bekommt ein grünes Licht.</li><li>Jeder Fehler gibt ein <b>X</b>. Sind alle X voll, fliegt die Bombe in die Luft.</li></ul>' +
-    '<h3>Level-Modus</h3><ul><li>Es gibt 10 Level. Schafft ihr eins, wird das nächste freigeschaltet.</li><li>Je höher das Level, desto <b>mehr Module</b> (bis zu 8, manche Sorten kommen doppelt vor), desto <b>weniger Zeit pro Modul</b>, längere Farbfolgen und mehr Kabel.</li><li>Ab Level 9 sind nur noch <b>2 Fehler</b> erlaubt.</li><li>Im <b>freien Spiel</b> stellt ihr Schwierigkeit und Zeit selbst ein.</li></ul>' +
+    '<h3>Level-Modus</h3><ul><li>Es gibt 10 Level. Schafft ihr eins, wird das nächste freigeschaltet.</li><li>Je höher das Level, desto <b>mehr Module</b> (bis zu 8, manche Sorten kommen doppelt vor), längere Farbfolgen und mehr Kabel.</li><li>Neue Rätsel kommen nach und nach dazu: ab Level 5 <b>Labyrinth</b> und <b>Morse-Licht</b>, ab Level 6 <b>Drehschalter</b> und <b>Kabelsalat</b>, ab Level 7 das <b>Tastenfeld</b>, ab Level 8 läuft zusätzlich das <b>Druckventil</b> mit.</li><li>Ab Level 9 sind nur noch <b>2 Fehler</b> erlaubt.</li><li>Im <b>freien Spiel</b> stellt ihr Schwierigkeit und Zeit selbst ein.</li></ul>' +
     '<h3>Reden</h3><ul><li>Am besten telefoniert ihr nebenbei. Im Spiel gibt es zusätzlich einen kleinen Chat.</li><li>Der Entschärfer sollte genau beschreiben: Farben, Reihenfolge, Aufschriften, die Seriennummer, Batterien und leuchtende Anzeigen auf dem Gehäuse.</li></ul>',
   lobby: (r, host) => {
     const s = r.settings;
     const seg = (key, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button type="button" data-set="' + key + '" data-val="' + v + '" aria-pressed="' + (String(s[key]) === String(v)) + '"' + (host ? '' : ' disabled') + '>' + t + '</button>').join('') + '</div>';
     const mode = s.mode || 'level', best = s.best || 0, lv = s.level || 1, L = (r.catalog && r.catalog.LEVELS) || [];
-    const lvInfo = n => { const x = L[n - 1]; return x ? x.mods + ' Module · ' + fmt(x.secs * 1000) + ' Min. · ' + x.strikes + ' Fehler erlaubt' : ''; };
+    const NEW = { 5: 'Neu: Labyrinth und Morse-Licht', 6: 'Neu: Drehschalter und Kabelsalat', 7: 'Neu: Tastenfeld', 8: 'Neu: Druckventil läuft nebenher' };
+    const lvInfo = n => { const x = L[n - 1]; return x ? x.mods + ' Module' + (x.needy ? ' + Druckventil' : '') + ' · ' + fmt(x.secs * 1000) + ' Min. · ' + x.strikes + ' Fehler erlaubt' + (NEW[n] ? ' · ' + NEW[n] : '') : ''; };
     const levelBox = '<div class="field"><span class="label">Level</span><div class="lvgrid">' + L.map((x, i) => { const n = i + 1, open = n <= best + 1;
         return '<button type="button" class="lv' + (n === lv ? ' on' : '') + (n <= best ? ' done' : '') + '" data-set="level" data-val="' + n + '"' + (host && open ? '' : ' disabled') + ' title="' + (open ? lvInfo(n) : 'Noch gesperrt') + '">' + (open ? n : LOCK) + (n <= best ? '<i>✓</i>' : '') + '</button>'; }).join('') + '</div>' +
       '<small class="muted"><b>Level ' + lv + ':</b> ' + lvInfo(lv) + '. ' + (best ? 'Geschafft bis Level ' + best + '.' : 'Schafft ein Level, um das nächste freizuschalten.') + '</small></div>';
     const freeBox = '<div class="field"><span class="label">Schwierigkeit</span>' + seg('diff', [['leicht', 'Leicht'], ['normal', 'Normal'], ['schwer', 'Schwer']]) +
-        '<small class="muted">' + (s.diff === 'leicht' ? '3 Module, wenige Kabel.' : s.diff === 'schwer' ? '5 Module, lange Farbfolgen.' : '4 Module.') + '</small></div>' +
+        '<small class="muted">' + (s.diff === 'leicht' ? '3 zufällige Module, wenige Kabel.' : s.diff === 'schwer' ? '5 zufällige Module + Druckventil, lange Farbfolgen.' : '4 zufällige Module.') + '</small></div>' +
       '<div class="field"><span class="label">Zeit</span>' + seg('minutes', [[3, '3 Min.'], [4, '4 Min.'], [5, '5 Min.'], [6, '6 Min.'], [8, '8 Min.']]) + '</div>';
     return '<div class="field"><span class="label">Spielart</span>' + seg('mode', [['level', 'Level-Modus'], ['frei', 'Freies Spiel']]) + '<small class="muted">' + (mode === 'level' ? 'Level für Level: Je höher, desto mehr Module, weniger Zeit und weniger erlaubte Fehler.' : 'Schwierigkeit und Zeit selbst einstellen.') + '</small></div>' +
       (mode === 'level' ? levelBox : freeBox) +
-      '<div class="field"><label class="label" for="defSel">Wer entschärft?</label>' + (host ? '<select id="defSel" data-set="defuser"><option value="zufall"' + (s.defuser === 'zufall' ? ' selected' : '') + '>Zufall</option>' + r.players.map(p => '<option value="' + esc(p.id) + '"' + (s.defuser === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>' : '<div>' + (s.defuser === 'zufall' ? 'Zufall' : esc(api.pname(s.defuser))) + '</div>') + '</div>' +
+      '<div class="field"><label class="label" for="defSel">Wer entschärft?</label>' + (host ? '<select id="defSel" data-set="defuser"><option value="zufall"' + (s.defuser === 'zufall' ? ' selected' : '') + '>Abwechselnd (jeder gleich oft)</option>' + r.players.map(p => '<option value="' + esc(p.id) + '"' + (s.defuser === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>' : '<div>' + (s.defuser === 'zufall' ? 'Abwechselnd – jeder kommt gleich oft dran' : esc(api.pname(s.defuser))) + '</div>') + '</div>' +
       '<div class="field"><span class="label">Handbuch aufteilen</span><div class="row"><button type="button" class="toggle" role="switch" aria-checked="' + !!s.split + '" aria-label="Handbuch aufteilen" data-set="split" data-val="' + !s.split + '"' + (host ? '' : ' disabled') + '><i></i></button><small class="muted" style="flex:1">Bei mehreren Experten bekommt jeder nur einige Kapitel. Dann müsst ihr euch auch untereinander absprechen.</small></div></div>';
   },
   render: renderGame, onState,
@@ -196,6 +261,14 @@ const api = Spieleabend.start({
     down: el => { pwStep(+el.dataset.m, +el.dataset.k, 1); },
     word: el => { const m = +el.dataset.m, d = api.room.g.detail[m], pos = L.pw[m] || [0, 0, 0, 0, 0]; api.act('word', { m, word: d.cols.map((c, i) => c[pos[i]]).join('') }); },
     tab: el => { L.tab = el.dataset.k; api.render(); },
+    move: el => { api.Snd.play('click', .5); api.act('move', { m: +el.dataset.m, d: el.dataset.d }); },
+    freq: el => { api.Snd.play('click', .4); api.act('freq', { m: +el.dataset.m, d: +el.dataset.d }); },
+    tx: el => api.act('tx', { m: +el.dataset.m }),
+    dial: el => { api.Snd.play('click', .4); api.act('dial', { m: +el.dataset.m, k: +el.dataset.k, d: +el.dataset.d }); },
+    dialCheck: el => api.act('dialCheck', { m: +el.dataset.m }),
+    mem: el => { api.Snd.play('click', .6); api.act('mem', { m: +el.dataset.m, k: +el.dataset.k }); },
+    scut: el => { api.Snd.play('snip'); api.act('scut', { m: +el.dataset.m, k: +el.dataset.k }); },
+    valve: el => { api.Snd.play('pad'); api.act('valve', { m: +el.dataset.m, v: el.dataset.v }); },
     replay: el => { api.send({ t: 'setting', key: 'level', value: +el.dataset.lv }); }
   },
   sounds: {
@@ -232,7 +305,7 @@ function head(r, g) {
   return '<div class="panel bb-head"><div>' + (g.level ? '<span class="pill wait" style="margin-bottom:6px">Level ' + g.level + ' von ' + g.levels + '</span>' : '') + '<div class="bb-role">' + role + '</div><div class="muted">' + (g.role === 'defuser' ? 'Beschreibe den anderen, was du siehst.' : 'Entschärfer: <b>' + esc(api.pname(g.defuser)) + '</b>') + '</div></div>' +
     '<div class="row" style="gap:16px"><div class="timer' + (left < 30000 && r.status !== 'over' ? ' low' : '') + '" data-timer>' + fmt(left) + '</div>' +
     '<div class="strikes" aria-label="' + g.strikes + ' von ' + g.maxStrikes + ' Fehlern">' + Array.from({ length: g.maxStrikes }, (_, i) => '<span class="' + (i < g.strikes ? 'on' : '') + '">X</span>').join('') + '</div></div>' +
-    '<div class="modlist">' + g.modules.map(m => '<span class="pill ' + (m.solved ? 'done' : '') + '">' + R.MODULES[m.type] + (m.solved ? ' ✓' : '') + '</span>').join('') + '</div></div>';
+    '<div class="modlist">' + g.modules.map(m => '<span class="pill ' + (m.solved ? 'done' : '') + '">' + R.MODULES[m.type] + (m.solved ? ' ✓' : m.needy ? ' (läuft dauernd)' : '') + '</span>').join('') + '</div></div>';
 }
 
 function bombHTML(g, over) {
@@ -248,20 +321,29 @@ function bombHTML(g, over) {
     if (m.type === 'symbole') body = '<div class="syms">' + d.symbols.map((s, k) => '<button type="button" class="sym' + (d.done.includes(s) ? ' done' : '') + '" data-act="sym" data-m="' + i + '" data-k="' + k + '"' + (dis || d.done.includes(s) ? ' disabled' : '') + '><i></i>' + sym(s) + (over && d.order ? '<small style="font-weight:800">' + (d.order.indexOf(s) + 1) + '.</small>' : '') + '</button>').join('') + '</div>';
     if (m.type === 'farben') body = '<div class="simon" data-simon="' + i + '">' + R.SIMON_COLORS.map(c => '<button type="button" class="pad" data-act="pad" data-m="' + i + '" data-c="' + c + '" aria-label="' + R.COLORS[c] + '"' + dis + '></button>').join('') + '</div><small class="muted" style="text-align:center">Stufe ' + Math.min(d.stage, d.len) + ' von ' + d.len + '</small>';
     if (m.type === 'wort') { const pos = L.pw[i] || (L.pw[i] = [0, 0, 0, 0, 0]); body = '<div class="pw">' + d.cols.map((c, k) => '<div class="col"><button type="button" data-act="up" data-m="' + i + '" data-k="' + k + '" aria-label="hoch"' + dis + '>▲</button><div class="letter" data-m="' + i + '" data-k="' + k + '">' + (solved && d.answer ? d.answer[k] : c[pos[k]]) + '</div><button type="button" data-act="down" data-m="' + i + '" data-k="' + k + '" aria-label="runter"' + dis + '>▼</button></div>').join('') + '</div><button type="button" class="btn pw-send" data-act="word" data-m="' + i + '"' + dis + '>Senden</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer + '</small>' : ''); }
-    return '<div class="mod' + (solved ? ' solved' : '') + '" data-mod="' + i + '"><span class="led"></span><h3>' + R.MODULES[m.type] + '</h3>' + body + '</div>';
+    if (m.type === 'labyrinth') body = '<div class="maze">' + Array.from({ length: 36 }, (_, c) => '<i class="' + (d.marks.includes(c) ? 'mk ' : '') + (c === d.pos ? 'pos ' : '') + (c === d.goal && c !== d.pos ? 'goal' : '') + '"></i>').join('') + '</div>' +
+      '<div class="arrows">' + [['u', '▲'], ['l', '◀'], ['d', '▼'], ['r', '▶']].map(([k, t]) => '<button type="button" data-act="move" data-m="' + i + '" data-d="' + k + '"' + dis + ' aria-label="' + ({ u: 'hoch', d: 'runter', l: 'links', r: 'rechts' })[k] + '">' + t + '</button>').join('') + '</div>';
+    if (m.type === 'morse') body = '<div class="morse"><div class="lamp" data-morse="' + i + '"></div><div class="freq"><button type="button" data-act="freq" data-m="' + i + '" data-d="-1"' + dis + '>◀</button><b>' + (d.freqs[d.sel] / 1000).toFixed(3) + ' MHz</b><button type="button" data-act="freq" data-m="' + i + '" data-d="1"' + dis + '>▶</button></div><button type="button" class="btn small" data-act="tx" data-m="' + i + '"' + dis + '>Senden (TX)</button>' + (over && d.answer ? '<small class="muted">Das Wort war: ' + d.answer + '</small>' : '') + '</div>';
+    if (m.type === 'drehschalter') body = '<div class="modeplate">MODUS ' + d.mode + '</div><div class="dials">' + d.set.map((v, k) => '<div class="dial"><button type="button" data-act="dial" data-m="' + i + '" data-k="' + k + '" data-d="1"' + dis + '>▲</button><span>' + v + '</span><button type="button" data-act="dial" data-m="' + i + '" data-k="' + k + '" data-d="-1"' + dis + '>▼</button><small class="muted">' + (k + 1) + '</small></div>').join('') + '</div><button type="button" class="btn small" style="align-self:center" data-act="dialCheck" data-m="' + i + '"' + dis + '>Prüfen</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer.join(' ') + '</small>' : '');
+    if (m.type === 'tastenfeld') body = '<div class="memo"><div class="scr">' + (solved ? '✓' : d.display) + '</div><div class="keys">' + d.labels.map((v, k) => '<button type="button" data-act="mem" data-m="' + i + '" data-k="' + k + '"' + dis + '>' + v + '</button>').join('') + '</div><div class="lvls">' + [1, 2, 3, 4].map(n => '<i class="' + (n < d.stage || solved ? 'on' : '') + '"></i>').join('') + '</div><small class="muted">Stufe ' + Math.min(d.stage, 4) + ' von 4</small></div>';
+    if (m.type === 'kabelsalat') body = '<div class="salat">' + d.wires.map((w, k) => '<button type="button" class="sw' + (w.cut ? ' cut' : '') + '" data-act="scut" data-m="' + i + '" data-k="' + k + '" style="--wc:' + SALW[w.color] + '"' + (dis || w.cut ? ' disabled' : '') + ' aria-label="' + (k + 1) + '. Kabel, ' + R.SALAT_COLORS[w.color] + (w.star ? ', Stern' : '') + (w.led ? ', Lämpchen an' : '') + '"><span class="ledx' + (w.led ? ' on' : '') + '"></span><span class="vl"></span><span class="st">' + (w.star ? '★' : '') + '</span>' + (over && w.should ? '<small style="color:#4cff8a">✂</small>' : '') + '</button>').join('') + '</div><small class="muted" style="text-align:center">Oben Lämpchen, unten Stern – klick ein Kabel zum Schneiden.</small>';
+    if (m.type === 'ventil') body = '<div class="vent' + (d.active ? ' hot' : '') + '"><div class="scr">' + (d.active ? esc(d.code) : 'DRUCK OK') + '</div><small data-vent="' + i + '">' + (d.active ? 'Ablassen in ' + Math.max(0, Math.ceil((d.due - now()) / 1000)) + ' s' : 'läuft die ganze Zeit mit') + '</small><div class="valves">' + ['A', 'B', 'C'].map(v => '<button type="button" data-act="valve" data-m="' + i + '" data-v="' + v + '"' + (over || !d.active ? ' disabled' : '') + '>' + v + '</button>').join('') + '</div></div>';
+    return '<div class="mod' + (solved ? ' solved' : '') + (m.needy ? ' needy' : '') + '" data-mod="' + i + '"><span class="led"' + (m.needy ? ' style="background:' + (d.active ? '#ff4a3d' : '#2a2d33') + '"' : '') + '></span><h3>' + R.MODULES[m.type] + '</h3>' + body + '</div>';
   }).join('');
   return '<div class="casing">' + edge + '<div class="mods">' + mods + '</div></div>';
 }
 
 function manualHTML(r, g) {
   const mine = g.manual || [];
+  const RU = g.rules || { ed: 1, wires: 0, button: 0, strip: R.STRIP, symCols: R.SYM_COLS, simon: R.SIMON, words: R.WORDS };
+  const WI = R.WIRE_SETS[RU.wires] || R.WIRES, BU = R.BUTTON_SETS[RU.button] || R.BUTTON;
   const all = Object.keys(R.MODULES);
   const others = Object.entries(g.manualOf || {}).filter(([pid]) => pid !== r.me).map(([pid, ch]) => ({ name: api.pname(pid), ch })).filter(x => x.ch.length);
   if (!L.tab || (L.tab !== 'allg' && !mine.includes(L.tab))) L.tab = 'allg';
   const tabs = '<div class="tabs"><button type="button" data-act="tab" data-k="allg" aria-pressed="' + (L.tab === 'allg') + '">Allgemein</button>' + mine.map(c => '<button type="button" data-act="tab" data-k="' + c + '" aria-pressed="' + (L.tab === c) + '">' + R.MODULES[c] + '</button>').join('') + '</div>';
   let body = '';
   if (L.tab === 'allg') {
-    body = '<section><h3>Allgemein</h3><p>Willkommen beim Bombenentschärfungs-Handbuch. Fragt den Entschärfer nach allem, was ihr braucht:</p><ul>' +
+    body = '<section><h3>Allgemein</h3><p class="edition">Handbuch-Ausgabe <b>Nr. ' + RU.ed + '</b> – Achtung: Jede Bombe hat ihr eigenes Handbuch. Regeln, Symbole und Wörter ändern sich jedes Mal!</p><p>Fragt den Entschärfer nach allem, was ihr braucht:</p><ul>' +
       '<li><b>Seriennummer:</b> steht auf dem weißen Schild am Gehäuse. Wichtig sind die <b>letzte Ziffer</b> (gerade oder ungerade) und ob ein <b>Vokal</b> (A, E, I, U) darin vorkommt.</li>' +
       '<li><b>Batterien:</b> Anzahl der goldenen Batterien am Gehäuse.</li><li><b>Anzeigen:</b> kleine Schilder mit drei Buchstaben. Sie können <b>leuchten</b> oder aus sein.</li>' +
       '<li>Jeder Fehler gibt ein <b>X</b>. Sind alle X voll, explodiert die Bombe (meist nach 3, in hohen Leveln schon nach 2 Fehlern).</li><li>Ein grünes Licht oben rechts bedeutet: Modul gelöst.</li></ul>' +
@@ -269,20 +351,54 @@ function manualHTML(r, g) {
       (others.length && mine.length < all.length ? '<p><b>Die anderen Kapitel haben:</b> ' + others.map(o => esc(o.name) + ' (' + o.ch.map(c => R.MODULES[c]).join(', ') + ')').join(' · ') + '</p>' : '') + '</section>';
   } else if (L.tab === 'kabel') {
     body = '<section><h3>Kabel</h3><p>Auf dem Modul sind 3 bis 6 Kabel. Sie werden <b>von oben nach unten</b> gezählt. Es muss genau <b>ein</b> Kabel durchgeschnitten werden. Mögliche Farben: Rot, Blau, Gelb, Weiß, Schwarz.</p>' +
-      [3, 4, 5, 6].map(n => '<div><b>' + n + ' Kabel:</b><ol>' + R.WIRES[n].map(x => '<li>' + x.t + '</li>').join('') + '</ol></div>').join('') + '<p class="muted">Prüft die Regeln immer von oben nach unten. Die erste, die passt, gilt.</p></section>';
+      [3, 4, 5, 6].map(n => '<div><b>' + n + ' Kabel:</b><ol>' + WI[n].map(x => '<li>' + x.t + '</li>').join('') + '</ol></div>').join('') + '<p class="muted">Prüft die Regeln immer von oben nach unten. Die erste, die passt, gilt.</p></section>';
   } else if (L.tab === 'knopf') {
-    body = '<section><h3>Der Knopf</h3><p>Ein großer farbiger Knopf mit Aufschrift. Geht die Regeln von oben nach unten durch, die erste passende gilt:</p><ol>' + R.BUTTON.map(x => '<li>' + x.t + '</li>').join('') + '</ol>' +
+    body = '<section><h3>Der Knopf</h3><p>Ein großer farbiger Knopf mit Aufschrift. Geht die Regeln von oben nach unten durch, die erste passende gilt:</p><ol>' + BU.map(x => '<li>' + x.t + '</li>').join('') + '</ol>' +
       '<p><b>Kurz drücken:</b> drücken und sofort wieder loslassen.</p><p><b>Gedrückt halten:</b> Neben dem Knopf leuchtet dann ein Streifen auf. Lass erst los, wenn auf dem Timer an <b>irgendeiner Stelle</b> diese Ziffer steht:</p>' +
-      '<table><tr><th>Streifen</th><th>Loslassen bei Ziffer</th></tr>' + Object.entries(R.STRIP).map(([c, d]) => '<tr><td><span class="cdot" style="background:' + SC[c] + '"></span>' + R.COLORS[c] + '</td><td><b>' + d + '</b></td></tr>').join('') + '</table></section>';
+      '<table><tr><th>Streifen</th><th>Loslassen bei Ziffer</th></tr>' + Object.entries(RU.strip).map(([c, d]) => '<tr><td><span class="cdot" style="background:' + SC[c] + '"></span>' + R.COLORS[c] + '</td><td><b>' + d + '</b></td></tr>').join('') + '</table></section>';
   } else if (L.tab === 'symbole') {
     body = '<section><h3>Symbole</h3><p>Auf dem Modul sind 4 Symbole. Genau <b>eine</b> der Spalten unten enthält alle vier. Drückt die Symbole in der Reihenfolge, in der sie in dieser Spalte <b>von oben nach unten</b> stehen.</p><div class="symcols">' +
-      R.SYM_COLS.map((col, i) => '<div><b>' + (i + 1) + '</b>' + col.map(s => sym(s)).join('') + '</div>').join('') + '</div><p class="muted">Tipp: Gebt den Symbolen gemeinsam Namen, z. B. „Auge“, „Blitz“, „Mond“.</p></section>';
+      RU.symCols.map((col, i) => '<div><b>' + (i + 1) + '</b>' + col.map(s => sym(s)).join('') + '</div>').join('') + '</div><p class="muted">Tipp: Gebt den Symbolen gemeinsam Namen, z. B. „Auge“, „Blitz“, „Mond“.</p></section>';
   } else if (L.tab === 'farben') {
-    const tbl = (k, title) => '<p><b>' + title + '</b></p><table><tr><th>Blinkt</th><th>0 Fehler</th><th>1 Fehler</th><th>2 Fehler</th></tr>' + R.SIMON_COLORS.map(c => '<tr><td><span class="cdot" style="background:' + ({ rot: '#ff4040', blau: '#3d7bff', gruen: '#36d36c', gelb: '#ffd23d' })[c] + '"></span>' + R.COLORS[c] + '</td>' + [0, 1, 2].map(s => '<td>' + R.COLORS[R.SIMON[k][s][c]] + '</td>').join('') + '</tr>').join('') + '</table>';
+    const tbl = (k, title) => '<p><b>' + title + '</b></p><table><tr><th>Blinkt</th><th>0 Fehler</th><th>1 Fehler</th><th>2 Fehler</th></tr>' + R.SIMON_COLORS.map(c => '<tr><td><span class="cdot" style="background:' + ({ rot: '#ff4040', blau: '#3d7bff', gruen: '#36d36c', gelb: '#ffd23d' })[c] + '"></span>' + R.COLORS[c] + '</td>' + [0, 1, 2].map(s => '<td>' + R.COLORS[RU.simon[k][s][c]] + '</td>').join('') + '</tr>').join('') + '</table>';
     body = '<section><h3>Farben-Echo</h3><p>Vier farbige Felder blinken in einer Folge. Drückt <b>nicht</b> die blinkende Farbe, sondern die Farbe aus der Tabelle. Es kommt darauf an, ob die Seriennummer einen <b>Vokal</b> (A, E, I, U) enthält und wie viele Fehler (X) ihr schon habt.</p>' +
       '<p>Nach jeder richtigen Folge kommt eine Farbe dazu. Gebt immer die <b>ganze Folge</b> von Anfang an ein.</p>' + tbl('vokal', 'Seriennummer MIT Vokal') + tbl('ohne', 'Seriennummer OHNE Vokal') + '</section>';
   } else if (L.tab === 'wort') {
-    body = '<section><h3>Passwort</h3><p>Fünf Buchstabenrollen. Mit den Pfeilen blättert man durch je 6 Buchstaben. Nur <b>eines</b> der Wörter unten lässt sich einstellen. Dann „Senden“ drücken.</p><div class="words">' + R.WORDS.map(w => '<span>' + w + '</span>').join('') + '</div><p class="muted">Tipp: Lasst euch die Buchstaben einer Rolle vorlesen und streicht Wörter aus.</p></section>';
+    body = '<section><h3>Passwort</h3><p>Fünf Buchstabenrollen. Mit den Pfeilen blättert man durch je 6 Buchstaben. Nur <b>eines</b> der Wörter unten lässt sich einstellen. Dann „Senden“ drücken.</p><div class="words">' + RU.words.map(w => '<span>' + w + '</span>').join('') + '</div><p class="muted">Tipp: Lasst euch die Buchstaben einer Rolle vorlesen und streicht Wörter aus.</p></section>';
+  }
+  else if (L.tab === 'labyrinth') {
+    const N = 6, C = 24, P = 6, W = N * C + 2 * P;
+    const svg = (z, k) => { let out = '<svg viewBox="0 0 ' + W + ' ' + (W + 14) + '" aria-label="Labyrinth ' + (k + 1) + '"><text x="' + (W / 2) + '" y="' + (W + 11) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#24211c">Nr. ' + (k + 1) + '</text>';
+      for (let c = 0; c < N * N; c++) { const x = P + (c % N) * C, y = P + Math.floor(c / N) * C, b = z.cells[c];
+        out += '<circle cx="' + (x + C / 2) + '" cy="' + (y + C / 2) + '" r="1.6" fill="#9b9584"/>';
+        if (z.marks.includes(c)) out += '<circle cx="' + (x + C / 2) + '" cy="' + (y + C / 2) + '" r="7" fill="none" stroke="#1d8a4a" stroke-width="3"/>';
+        if (!(b & 1)) out += '<line x1="' + x + '" y1="' + y + '" x2="' + (x + C) + '" y2="' + y + '"/>';
+        if (!(b & 8)) out += '<line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y + C) + '"/>';
+        if (c % N === N - 1 && !(b & 2)) out += '<line x1="' + (x + C) + '" y1="' + y + '" x2="' + (x + C) + '" y2="' + (y + C) + '"/>';
+        if (Math.floor(c / N) === N - 1 && !(b & 4)) out += '<line x1="' + x + '" y1="' + (y + C) + '" x2="' + (x + C) + '" y2="' + (y + C) + '"/>'; }
+      return out.replace(/<line /g, '<line stroke="#24211c" stroke-width="3" stroke-linecap="round" ') + '</svg>'; };
+    body = '<section><h3>Labyrinth</h3><p>Auf dem Modul ist ein 6×6-Feld <b>ohne Wände</b>. Darauf: zwei <b>grüne Kreise</b>, ein <b>weißes Quadrat</b> (da steht der Entschärfer) und ein <b>rotes Dreieck</b> (das Ziel).</p>' +
+      '<ol><li>Findet das Labyrinth, dessen grüne Kreise an <b>denselben Stellen</b> sind. Zählt Zeile und Spalte (z. B. „Zeile 2, Spalte 5“).</li><li>Lotst den Entschärfer mit den Pfeilen zum Dreieck. <b>Läuft er gegen eine Wand, gibt es ein X.</b></li></ol><div class="mazes">' + (RU.mazes || []).map(svg).join('') + '</div></section>';
+  } else if (L.tab === 'morse') {
+    body = '<section><h3>Morse-Licht</h3><p>Ein Lämpchen blinkt immer wieder ein Wort: kurz = <b>Punkt</b>, lang = <b>Strich</b>. Nach jedem Buchstaben eine kleine Pause, nach dem Wort eine lange Pause.</p>' +
+      '<p>Übersetzt das Wort, sucht es in der Liste und sagt dem Entschärfer die <b>Frequenz</b>. Er stellt sie mit den Pfeilen ein und drückt „Senden“. Falsche Frequenz = X.</p>' +
+      '<table><tr><th>Wort</th><th>Frequenz</th></tr>' + (RU.morse || []).map(x => '<tr><td><b>' + x.word + '</b></td><td>' + (x.freq / 1000).toFixed(3) + ' MHz</td></tr>').join('') + '</table>' +
+      '<p><b>Morse-Alphabet</b></p><div class="morsetab">' + Object.entries(R.MORSE).map(([k, v]) => '<span>' + k + ' ' + v.replace(/\./g, '•').replace(/-/g, '–') + '</span>').join('') + '</div><p class="muted">Tipp: Der Entschärfer sagt „kurz, lang …“, ihr schreibt mit.</p></section>';
+  } else if (L.tab === 'drehschalter') {
+    body = '<section><h3>Drehschalter</h3><p>Drei Drehschalter mit den Ziffern 0–9 und ein Schild mit dem <b>Modus</b> (A, B oder C). Stellt jeden Schalter auf den Wert aus der Tabelle, dann „Prüfen“ drücken. Falsche Einstellung = X.</p>' +
+      '<table><tr><th>Modus</th><th>Schalter 1</th><th>Schalter 2</th><th>Schalter 3</th></tr>' + Object.entries(RU.dials || {}).map(([m, row]) => '<tr><td><b>' + m + '</b></td>' + row.map(x => '<td>' + R.dialText(x) + '</td>').join('') + '</tr>').join('') + '</table>' +
+      '<p class="muted">Ist das Ergebnis 10 oder größer, zählt nur die <b>letzte Ziffer</b> (z. B. 14 → 4). Gibt es keine Anzeigen, ist die Anzahl 0.</p></section>';
+  } else if (L.tab === 'tastenfeld') {
+    body = '<section><h3>Tastenfeld</h3><p>Oben eine <b>Anzeige</b> (1–4), darunter vier Tasten mit den Zahlen 1–4 in wechselnder Reihenfolge. Es gibt <b>4 Stufen</b>. Positionen zählt ihr <b>von links</b> (1–4).</p><p><b>Wichtig:</b> Schreibt euch bei jeder Stufe auf, welche Position und welche Zahl gedrückt wurde. Bei einem Fehler gibt es ein X und es geht zurück auf Stufe 1.</p>' +
+      (RU.memory || []).map((st, k) => '<p><b>Stufe ' + (k + 1) + '</b></p><ul>' + st.map((x, d) => '<li>Anzeige <b>' + (d + 1) + '</b>: ' + R.memText(x) + '</li>').join('') + '</ul>').join('') + '</section>';
+  } else if (L.tab === 'kabelsalat') {
+    const cols = [[false, false, 'ohne Stern, Lämpchen aus'], [true, false, 'mit Stern, Lämpchen aus'], [false, true, 'ohne Stern, Lämpchen an'], [true, true, 'mit Stern, Lämpchen an']];
+    body = '<section><h3>Kabelsalat</h3><p>Senkrechte Kabel. Über jedem Kabel ist ein <b>Lämpchen</b> (an oder aus), unter manchen ein <b>Stern</b>. Geht <b>jedes Kabel einzeln</b> durch und schaut in der Tabelle nach. Schneidet alle, die geschnitten werden müssen – ein falsches Kabel gibt ein X.</p>' +
+      '<table class="salattab"><tr><th>Farbe</th>' + cols.map(c => '<th>' + c[2] + '</th>').join('') + '</tr>' + Object.entries(R.SALAT_COLORS).map(([c, n]) => '<tr><td style="text-align:left">' + n + '</td>' + cols.map(([star, led]) => '<td>' + ((RU.salat || {})[R.salatKey({ color: c, star, led })] || '') + '</td>').join('') + '</tr>').join('') + '</table>' +
+      '<ul>' + Object.entries(R.SALAT_LETTERS).map(([k, x]) => '<li><b>' + k + ':</b> ' + x.t + '</li>').join('') + '</ul></section>';
+  } else if (L.tab === 'ventil') {
+    body = '<section><h3>Druckventil</h3><p>Dieses Modul kann man <b>nicht lösen</b> – es läuft die ganze Zeit mit. Ab und zu pfeift es und zeigt ein <b>Codewort</b>. Dann bleiben 40 Sekunden: Der Entschärfer drückt das richtige Ventil (A, B oder C). Zu spät oder falsches Ventil = X.</p>' +
+      '<table><tr><th>Codewort</th><th>Ventil</th></tr>' + (RU.vent || []).map(x => '<tr><td><b>' + x.code + '</b></td><td><b>' + x.valve + '</b></td></tr>').join('') + '</table><p class="muted">Tipp: Wer das Kapitel hat, sollte immer kurz bereit sein – auch mitten in einem anderen Rätsel.</p></section>';
   }
   return '<div class="manual"><h2>Handbuch</h2>' + tabs + body + '</div>';
 }
@@ -320,7 +436,7 @@ function bbStats(r, api) {
   const best = b ? Object.entries(b.best || {}).sort((x, y) => (x[0] === 'frei') - (y[0] === 'frei') || parseInt(x[0].slice(1)) - parseInt(y[0].slice(1))).map(([k, v]) => '<span class="pill">' + (k === 'frei' ? 'Freies Spiel' : 'Level ' + k.slice(1)) + ': ' + fmt(v) + '</span>').join('') : '';
   const defs = b ? Object.entries(b.defusers || {}).filter(([pid]) => r.players.some(p => p.id === pid)).map(([pid, d]) => '<span class="pill">' + esc(api.pname(pid)) + ': ' + d.won + ' entschärft, ' + d.lost + ' Boom</span>').join('') : '';
   return '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Entschärft!' : 'BOOM!') + '</span><span class="muted">' + (g.level ? 'Level ' + g.level + ' · ' : '') + 'Entschärfer: ' + esc(api.pname(g.defuser)) + '</span></div>' +
-    '<div class="kpis">' + kpi(fmt(used), 'Zeit gebraucht') + kpi(won ? fmt(left) : '0:00', 'Restzeit') + kpi(solved + '/' + ms.length, 'Module gelöst') + kpi(g.strikes + '/' + g.maxStrikes, 'Fehler') + '</div>' +
+    '<div class="kpis">' + kpi(fmt(used), 'Zeit gebraucht') + kpi(won ? fmt(left) : '0:00', 'Restzeit') + kpi(solved + '/' + ms.length, 'Module gelöst') + kpi(g.strikes + '/' + g.maxStrikes, 'Fehler') + (g.modules.some(m => m.needy) ? kpi(g.vented || 0, 'mal Ventil abgelassen') : '') + '</div>' +
     (aw.length ? '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' : '') +
     '<div class="label">Module der Reihe nach</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Modul</th><th>gelöst bei</th><th>Dauer</th><th>Fehler</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     (b ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + b.played + (b.played === 1 ? ' Bombe' : ' Bomben') + '</span><span class="pill">' + b.won + ' entschärft</span><span class="pill">' + b.boom + ' explodiert</span>' + (b.fastest ? '<span class="pill">schnellstes Modul: ' + R.MODULES[b.fastest.type] + ' nach ' + fmt(b.fastest.ms) + '</span>' : '') + '</div>' +
@@ -356,6 +472,10 @@ setInterval(() => {
   if (sec !== L.tick) { L.tick = sec; if (left < 30000 && left > 0) api.Snd.play('tick', 1); else if (sec % 1 === 0 && left > 0) api.Snd.play('tick', .25); }
   if (g.role === 'defuser' && g.detail) {
     g.modules.forEach((m, i) => {
+      if (m.type === 'morse' && !m.solved) { const lamp = document.querySelector('[data-morse="' + i + '"]'); if (lamp) lamp.classList.toggle('on', morseOn(g.detail[i].code, Date.now())); }
+      if (m.type === 'ventil') { const v = document.querySelector('[data-vent="' + i + '"]'), d = g.detail[i]; if (v && d.active) v.textContent = 'Ablassen in ' + Math.max(0, Math.ceil((d.due - now()) / 1000)) + ' s'; }
+    });
+    g.modules.forEach((m, i) => {
       if (m.type !== 'farben' || m.solved) return;
       const box = document.querySelector('[data-simon="' + i + '"]'); if (!box) return;
       const d = g.detail[i], seq = d.flash, step = 650, cycle = seq.length * step + 2200;
@@ -366,6 +486,17 @@ setInterval(() => {
   }
 }, 80);
 
+// Morse: Punkt = 1 Einheit an, Strich = 3, Pause im Buchstaben 1, zwischen Buchstaben 3, am Ende 8
+const MU = 260;
+function morseTimeline(code) {
+  const seg = []; code.split(' ').forEach((ltr, li, arr) => { [...ltr].forEach((c, k) => { seg.push([1, c === '.' ? 1 : 3]); if (k < ltr.length - 1) seg.push([0, 1]); }); seg.push([0, li < arr.length - 1 ? 3 : 8]); });
+  return seg;
+}
+const MT = {};
+function morseOn(code, t) {
+  const seg = MT[code] || (MT[code] = morseTimeline(code)), total = seg.reduce((a, x) => a + x[1], 0);
+  let u = Math.floor(t / MU) % total; for (const [on, n] of seg) { if (u < n) return !!on; u -= n; } return false;
+}
 function onState(prev, r) {
   const g = r.g;
   if (!g) return;
@@ -382,6 +513,9 @@ function onState(prev, r) {
   if (e.kind === 'ok') S.play('click', .6);
   if (e.kind === 'stage') S.play('solve', .5);
   if (e.kind === 'cut') S.play('snip');
+  if (e.kind === 'vent') { S.play('strike', .5); if (g.role === 'defuser') api.toast('Das Druckventil pfeift! Schnell den Code durchsagen.'); }
+  if (e.kind === 'vented') S.play('solve', .6);
+  if (e.kind === 'step') S.play('click', .4);
   if (e.kind === 'boom' && prev && prev.status !== 'over') {
     S.play('boom'); document.body.insertAdjacentHTML('beforeend', '<div class="boom"><div class="flash"></div><b>BOOM!</b></div>');
     document.body.classList.remove('shakeall'); void document.body.offsetWidth; document.body.classList.add('shakeall');
