@@ -48,7 +48,7 @@ function nextRound(r, ctx) {
   for (const p of r.players) { s.hands[p.id] = deck.splice(0, HAND).sort((a, b) => a - b); s.roundPts[p.id] = 0; s.held[p.id] = s.held[p.id] || []; }
   // Sonderkarten: jeder Mensch bekommt pro Runde eine (höchstens 3 gleichzeitig)
   const on = SPECIALS.filter(k => spOn(r, k)), gifts = [];
-  if (on.length) for (const p of r.players) if (!p.bot && s.held[p.id].length < MAX_HELD) { const k = on[ctx.rand(on.length)]; s.held[p.id].push(k); gifts.push({ pid: p.id, kind: k }); }
+  if (on.length) for (const p of r.players) if (s.held[p.id].length < MAX_HELD) { const k = on[ctx.rand(on.length)]; s.held[p.id].push(k); gifts.push({ pid: p.id, kind: k }); }
   event(s, { kind: 'round', round: s.round, gifts });
   nextTurn(r, ctx);
 }
@@ -74,7 +74,7 @@ function timeout(r, ctx) {
   const s = r.state; s.deadline = 0;
   if (s.phase === 'select') {
     const late = r.players.filter(p => s.picks[p.id] == null && (s.hands[p.id] || []).length);
-    for (const p of late) s.picks[p.id] = p.bot ? botPick(s, p.id) : s.hands[p.id][ctx.rand(s.hands[p.id].length)];
+    for (const p of late) s.picks[p.id] = p.bot ? botChoose(r, s, p.id, ctx) : s.hands[p.id][ctx.rand(s.hands[p.id].length)];
     if (late.length) event(s, { kind: 'timeout', pids: late.map(p => p.id) });
     allPicked(r, ctx);
   } else if (s.phase === 'choose' && s.choosing) {
@@ -233,6 +233,21 @@ function botCost(s, v) {
   if (row.length >= ROW_MAX) return rowPts(row) + 1;
   return (row.length === 4 ? 2.5 : row.length === 3 ? 0.6 : 0.1) + gap / 60;
 }
+// Bots dürfen auch Sonderkarten spielen – vor allem, wenn ihre beste Zahl teuer wäre
+function botChoose(r, s, id, ctx) {
+  const v = botPick(s, id), held = s.held[id] || [], cost = botCost(s, v);
+  const has = k => held.includes(k) && spOn(r, k);
+  if (cost >= 2) {
+    for (const k of ['schild', 'halb', 'leer']) if (has(k)) return { sp: k };
+    if (has('besen')) { const ri = s.rows.map((row, i) => ({ i, n: row.length, p: rowPts(row) })).filter(x => x.n > 1).sort((a, b) => b.p - a.p)[0]; if (ri && ri.p >= 3) return { sp: 'besen', row: ri.i }; }
+  }
+  if (has('tausch')) {
+    const h = s.hands[id], worst = h.reduce((a, x) => botCost(s, x) > botCost(s, a) ? x : a, h[0]);
+    const others = r.players.filter(p => p.id !== id && (s.hands[p.id] || []).length > 1);
+    if (others.length && botCost(s, worst) >= 3 && h.length > 1) return { sp: 'tausch', target: others[ctx.rand(others.length)].id, give: worst };
+  }
+  return v;
+}
 function botPick(s, id) {
   const h = s.hands[id]; let best = h[0], bc = Infinity;
   for (const v of h) { const c = botCost(s, v) + Math.random() * 0.4; if (c < bc) { bc = c; best = v; } }
@@ -247,7 +262,7 @@ function botTick(r, ctx) {
     if (!todo.length) return;
     ctx.timer(r, 'bot', 900 + ctx.rand(1400), () => {
       if (s.phase !== 'select') return;
-      const b = todo.find(x => s.picks[x.id] == null); if (b) { s.picks[b.id] = botPick(s, b.id); allPicked(r, ctx); ctx.broadcast(r); }
+      const b = todo.find(x => s.picks[x.id] == null); if (b) { s.picks[b.id] = botChoose(r, s, b.id, ctx); allPicked(r, ctx); ctx.broadcast(r); }
       botTick(r, ctx);
     });
   } else if (s.phase === 'choose' && s.choosing && bots.some(b => b.id === s.choosing.pid)) {
@@ -293,10 +308,10 @@ function view(r, id) {
     revealed: s.phase === 'select' ? [] : s.revealed, choosing: s.choosing,
     scores: s.scores, roundPts: s.roundPts, ready: s.ready,
     armed: s.armed || {},
-    held: s.held[id] || [], heldCounts: Object.fromEntries(r.players.map(p => [p.id, (s.held[p.id] || []).length])),
+    held: s.held[id] || [],   // fremde Sonderkarten bleiben geheim
     specialsOn: SPECIALS.filter(k => spOn(r, k)),
     deadline: s.deadline, limit: s.limit, now: Date.now(), roundAt: s.phase === 'roundEnd' ? s.roundAt || null : null,
-    ev: s.ev, history: s.history, winner: s.winner, started: s.started, ended: s.ended,
+    ev: s.ev && s.ev.gifts ? { ...s.ev, gifts: s.ev.gifts.filter(x => x.pid === id) } : s.ev, history: s.history, winner: s.winner, started: s.started, ended: s.ended,
     ps: over || s.phase === 'roundEnd' ? s.ps : null
   };
 }
