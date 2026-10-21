@@ -66,6 +66,15 @@
 .gk-hand .cards button.lowest .gk-card{outline:3px solid var(--accent);outline-offset:3px}
 .gk-hand .cards button:disabled{cursor:default}
 .gk-hand .cards button:disabled .gk-card{filter:saturate(.75) brightness(.92)}
+.recap{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%}
+.recap .seq{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:900px}
+.recap .it{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--muted);max-width:60px}
+.recap .it span{max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recap .it .gk-card{--w:48px}
+.recap .it.last .gk-card{outline:3px solid var(--accent);outline-offset:3px}
+.recap .it.last span{color:var(--accent);font-weight:700}
+.recap .it.bad .gk-card{opacity:.6;filter:grayscale(.4)}
+.recap .it.bad span{color:var(--danger)}
 .gk-ready{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding:28px 16px}
 .gk-ready h2{font:900 clamp(44px,7vw,80px)/.9 var(--f-display);text-transform:uppercase}
 .gk-ready .reward{font-weight:700;color:var(--accent)}
@@ -278,8 +287,9 @@ function renderGame(r, el) {
 
   if (g.phase === 'ready') {
     const lev = g.ev && g.ev.kind === 'level' ? g.ev : null;
+    const recapBox = recap(g, lev ? 'So habt ihr Level ' + lev.level + ' geschafft' : g.ev && g.ev.kind === 'timeup' ? 'Zeit abgelaufen – das lag schon auf dem Stapel' : 'Zuletzt gelegt');
     el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + top +
-      '<div class="panel gk-ready">' + (lev ? '<p class="reward">Level ' + lev.level + ' geschafft!' + (lev.reward === 'life' ? ' Ihr bekommt ein Leben dazu.' : lev.reward === 'star' ? ' Ihr bekommt einen Stern dazu.' : '') + '</p>' : '') +
+      '<div class="panel gk-ready">' + recapBox + (lev ? '<p class="reward">Level ' + lev.level + ' geschafft!' + (lev.reward === 'life' ? ' Ihr bekommt ein Leben dazu.' : lev.reward === 'star' ? ' Ihr bekommt einen Stern dazu.' : '') + '</p>' : '') +
       '<h2>Level ' + g.level + '</h2><p class="muted">Jeder bekommt ' + g.level + (g.level === 1 ? ' Karte' : ' Karten') + ((g.specialsOn || []).length && g.level >= 2 ? ' (Sonderkarten zählen mit)' : '') + '.' + (+r.settings.timer ? ' Ihr habt <b>' + fmtS(10 + g.level * r.settings.timer) + '</b> Zeit.' : '') + ' Konzentriert euch – und dann: kein Wort mehr.</p>' +
       '<div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px">' + (mine ? (g.ready[me] ? '<button class="btn big" disabled>Du bist bereit</button>' : '<button class="btn primary big" data-act="ready">Bereit – los geht’s</button>') : '') + (api.isHost() ? '<button class="btn big" data-c="toLobbyNow">Zur Lobby</button>' : '') + '</div>' +
       '<div class="who">' + r.players.map(p => '<span class="pill ' + (g.ready[p.id] ? 'live' : '') + '">' + esc(p.name) + (g.ready[p.id] ? ' ✓' : '') + '</span>').join('') + '</div>' +
@@ -314,10 +324,18 @@ function renderGame(r, el) {
     const pc = el.querySelector('.gk-p[data-pid="' + g.ev.pid + '"]'); if (pc) pc.classList.add('flash');
   }
 }
+// Rückblick: alle Karten des letzten Levels in der gelegten Reihenfolge
+function recap(g, title) {
+  const pile = g.pile || [], out = g.out || [];
+  if (!pile.length && !out.length) return '';
+  return '<div class="recap"><div class="label">' + esc(title) + '</div><small class="muted" style="margin-top:-6px">in der gelegten Reihenfolge – die letzte Karte ist umrandet</small><div class="seq">' +
+    pile.map((x, i) => '<div class="it' + (i === pile.length - 1 ? ' last' : '') + '">' + card(x.v) + '<span>' + esc(api.pname(x.pid)) + '</span></div>').join('') + '</div>' +
+    (out.length ? '<div class="label" style="margin-top:4px">Abgeworfen (Fehler oder Stern)</div><div class="seq">' + out.map(x => '<div class="it bad">' + card(x.v) + '<span>' + esc(api.pname(x.pid)) + '</span></div>').join('') + '</div>' : '') + '</div>';
+}
 function renderOver(r, g) {
   const won = g.phase === 'won', dur = Math.round(((g.ended || Date.now()) - g.started) / 1000);
   const rows = r.players.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (g.stats.played[p.id] || 0) + '</td><td>' + (g.stats.mistakes[p.id] || 0) + '</td><td>' + ((g.reveal && g.reveal[p.id]) || []).join(', ') + '</td></tr>').join('');
-  return '<div class="panel gk-over"><h2>' + (won ? 'Geschafft!' : 'Verloren') + '</h2>' +
+  return '<div class="panel gk-over"><h2>' + (won ? 'Geschafft!' : 'Verloren') + '</h2>' + recap(g, won ? 'Das letzte Level' : 'So sah es am Ende aus') +
     '<p class="muted" style="font-size:17px">' + (won ? 'Ihr habt alle ' + g.maxLevel + ' Level im Gleichklang gemeistert.' : (g.why === 'time' ? 'Die Zeit ist abgelaufen. ' : '') + 'Ihr seid bis Level ' + g.level + ' von ' + g.maxLevel + ' gekommen.') + ' Dauer: ' + Math.floor(dur / 60) + ' Min. ' + (dur % 60) + ' Sek. · Sterne eingesetzt: ' + g.stats.starsUsed + ' · Leben verloren: ' + g.stats.livesLost + '</p>' +
     '<table><thead><tr><th>Spieler</th><th>gelegt</th><th>zu lange gehalten</th><th>übrige Karten</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     api.overButtons(r) + '</div>';

@@ -280,7 +280,7 @@ function view(r, id) {
     cardCounts: Object.fromEntries(r.players.map(p => [p.id, ((s.cards && s.cards[p.id]) || []).length])),
     specialsOn: SPECIALS.filter(k => (r.settings.specials || {})[k]),
     counts: Object.fromEntries(r.players.map(p => [p.id, (s.hands[p.id] || []).length])),
-    pile: s.pile.slice(-12), pileCount: s.pile.length, out: s.out,
+    pile: s.phase === 'play' ? s.pile.slice(-12) : s.pile, pileCount: s.pile.length, out: s.out,   // nach dem Level: ganzer Stapel für den Rückblick
     // am Ende dürfen alle sehen, wer was noch hatte
     reveal: r.status === 'over' ? s.hands : null,
     stats: s.stats, started: s.started, ended: s.ended,
