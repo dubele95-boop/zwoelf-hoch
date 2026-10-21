@@ -60,9 +60,9 @@ function deal(r, ctx) {
   const gifts = [];
   s.cards = {};
   const count = !on.length || s.level < 2 ? 0 : s.level >= 5 ? 2 : 1;
-  const humans = r.players.filter(p => !p.bot);
-  for (let i = 0; i < count && humans.length; i++) {
-    const cand = humans.filter(p => (s.hands[p.id] || []).length > 1);   // jeder behält mindestens eine Zahl
+  const all = r.players;   // auch Bots bekommen Sonderkarten
+  for (let i = 0; i < count && all.length; i++) {
+    const cand = all.filter(p => (s.hands[p.id] || []).length > 1);   // jeder behält mindestens eine Zahl
     if (!cand.length) break;
     const kind = on[ctx.rand(on.length)], p = cand[ctx.rand(cand.length)], h = s.hands[p.id];
     h.splice(ctx.rand(h.length), 1);                // eine Zahlenkarte weniger
@@ -120,10 +120,9 @@ function play(r, id, ctx) {
   const lower = [];
   for (const p of r.players) { const hh = s.hands[p.id] || []; while (hh.length && (s.dir === 1 ? hh[0] < v : hh[hh.length - 1] > v)) lower.push({ v: takeNext(s, hh), pid: p.id }); }
   if (lower.length) {
-    // ein Schutzschild auf irgendeiner Hand fängt den Fehler für das ganze Team ab
-    const holder = Object.keys(s.cards || {}).find(pid => (s.cards[pid] || []).includes('schild'));
-    const shield = !!holder;
-    if (shield) { const c = s.cards[holder]; c.splice(c.indexOf('schild'), 1); s.stats.shieldsUsed++; s.stats.specialsBy[holder] = (s.stats.specialsBy[holder] || 0) + 1; } else { s.lives--; s.stats.livesLost++; }
+    // ein gelegtes (aktives) Schutzschild fängt den Fehler für das ganze Team ab
+    const shield = (s.shields || 0) > 0;
+    if (shield) { s.shields--; s.stats.shieldsUsed++; } else { s.lives--; s.stats.livesLost++; }
     for (const x of lower) s.stats.mistakes[x.pid] = (s.stats.mistakes[x.pid] || 0) + 1;
     s.out.push(...lower);
     const st = s.stats; st.early[id] = (st.early[id] || 0) + 1; st.streak = 0; st.levelMistakes++;
@@ -166,13 +165,16 @@ function act(r, id, m, ctx) {
 
 function useSpecial(r, id, m, ctx) {
   const s = r.state, mine = (s.cards && s.cards[id]) || [], k = mine.indexOf(m.kind);
-  if (m.kind === 'schild') ctx.must(false, 'Das Schutzschild wirkt automatisch beim nächsten Fehler.');
   ctx.must(k >= 0, 'Diese Sonderkarte hast du nicht.');
   ctx.must(s.phase === 'play', 'Sonderkarten kannst du nur während des Legens einsetzen.');
   ctx.must(!s.vote, 'Erst über den Stern abstimmen.');
   ctx.must(!(s.pausedUntil > Date.now()), 'Gerade ist Pause.');
   ctx.must(cardsLeft(s) > 0, 'Es liegen keine Karten mehr auf der Hand.');
-  if (m.kind === 'echo') {
+  if (m.kind === 'schild') {
+    ctx.must((s.shields || 0) < MAX_SHIELDS, 'Es liegen schon ' + MAX_SHIELDS + ' Schutzschilde.');
+    s.shields = (s.shields || 0) + 1;
+    event(s, { kind: 'sp_schild', pid: id });
+  } else if (m.kind === 'echo') {
     const near = r.players.filter(p => { const h = s.hands[p.id] || []; if (!h.length) return false; const n = nextOf(s, h); return s.dir === 1 ? n - s.ref <= ECHO_RANGE : (s.ref || 101) - n <= ECHO_RANGE; }).map(p => p.id);
     s.echo = { pids: near, until: Date.now() + ECHO_MS, by: id };
     event(s, { kind: 'sp_echo', pid: id, near });
@@ -190,9 +192,11 @@ function useSpecial(r, id, m, ctx) {
     ctx.must(t && t.id !== id, 'Wähle einen Mitspieler.');
     const a = s.hands[id] || [], b = s.hands[t.id] || [];
     ctx.must(a.length && b.length, 'Ihr braucht beide noch mindestens eine Karte.');
-    const x = takeNext(s, a), y = takeNext(s, b);
+    const x = +m.give; ctx.must(a.includes(x), 'Wähle eine deiner Karten zum Abgeben.');
+    const y = b[ctx.rand(b.length)];   // du suchst aus, was du abgibst – zurück kommt eine zufällige Karte
+    a.splice(a.indexOf(x), 1); b.splice(b.indexOf(y), 1);
     a.push(y); b.push(x); a.sort((p, q) => p - q); b.sort((p, q) => p - q); s.echo = null;
-    event(s, { kind: 'sp_tausch', pid: id, target: t.id });
+    event(s, { kind: 'sp_tausch', pid: id, target: t.id, gave: x, got: y });
   } else ctx.must(false, 'Unbekannte Sonderkarte.');
   mine.splice(k, 1); s.stats.specials++; s.stats.specialsBy[id] = (s.stats.specialsBy[id] || 0) + 1;
   s.changed = Date.now();
@@ -227,6 +231,17 @@ function botTick(r, ctx) {
     else ctx.clearTimer(r, 'bot');
     return;
   }
+  // Bots setzen ihre Sonderkarten ein, wenn es passt
+  const spUse = botSpecial(r, s, bots, ctx);
+  if (spUse) {
+    const stamp0 = s.changed;
+    ctx.timer(r, 'bot', 1200 + ctx.rand(1500), () => {
+      if (r.state !== s || s.changed !== stamp0 || s.phase !== 'play' || s.vote) return botTick(r, ctx);
+      try { useSpecial(r, spUse.id, spUse.m, ctx); } catch {}
+      ctx.broadcast(r); botTick(r, ctx);
+    });
+    return;
+  }
   // jeder Bot "zählt" vom obersten Stapelwert bis zu seiner nächsten Karte
   let best = null;
   for (const b of bots) {
@@ -246,6 +261,23 @@ function botTick(r, ctx) {
   });
 }
 
+function botSpecial(r, s, bots, ctx) {
+  if (s.pausedUntil > Date.now()) return null;
+  for (const b of bots) {
+    const c = (s.cards && s.cards[b.id]) || [], h = s.hands[b.id] || [];
+    if (!c.length || !h.length) continue;
+    if (c.includes('schild') && (s.shields || 0) < MAX_SHIELDS) return { id: b.id, m: { kind: 'schild' } };
+    const gap = s.dir === 1 ? h[0] - top(s) : (s.ref || 101) - h[h.length - 1];
+    if (c.includes('echo') && !(s.echo && s.echo.until > Date.now()) && gap <= ECHO_RANGE) return { id: b.id, m: { kind: 'echo' } };
+    if (c.includes('spiegel') && s.dir === 1 && !s.pile.length && h[0] > 60) return { id: b.id, m: { kind: 'spiegel' } };
+    if (c.includes('pause') && s.deadline && s.limit && s.deadline - Date.now() < s.limit * 0.3) return { id: b.id, m: { kind: 'pause' } };
+    if (c.includes('tausch') && h.length >= 2) {
+      const others = r.players.filter(p => p.id !== b.id && (s.hands[p.id] || []).length);
+      if (others.length) return { id: b.id, m: { kind: 'tausch', target: others[ctx.rand(others.length)].id, give: s.dir === 1 ? h[h.length - 1] : h[0] } };
+    }
+  }
+  return null;
+}
 function removePlayer(r, id, ctx) {
   const s = r.state; if (!s) return;
   delete s.hands[id]; delete s.ready[id]; if (s.cards) delete s.cards[id];
@@ -273,11 +305,10 @@ function view(r, id) {
   const s = r.state;
   return {
     level: s.level, maxLevel: s.maxLevel, lives: s.lives, stars: s.stars, phase: s.phase,
-    ready: s.ready, vote: s.vote, ev: s.ev, readyAt: s.phase === 'ready' ? s.readyAt || null : null,
+    ready: s.ready, vote: s.vote, ev: s.ev && s.ev.gifts ? { ...s.ev, gifts: s.ev.gifts.filter(x => x.pid === id) } : s.ev, readyAt: s.phase === 'ready' ? s.readyAt || null : null,
     hand: s.hands[id] || [], dir: s.dir, ref: s.ref, now: Date.now(), deadline: s.deadline || 0, limit: s.limit || 0, why: s.why || null,
-    myCards: (s.cards && s.cards[id]) || [], shields: Object.values(s.cards || {}).flat().filter(k => k === 'schild').length,
+    myCards: (s.cards && s.cards[id]) || [], shields: s.shields || 0,   // nur gelegte Schilde sind sichtbar
     pausedUntil: s.pausedUntil || 0, echo: s.echo && s.echo.until > Date.now() ? s.echo : null,
-    cardCounts: Object.fromEntries(r.players.map(p => [p.id, ((s.cards && s.cards[p.id]) || []).length])),
     specialsOn: SPECIALS.filter(k => (r.settings.specials || {})[k]),
     counts: Object.fromEntries(r.players.map(p => [p.id, (s.hands[p.id] || []).length])),
     pile: s.phase === 'play' ? s.pile.slice(-12) : s.pile, pileCount: s.pile.length, out: s.out,   // nach dem Level: ganzer Stapel für den Rückblick
