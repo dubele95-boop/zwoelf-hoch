@@ -70,6 +70,7 @@
 .sym:disabled{cursor:default}
 /* Farben */
 .simon{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);justify-content:center;flex:1;align-content:center}
+.sdots{display:flex;gap:5px;justify-content:center}.sdots i{width:11px;height:11px;border-radius:50%;background:#222;border:1px solid #555}.sdots i.on{background:#4cff8a;box-shadow:0 0 6px #4cff8a}
 .pad{border:3px solid #111;border-radius:12px;opacity:.45;transition:opacity .08s,box-shadow .08s}
 .pad.lit{opacity:1;box-shadow:0 0 24px var(--pc)}
 .pad[data-c=rot]{grid-area:1/2;--pc:#ff4040;background:#ff4040}
@@ -220,7 +221,7 @@ const SY = [
 ];
 const sym = i => '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + SY[i] + '</svg>';
 const LOCK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>';
-const L = { off: 0, bombKey: null, pw: {}, pressing: null, simonPause: {}, lastSeq: 0, tab: null, tick: -1 };
+const L = { off: 0, bombKey: null, pw: {}, pressing: null, simonPause: {}, simonStart: {}, simonKey: {}, lastSeq: 0, tab: null, tick: -1 };
 
 const api = Spieleabend.start({
   game: 'bombe', title: 'Bombe entschärfen', tagline: 'Reden ist alles',
@@ -256,7 +257,7 @@ const api = Spieleabend.start({
   actions: {
     cut: el => { api.Snd.play('snip'); api.act('cut', { m: +el.dataset.m, k: +el.dataset.k }); },
     sym: el => api.act('sym', { m: +el.dataset.m, k: +el.dataset.k }),
-    pad: el => { const m = +el.dataset.m; L.simonPause[m] = Date.now() + 4000; el.classList.add('lit'); setTimeout(() => el.classList.remove('lit'), 220); api.Snd.play('pad'); api.act('color', { m, c: el.dataset.c }); },
+    pad: el => { const m = +el.dataset.m; L.simonStart[m] = Date.now() + 2600; el.classList.add('lit'); setTimeout(() => el.classList.remove('lit'), 220); api.Snd.play('pad'); api.act('color', { m, c: el.dataset.c }); },
     up: el => { pwStep(+el.dataset.m, +el.dataset.k, -1); },
     down: el => { pwStep(+el.dataset.m, +el.dataset.k, 1); },
     word: el => { const m = +el.dataset.m, d = api.room.g.detail[m], pos = L.pw[m] || [0, 0, 0, 0, 0]; api.act('word', { m, word: d.cols.map((c, i) => c[pos[i]]).join('') }); },
@@ -319,7 +320,7 @@ function bombHTML(g, over) {
     if (m.type === 'kabel') body = '<div class="wires">' + d.wires.map((c, k) => '<button type="button" class="wire' + (d.cut.includes(k) ? ' cut' : '') + '" data-act="cut" data-m="' + i + '" data-k="' + k + '" style="--wc:' + WC[c] + '" aria-label="' + (k + 1) + '. Kabel, ' + R.COLORS[c] + '"' + (dis || d.cut.includes(k) ? ' disabled' : '') + '><span class="no">' + (k + 1) + '</span><span class="term"></span><span class="line"></span><span class="term"></span></button>').join('') + '</div>' + (over && d.answer != null ? '<small class="muted">Richtig war: ' + (d.answer + 1) + '. Kabel</small>' : '');
     if (m.type === 'knopf') body = '<div class="kn"><button type="button" class="kn-btn' + (d.pressed && L.pressing === i ? ' down' : '') + '" data-m="' + i + '" style="--kc:' + KC[d.color][0] + ';--kt:' + KC[d.color][1] + '"' + dis + '>' + esc(d.label) + '</button><div class="strip' + (d.strip ? ' on' : '') + '" style="--sc:' + (SC[d.strip] || '#000') + '" title="Leuchtstreifen"></div></div>' + (over && d.answer ? '<small class="muted">Richtig war: ' + (d.answer === 'tap' ? 'kurz drücken' : 'gedrückt halten') + '</small>' : '<small class="muted">Kurz drücken oder gedrückt halten – loslassen, wann es passt.</small>');
     if (m.type === 'symbole') body = '<div class="syms">' + d.symbols.map((s, k) => '<button type="button" class="sym' + (d.done.includes(s) ? ' done' : '') + '" data-act="sym" data-m="' + i + '" data-k="' + k + '"' + (dis || d.done.includes(s) ? ' disabled' : '') + '><i></i>' + sym(s) + (over && d.order ? '<small style="font-weight:800">' + (d.order.indexOf(s) + 1) + '.</small>' : '') + '</button>').join('') + '</div>';
-    if (m.type === 'farben') body = '<div class="simon" data-simon="' + i + '">' + R.SIMON_COLORS.map(c => '<button type="button" class="pad" data-act="pad" data-m="' + i + '" data-c="' + c + '" aria-label="' + R.COLORS[c] + '"' + dis + '></button>').join('') + '</div><small class="muted" style="text-align:center">Stufe ' + Math.min(d.stage, d.len) + ' von ' + d.len + '</small>';
+    if (m.type === 'farben') body = '<div class="simon" data-simon="' + i + '">' + R.SIMON_COLORS.map(c => '<button type="button" class="pad" data-act="pad" data-m="' + i + '" data-c="' + c + '" aria-label="' + R.COLORS[c] + '"' + dis + '></button>').join('') + '</div><div class="sdots" title="So viele Farben hast du in dieser Stufe schon eingegeben">' + Array.from({ length: Math.min(d.stage, d.len) }, (_, k) => '<i class="' + (k < d.input ? 'on' : '') + '"></i>').join('') + '</div><small class="muted" style="text-align:center">Stufe ' + Math.min(d.stage, d.len) + ' von ' + d.len + ' – gib alle ' + Math.min(d.stage, d.len) + ' Farben von vorn ein</small>';
     if (m.type === 'wort') { const pos = L.pw[i] || (L.pw[i] = [0, 0, 0, 0, 0]); body = '<div class="pw">' + d.cols.map((c, k) => '<div class="col"><button type="button" data-act="up" data-m="' + i + '" data-k="' + k + '" aria-label="hoch"' + dis + '>▲</button><div class="letter" data-m="' + i + '" data-k="' + k + '">' + (solved && d.answer ? d.answer[k] : c[pos[k]]) + '</div><button type="button" data-act="down" data-m="' + i + '" data-k="' + k + '" aria-label="runter"' + dis + '>▼</button></div>').join('') + '</div><button type="button" class="btn pw-send" data-act="word" data-m="' + i + '"' + dis + '>Senden</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer + '</small>' : ''); }
     if (m.type === 'labyrinth') body = '<div class="maze">' + Array.from({ length: 36 }, (_, c) => '<i class="' + (d.marks.includes(c) ? 'mk ' : '') + (c === d.pos ? 'pos ' : '') + (c === d.goal && c !== d.pos ? 'goal' : '') + '"></i>').join('') + '</div>' +
       '<div class="arrows">' + [['u', '▲'], ['l', '◀'], ['d', '▼'], ['r', '▶']].map(([k, t]) => '<button type="button" data-act="move" data-m="' + i + '" data-d="' + k + '"' + dis + ' aria-label="' + ({ u: 'hoch', d: 'runter', l: 'links', r: 'rechts' })[k] + '">' + t + '</button>').join('') + '</div>';
@@ -451,7 +452,7 @@ function endButtons(r, g, won) {
 function renderGame(r, el) {
   const g = r.g; if (!g) { el.innerHTML = ''; return; }
   L.off = g.now - Date.now();
-  if (L.bombKey !== g.started) { L.bombKey = g.started; L.pw = {}; L.simonPause = {}; L.tab = null; }
+  if (L.bombKey !== g.started) { L.bombKey = g.started; L.pw = {}; L.simonPause = {}; L.simonStart = {}; L.simonKey = {}; L.tab = null; }
   const over = r.status === 'over';
   let main = '';
   if (over) {
@@ -479,8 +480,11 @@ setInterval(() => {
       if (m.type !== 'farben' || m.solved) return;
       const box = document.querySelector('[data-simon="' + i + '"]'); if (!box) return;
       const d = g.detail[i], seq = d.flash, step = 650, cycle = seq.length * step + 2200;
-      const paused = (L.simonPause[i] || 0) > Date.now();
-      const t = Date.now() % cycle, idx = Math.floor(t / step), on = !paused && idx < seq.length && (t % step) < 420;
+      // Die Folge startet immer von vorn: nach einer neuen Stufe sofort, nach einem Tastendruck nach kurzer Pause
+      const key = d.stage + ':' + g.strikes;
+      if (L.simonKey[i] !== key) { L.simonKey[i] = key; L.simonStart[i] = Math.max(L.simonStart[i] || 0, Date.now() + 700); }
+      const t0 = L.simonStart[i] || 0, el = Date.now() - t0;
+      const t = el < 0 ? -1 : el % cycle, idx = Math.floor(t / step), on = t >= 0 && idx < seq.length && (t % step) < 420;
       box.querySelectorAll('.pad').forEach(p => { if (!p.matches(':active')) p.classList.toggle('lit', on && p.dataset.c === seq[idx]); });
     });
   }

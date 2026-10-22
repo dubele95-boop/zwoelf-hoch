@@ -51,13 +51,13 @@ const EVENTS = [
 
 // Sonderkarten: liegen gemischt im Nachziehstapel. Ausgeschaltete werden beim Ziehen übersprungen.
 const SPECIALS = {
-  lagerfeuer: { name: 'Lagerfeuer', text: 'Ihr rastet: +1 Ausdauer, jeder zieht 2 Karten. Diese Stunde vergeht, ohne dass ihr weiterkommt – das Ereignis wartet bis zur nächsten Stunde.' },
-  mond: { name: 'Mondlicht', text: 'Zählt als 3 Punkte in einer Farbe deiner Wahl.' },
-  freund: { name: 'Hilfe vom Freund', text: 'Gib einem Mitspieler eine deiner Handkarten.' },
-  stern: { name: 'Sternschnuppe', text: 'Du suchst das nächste Ereignis aus 3 möglichen aus.' },
-  abkuerzung: { name: 'Abkürzung', text: 'Schafft ihr das Ereignis dieser Stunde, geht ihr ein Feld extra weiter.' },
-  glueck: { name: 'Glücksbringer', text: 'Scheitert ihr in dieser Stunde, passiert nichts Schlimmes – ihr geht einfach weiter.' },
-  eule: { name: 'Eulenruf', text: 'Diese Stunde sehen alle die Handkarten aller Mitspieler.' }
+  lagerfeuer: { name: 'Lagerfeuer', text: 'Ihr macht Rast: +1 Ausdauer. Ruhiger Modus: Jeder zieht 2 Karten, dafür vergeht eine Stunde ohne Fortschritt – das Ereignis wartet. Hektik: Jeder bekommt 2 neue Karten in seinen Stapel, das Ereignis bleibt liegen, die Uhr läuft weiter.' },
+  mond: { name: 'Mondlicht', text: 'Leg sie in die Mitte und wähle eine Farbe: Sie zählt dort als 3 Punkte, z. B. als Mut 3. Gut, wenn euch genau eine Farbe fehlt.' },
+  freund: { name: 'Hilfe vom Freund', text: 'Gib einem Mitspieler eine deiner Handkarten – z. B. dem Ritter eine Mut-Karte, weil seine Mut-Karten +1 zählen.' },
+  stern: { name: 'Sternschnuppe', text: 'Du siehst 3 mögliche nächste Ereignisse und suchst aus, welches als Nächstes kommt. So geht ihr Gefahren aus dem Weg.' },
+  abkuerzung: { name: 'Abkürzung', text: 'Gilt für das aktuelle Ereignis: Schafft ihr es, geht ihr 2 statt 1 Feld weiter.' },
+  glueck: { name: 'Glücksbringer', text: 'Gilt für das aktuelle Ereignis: Schafft ihr es nicht, passiert nichts Schlimmes – und ihr geht trotzdem 1 Feld weiter.' },
+  eule: { name: 'Eulenruf', text: 'Gilt für das aktuelle Ereignis: Alle sehen die Handkarten aller Mitspieler. So könnt ihr genau absprechen, wer was legt.' }
 };
 const SP_KEYS = Object.keys(SPECIALS);
 function defaults() { return { diff: 'normal', mode: 'ruhig', chars: {}, specials: Object.fromEntries(SP_KEYS.map(k => [k, true])) }; }
@@ -102,6 +102,22 @@ function draw(s, ctx, r) {
   }
   return null;
 }
+// Hektik: jeder hat einen eigenen, festen Kartenstapel (wie bei 5-Minute Dungeon) – ist er leer, gibt es keine neuen Karten
+const PDECK_VALUES = { leicht: [1, 1, 2, 2, 2, 3, 3, 4, 4], normal: [1, 1, 2, 2, 3, 3, 4, 4], schwer: [1, 1, 2, 2, 3, 3, 4] };   // pro Farbe
+const PDECK_SPECIALS = 2;
+function makePersonal(r, ctx) {
+  const nid = () => 'p' + (++cardId) + Math.random().toString(36).slice(2, 5);
+  const on = SP_KEYS.filter(k => spOn(r, k)), d = [];
+  for (const c of COLORS) for (const v of PDECK_VALUES[r.settings.diff] || PDECK_VALUES.normal) d.push({ id: nid(), c, v });
+  for (let i = 0; i < PDECK_SPECIALS && on.length; i++) d.push({ id: nid(), sp: on[ctx.rand(on.length)] });
+  return ctx.shuffle(d);
+}
+function drawFor(s, ctx, r, pid) {
+  if (!hektik(s)) return draw(s, ctx, r);
+  const d = (s.pdeck = s.pdeck || {})[pid] || (s.pdeck[pid] = []);
+  while (d.length) { const c = d.pop(); if (c.sp && !spOn(r, c.sp)) { s.discard.push(c); continue; } return c; }
+  return null;
+}
 function start(r, ctx) {
   const n = r.players.length, d = DIFF[r.settings.diff] || DIFF.normal;
   const chosen = { ...(r.settings.chars || {}) };
@@ -117,8 +133,9 @@ function start(r, ctx) {
   };
   s.parked = []; s.hour = {}; s.pick = null; s.spUsed = 0;
   s.ps = {}; s.team = { won: 0, lost: 0, items: 0, hpLost: 0, hpGained: 0, rests: 0, lucky: 0, shortcuts: 0, best: null };
-  for (const p of r.players) { s.hands[p.id] = []; for (let i = 0; i < HAND(n); i++) { const c = draw(s, ctx, r); if (c) s.hands[p.id].push(c); } }
   s.mode = r.settings.mode === 'hektik' ? 'hektik' : 'ruhig';
+  if (hektik(s)) { s.pdeck = {}; for (const p of r.players) s.pdeck[p.id] = makePersonal(r, ctx); }
+  for (const p of r.players) { s.hands[p.id] = []; for (let i = 0; i < HAND(n); i++) { const c = drawFor(s, ctx, r, p.id); if (c) s.hands[p.id].push(c); } }
   if (hektik(s)) { s.solved = 0; s.deadline = Date.now() + (HEKTIK_MIN[r.settings.diff] || 6) * 60000; armDawn(r, ctx); }
   nextRound(r, ctx);
 }
@@ -147,13 +164,16 @@ function onPresence(r, ctx) { checkNext(r, ctx); }
 // Hektik: Handkarten werden sofort wieder aufgefüllt
 function refill(r, ctx) {
   const s = r.state, n = r.players.length;
-  for (const p of r.players) { const h = s.hands[p.id] = s.hands[p.id] || []; for (let g = 0; h.length < HAND(n) && g < 20; g++) { const c = draw(s, ctx, r); if (!c) break; h.push(c); } }
+  for (const p of r.players) { const h = s.hands[p.id] = s.hands[p.id] || []; for (let g = 0; h.length < HAND(n) && g < 20; g++) { const c = drawFor(s, ctx, r, p.id); if (!c) break; h.push(c); } }
 }
 // Hektik: nach jeder Aktion prüfen, ob das Ereignis geschafft ist
 function hektikCheck(r, ctx) {
   const s = r.state; if (!hektik(s) || s.phase !== 'plan' || s.pick) return;
   refill(r, ctx);
-  if (success(r)) resolve(r, ctx);
+  if (success(r)) { resolve(r, ctx); return; }
+  // keine Karten mehr, mit denen man noch etwas legen könnte -> verloren
+  const playable = r.players.some(p => (s.hands[p.id] || []).some(c => !c.sp || c.sp === 'mond' || c.sp === 'lagerfeuer') || ((s.pdeck || {})[p.id] || []).length);
+  if (!playable && !s.items.some(it => it === 'kompass' || it === 'fackel' || it === 'seil')) { s.phase = 'lost'; s.why = 'cards'; s.ended = Date.now(); s.contrib = []; ctx.clearTimer(r, 'dawn'); ctx.finish(r); }
 }
 function event(s, e) { s.seq++; s.ev = { ...e, seq: s.seq }; }
 // Hektik: Vor dem Dorf wartet der Wächter – er braucht Punkte in allen vier Farben
@@ -214,13 +234,14 @@ function resolve(r, ctx) {
   if (eff.loseItem && s.items.length) { res.lost = s.items.splice(ctx.rand(s.items.length), 1)[0]; }
   if (eff.discard) { res.discard = eff.discard; for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < eff.discard && h.length; k++) s.discard.push(h.splice(ctx.rand(h.length), 1)[0]); } }
   let step = (eff.stop ? 0 : 1) + (eff.move || 0);
+  if (hektik(s) && !ok && !lucky && !ev.optional) step = Math.min(0, eff.move || 0);   // Hektik: nicht geschafft = kein Schritt nach vorn
   if (ok && s.hour && s.hour.abkuerzung) { step++; res.shortcut = true; s.team.shortcuts++; }
   if (res.hp < 0) s.team.hpLost -= res.hp; if (res.hp > 0) s.team.hpGained += res.hp; if (res.item) s.team.items++;
   if (ok && ev.need) { if (!s.team.best || res.contrib.length > s.team.best.cards) s.team.best = { id: ev.id, cards: res.contrib.length, round: s.round }; }
   s.pos = Math.max(0, Math.min(s.goal, s.pos + step)); res.move = step;
   // Nachziehen
   const extra = eff.draw || 0;
-  if (hektik(s)) { for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < extra && h.length < HAND_MAX(n); k++) { const c = draw(s, ctx, r); if (c) h.push(c); } } refill(r, ctx); }
+  if (hektik(s)) { for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < extra && h.length < HAND_MAX(n); k++) { const c = drawFor(s, ctx, r, p.id); if (c) h.push(c); } } refill(r, ctx); }
   else for (const p of r.players) { const h = s.hands[p.id]; for (let k = 0; k < REFILL(n) + extra && h.length < HAND_MAX(n); k++) { const c = draw(s, ctx, r); if (c) h.push(c); } }
   s.result = res; s.history.push({ round: s.round, id: ev.id, ok, move: step, hp: res.hp });
   s.phase = 'result'; if (!hektik(s)) armNext(r, ctx, true);
@@ -344,7 +365,7 @@ function useSpecial(r, id, m, ctx) {
   if (sp === 'lagerfeuer' && hektik(s)) {
     done();
     const before = s.hp; s.hp = Math.min(s.hpMax, s.hp + 1); s.team.rests++; s.team.hpGained += s.hp - before;
-    for (const p of r.players) { const h = s.hands[p.id]; for (let i = 0; i < 2 && h.length < HAND_MAX(n) + 2; i++) { const c = draw(s, ctx, r); if (c) h.push(c); } }
+    for (const p of r.players) { const d = (s.pdeck = s.pdeck || {})[p.id] || (s.pdeck[p.id] = []); for (let i = 0; i < 2; i++) d.push({ id: 'f' + (++cardId), c: COLORS[ctx.rand(4)], v: 1 + ctx.rand(4) }); ctx.shuffle(d); }
     event(s, { kind: 'sp', sp, pid: id }); return;
   }
   if (sp === 'lagerfeuer') {
@@ -404,7 +425,7 @@ function view(r, id) {
   const s = r.state, ev = evById(s.event), scout = Object.values(s.chars).includes('spaeherin');
   return {
     nextVotes: s.nextVotes || {}, nextAt: s.phase === 'result' ? s.nextAt || null : null,
-    mode: s.mode || 'ruhig', deadline: s.deadline || null, now: Date.now(), solved: s.solved || 0,
+    mode: s.mode || 'ruhig', decks: s.pdeck ? Object.fromEntries(Object.entries(s.pdeck).map(([k, d]) => [k, d.length])) : null, deadline: s.deadline || null, now: Date.now(), solved: s.solved || 0,
     round: s.round, rounds: s.rounds, hp: s.hp, hpMax: s.hpMax, pos: s.pos, goal: s.goal, phase: s.phase, why: s.why || null,
     chars: s.chars, items: s.items, used: s.used, ready: s.ready, healed: s.healed, skipUsed: s.skipUsed,
     hand: sortHand(s.hands[id] || []),
