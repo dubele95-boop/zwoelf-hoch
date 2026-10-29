@@ -96,6 +96,11 @@
 /* Morse */
 .morse{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;justify-content:center}
 .lamp{width:46px;height:46px;border-radius:50%;background:#3a2a12;border:3px solid #111;transition:background .03s}
+.lamprow{display:flex;align-items:center;gap:12px}
+.startled{display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px/1 var(--f-body);color:#9aa}
+.startled i{width:14px;height:14px;border-radius:50%;background:#123018;border:2px solid #111}
+.startled i.on{background:#4cff8a;box-shadow:0 0 10px #4cff8a}
+.mletters{display:flex;gap:6px}.mletters i{width:12px;height:6px;border-radius:3px;background:#3a3e44}.mletters i.on{background:#ffcf4a;box-shadow:0 0 6px #ffb020}
 .lamp.on{background:#ffcf4a;box-shadow:0 0 26px #ffb020}
 .freq{display:flex;align-items:center;gap:8px}
 .freq b{font:800 22px/1 "Courier New",ui-monospace,monospace;color:#6dff8f;background:#0f1a10;padding:6px 10px;border-radius:6px;border:2px solid #0a0f0a;min-width:7.2em;text-align:center}
@@ -116,7 +121,9 @@
 .sw{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;padding:0;color:#ddd}
 .sw .ledx{width:12px;height:12px;border-radius:50%;background:#333;border:1px solid #111}.sw .ledx.on{background:#fff6c8;box-shadow:0 0 8px #ffe680}
 .sw .vl{width:12px;flex:1;min-height:110px;border-radius:6px;background:var(--wc);box-shadow:inset 2px 0 0 rgba(255,255,255,.25),0 2px 0 rgba(0,0,0,.4)}
-.sw.cut .vl{background:linear-gradient(180deg,var(--wc) 0 42%,transparent 42% 58%,var(--wc) 58%)}
+.sw .vl{position:relative}
+.sw.cut .vl::after{content:"";position:absolute;left:-4px;right:-4px;top:44%;height:12%;background:#2c3036;border-top:2px solid #111;border-bottom:2px solid #111;transform:skewY(-20deg)}
+.sw small{position:absolute;bottom:-2px}.sw{position:relative}
 .sw .st{height:18px;font-size:16px;color:#ffd23d}
 .sw:disabled{cursor:default}
 /* Druckventil */
@@ -160,6 +167,8 @@
 @keyframes shk{10%,50%{transform:translate(-12px,6px)}30%,70%{transform:translate(10px,-8px)}90%{transform:translate(-4px,3px)}}
 .winfx{position:fixed;inset:0;z-index:45;pointer-events:none;background:radial-gradient(ellipse at center,rgba(76,255,138,.35),transparent 70%);animation:wf 2s ease forwards}
 @keyframes wf{from{opacity:1}to{opacity:0}}
+.finaleval{display:flex;flex-direction:column;gap:12px;border:2px solid #ffd27a;background:linear-gradient(180deg,rgba(255,210,122,.12),transparent)}
+.finaleval h2{font:900 clamp(36px,6vw,60px)/1 var(--f-display);text-transform:uppercase;color:#ffd27a}
 .result{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding:24px 16px}
 .result h2{font:900 clamp(48px,8vw,96px)/.9 var(--f-display);text-transform:uppercase}
 .result.won h2{color:#4cff8a}.result.lost h2{color:#ff6a4a}
@@ -172,8 +181,10 @@
 (function(){
 const R = window.BombeRegeln, esc = Spieleabend.esc;
 const WC = { rot: '#e53935', blau: '#2f6fe0', gelb: '#f4c430', weiss: '#f2f2f2', schwarz: '#1b1b1b' };
-const KC = { rot: ['#d93b2b', '#fff'], blau: ['#2f6fe0', '#fff'], gelb: ['#f4c430', '#2a2205'], weiss: ['#f2f2f2', '#222'] };
-const SC = { blau: '#3d7bff', gelb: '#ffd23d', rot: '#ff4040', weiss: '#ffffff' };
+const KC = { rot: ['#d93b2b', '#fff'], blau: ['#2f6fe0', '#fff'], gelb: ['#f4c430', '#2a2205'], weiss: ['#f2f2f2', '#222'], gruen: ['#2e9d57', '#fff'], schwarz: ['#1d1f23', '#f2f2f2'] };
+const SC = { blau: '#3d7bff', gelb: '#ffd23d', rot: '#ff4040', weiss: '#ffffff', gruen: '#36d36c', lila: '#b56bff' };
+const SN = { blau: 'Blau', gelb: 'Gelb', rot: 'Rot', weiss: 'Weiß', gruen: 'Grün', lila: 'Lila' };
+const STRIP_MS = 650;   // so lange muss man halten, bis der Streifen aufleuchtet
 const SALW = { weiss: '#f2f2f2', rot: '#e53935', blau: '#2f6fe0', rotblau: 'repeating-linear-gradient(180deg,#e53935 0 10px,#2f6fe0 10px 20px)' };
 // 27 Symbole (eigene Zeichnungen)
 const SY = [
@@ -285,7 +296,7 @@ const api = Spieleabend.start({
 // Knopf gedrückt halten: Loslassen zählt überall auf der Seite
 document.addEventListener('pointerdown', e => {
   const b = e.target.closest('.kn-btn'); if (!b || b.disabled) return;
-  e.preventDefault(); L.pressing = +b.dataset.m; b.classList.add('down'); api.act('press', { m: L.pressing });
+  e.preventDefault(); L.pressing = +b.dataset.m; L.pressT = Date.now(); b.classList.add('down'); api.act('press', { m: L.pressing });
 });
 const release = () => { if (L.pressing == null) return; const m = L.pressing; L.pressing = null; document.querySelectorAll('.kn-btn.down').forEach(x => x.classList.remove('down')); api.act('release', { m }); };
 document.addEventListener('pointerup', release); document.addEventListener('pointercancel', release);
@@ -318,13 +329,13 @@ function bombHTML(g, over) {
     const d = g.detail[i], solved = m.solved, dis = solved || over ? ' disabled' : '';
     let body = '';
     if (m.type === 'kabel') body = '<div class="wires">' + d.wires.map((c, k) => '<button type="button" class="wire' + (d.cut.includes(k) ? ' cut' : '') + '" data-act="cut" data-m="' + i + '" data-k="' + k + '" style="--wc:' + WC[c] + '" aria-label="' + (k + 1) + '. Kabel, ' + R.COLORS[c] + '"' + (dis || d.cut.includes(k) ? ' disabled' : '') + '><span class="no">' + (k + 1) + '</span><span class="term"></span><span class="line"></span><span class="term"></span></button>').join('') + '</div>' + (over && d.answer != null ? '<small class="muted">Richtig war: ' + (d.answer + 1) + '. Kabel</small>' : '');
-    if (m.type === 'knopf') body = '<div class="kn"><button type="button" class="kn-btn' + (d.pressed && L.pressing === i ? ' down' : '') + '" data-m="' + i + '" style="--kc:' + KC[d.color][0] + ';--kt:' + KC[d.color][1] + '"' + dis + '>' + esc(d.label) + '</button><div class="strip' + (d.strip ? ' on' : '') + '" style="--sc:' + (SC[d.strip] || '#000') + '" title="Leuchtstreifen"></div></div>' + (over && d.answer ? '<small class="muted">Richtig war: ' + (d.answer === 'tap' ? 'kurz drücken' : 'gedrückt halten') + '</small>' : '<small class="muted">Kurz drücken oder gedrückt halten – loslassen, wann es passt.</small>');
+    if (m.type === 'knopf') body = '<div class="kn"><button type="button" class="kn-btn' + (d.pressed && L.pressing === i ? ' down' : '') + '" data-m="' + i + '" style="--kc:' + KC[d.color][0] + ';--kt:' + KC[d.color][1] + '"' + dis + '>' + esc(d.label) + '</button><div class="strip" data-strip="' + i + '" style="--sc:' + (SC[d.strip] || '#000') + '" title="Leuchtstreifen – leuchtet, wenn du den Knopf hältst"></div></div>' + (over && d.answer ? '<small class="muted">Richtig war: ' + ({ tap: 'kurz drücken', double: 'zweimal kurz drücken', hold: 'gedrückt halten' })[d.answer] + '</small>' : '<small class="muted">Kurz drücken, zweimal kurz drücken oder gedrückt halten – die Experten sagen dir, was richtig ist. Beim Halten leuchtet nach einem Moment der Streifen rechts auf.</small>');
     if (m.type === 'symbole') body = '<div class="syms">' + d.symbols.map((s, k) => '<button type="button" class="sym' + (d.done.includes(s) ? ' done' : '') + '" data-act="sym" data-m="' + i + '" data-k="' + k + '"' + (dis || d.done.includes(s) ? ' disabled' : '') + '><i></i>' + sym(s) + (over && d.order ? '<small style="font-weight:800">' + (d.order.indexOf(s) + 1) + '.</small>' : '') + '</button>').join('') + '</div>';
     if (m.type === 'farben') body = '<div class="simon" data-simon="' + i + '">' + R.SIMON_COLORS.map(c => '<button type="button" class="pad" data-act="pad" data-m="' + i + '" data-c="' + c + '" aria-label="' + R.COLORS[c] + '"' + dis + '></button>').join('') + '</div><div class="sdots" title="So viele Farben hast du in dieser Stufe schon eingegeben">' + Array.from({ length: Math.min(d.stage, d.len) }, (_, k) => '<i class="' + (k < d.input ? 'on' : '') + '"></i>').join('') + '</div><small class="muted" style="text-align:center">Stufe ' + Math.min(d.stage, d.len) + ' von ' + d.len + ' – gib alle ' + Math.min(d.stage, d.len) + ' Farben von vorn ein</small>';
     if (m.type === 'wort') { const pos = L.pw[i] || (L.pw[i] = [0, 0, 0, 0, 0]); body = '<div class="pw">' + d.cols.map((c, k) => '<div class="col"><button type="button" data-act="up" data-m="' + i + '" data-k="' + k + '" aria-label="hoch"' + dis + '>▲</button><div class="letter" data-m="' + i + '" data-k="' + k + '">' + (solved && d.answer ? d.answer[k] : c[pos[k]]) + '</div><button type="button" data-act="down" data-m="' + i + '" data-k="' + k + '" aria-label="runter"' + dis + '>▼</button></div>').join('') + '</div><button type="button" class="btn pw-send" data-act="word" data-m="' + i + '"' + dis + '>Senden</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer + '</small>' : ''); }
     if (m.type === 'labyrinth') body = '<div class="maze">' + Array.from({ length: 36 }, (_, c) => '<i class="' + (d.marks.includes(c) ? 'mk ' : '') + (c === d.pos ? 'pos ' : '') + (c === d.goal && c !== d.pos ? 'goal' : '') + '"></i>').join('') + '</div>' +
       '<div class="arrows">' + [['u', '▲'], ['l', '◀'], ['d', '▼'], ['r', '▶']].map(([k, t]) => '<button type="button" data-act="move" data-m="' + i + '" data-d="' + k + '"' + dis + ' aria-label="' + ({ u: 'hoch', d: 'runter', l: 'links', r: 'rechts' })[k] + '">' + t + '</button>').join('') + '</div>';
-    if (m.type === 'morse') body = '<div class="morse"><div class="lamp" data-morse="' + i + '"></div><div class="freq"><button type="button" data-act="freq" data-m="' + i + '" data-d="-1"' + dis + '>◀</button><b>' + (d.freqs[d.sel] / 1000).toFixed(3) + ' MHz</b><button type="button" data-act="freq" data-m="' + i + '" data-d="1"' + dis + '>▶</button></div><button type="button" class="btn small" data-act="tx" data-m="' + i + '"' + dis + '>Senden (TX)</button>' + (over && d.answer ? '<small class="muted">Das Wort war: ' + d.answer + '</small>' : '') + '</div>';
+    if (m.type === 'morse') body = '<div class="morse"><div class="lamprow"><div class="startled" title="Leuchtet grün, bevor das Wort von vorn beginnt"><i data-mstart="' + i + '"></i>START</div><div class="lamp" data-morse="' + i + '"></div></div><div class="mletters" data-mlet="' + i + '" title="Welcher Buchstabe gerade blinkt">' + d.code.split(' ').map(() => '<i></i>').join('') + '</div><div class="freq"><button type="button" data-act="freq" data-m="' + i + '" data-d="-1"' + dis + '>◀</button><b>' + (d.freqs[d.sel] / 1000).toFixed(3) + ' MHz</b><button type="button" data-act="freq" data-m="' + i + '" data-d="1"' + dis + '>▶</button></div><button type="button" class="btn small" data-act="tx" data-m="' + i + '"' + dis + '>Senden (TX)</button>' + (over && d.answer ? '<small class="muted">Das Wort war: ' + d.answer + '</small>' : '') + '</div>';
     if (m.type === 'drehschalter') body = '<div class="modeplate">MODUS ' + d.mode + '</div><div class="dials">' + d.set.map((v, k) => '<div class="dial"><button type="button" data-act="dial" data-m="' + i + '" data-k="' + k + '" data-d="1"' + dis + '>▲</button><span>' + v + '</span><button type="button" data-act="dial" data-m="' + i + '" data-k="' + k + '" data-d="-1"' + dis + '>▼</button><small class="muted">' + (k + 1) + '</small></div>').join('') + '</div><button type="button" class="btn small" style="align-self:center" data-act="dialCheck" data-m="' + i + '"' + dis + '>Prüfen</button>' + (over && d.answer ? '<small class="muted" style="text-align:center">Richtig war: ' + d.answer.join(' ') + '</small>' : '');
     if (m.type === 'tastenfeld') body = '<div class="memo"><div class="scr">' + (solved ? '✓' : d.display) + '</div><div class="keys">' + d.labels.map((v, k) => '<button type="button" data-act="mem" data-m="' + i + '" data-k="' + k + '"' + dis + '>' + v + '</button>').join('') + '</div><div class="lvls">' + [1, 2, 3, 4].map(n => '<i class="' + (n < d.stage || solved ? 'on' : '') + '"></i>').join('') + '</div><small class="muted">Stufe ' + Math.min(d.stage, 4) + ' von 4</small></div>';
     if (m.type === 'kabelsalat') body = '<div class="salat">' + d.wires.map((w, k) => '<button type="button" class="sw' + (w.cut ? ' cut' : '') + '" data-act="scut" data-m="' + i + '" data-k="' + k + '" style="--wc:' + SALW[w.color] + '"' + (dis || w.cut ? ' disabled' : '') + ' aria-label="' + (k + 1) + '. Kabel, ' + R.SALAT_COLORS[w.color] + (w.star ? ', Stern' : '') + (w.led ? ', Lämpchen an' : '') + '"><span class="ledx' + (w.led ? ' on' : '') + '"></span><span class="vl"></span><span class="st">' + (w.star ? '★' : '') + '</span>' + (over && w.should ? '<small style="color:#4cff8a">✂</small>' : '') + '</button>').join('') + '</div><small class="muted" style="text-align:center">Oben Lämpchen, unten Stern – klick ein Kabel zum Schneiden.</small>';
@@ -354,9 +365,12 @@ function manualHTML(r, g) {
     body = '<section><h3>Kabel</h3><p>Auf dem Modul sind 3 bis 6 Kabel. Sie werden <b>von oben nach unten</b> gezählt. Es muss genau <b>ein</b> Kabel durchgeschnitten werden. Mögliche Farben: Rot, Blau, Gelb, Weiß, Schwarz.</p>' +
       [3, 4, 5, 6].map(n => '<div><b>' + n + ' Kabel:</b><ol>' + WI[n].map(x => '<li>' + x.t + '</li>').join('') + '</ol></div>').join('') + '<p class="muted">Prüft die Regeln immer von oben nach unten. Die erste, die passt, gilt.</p></section>';
   } else if (L.tab === 'knopf') {
-    body = '<section><h3>Der Knopf</h3><p>Ein großer farbiger Knopf mit Aufschrift. Geht die Regeln von oben nach unten durch, die erste passende gilt:</p><ol>' + BU.map(x => '<li>' + x.t + '</li>').join('') + '</ol>' +
-      '<p><b>Kurz drücken:</b> drücken und sofort wieder loslassen.</p><p><b>Gedrückt halten:</b> Neben dem Knopf leuchtet dann ein Streifen auf. Lass erst los, wenn auf dem Timer an <b>irgendeiner Stelle</b> diese Ziffer steht:</p>' +
-      '<table><tr><th>Streifen</th><th>Loslassen bei Ziffer</th></tr>' + Object.entries(RU.strip).map(([c, d]) => '<tr><td><span class="cdot" style="background:' + SC[c] + '"></span>' + R.COLORS[c] + '</td><td><b>' + d + '</b></td></tr>').join('') + '</table></section>';
+    body = '<section><h3>Der Knopf</h3><p>Ein großer runder Knopf in einer Farbe (Rot, Blau, Gelb, Weiß, Grün oder Schwarz) mit einer Aufschrift. Fragt nach <b>Farbe</b>, <b>Aufschrift</b>, <b>Batterien</b> und <b>leuchtenden Anzeigen</b>.</p>' +
+      '<p><b>Schritt 1 – Was ist zu tun?</b> Geht die Regeln <b>von oben nach unten</b> durch. Die <b>erste</b>, die passt, gilt – alle weiteren werden ignoriert.</p><ol>' + BU.map(x => '<li>' + x.t + '</li>').join('') + '</ol>' +
+      '<p><b>Kurz drücken:</b> drücken und sofort wieder loslassen.<br><b>Zweimal kurz drücken:</b> zweimal schnell hintereinander tippen (innerhalb von gut einer Sekunde).<br><b>Gedrückt halten:</b> Knopf drücken und festhalten – weiter mit Schritt 2.</p>' +
+      '<p><b>Schritt 2 – nur beim Halten:</b> Nach einem Moment leuchtet rechts neben dem Knopf ein <b>farbiger Streifen</b> auf. Der Entschärfer sagt euch die Farbe. Lasst ihn erst los, ' + (R.RELEASE[RU.release || 'any']) + '.</p>' +
+      '<table><tr><th>Streifen</th><th>Loslassen bei Ziffer</th></tr>' + Object.entries(RU.strip).map(([c, d]) => '<tr><td><span class="cdot" style="background:' + (SC[c] || '#888') + '"></span>' + (SN[c] || c) + '</td><td><b>' + d + '</b></td></tr>').join('') + '</table>' +
+      '<p class="muted">Zu früh, zu spät oder falsch gedrückt gibt ein X. Danach könnt ihr es gleich nochmal versuchen.</p></section>';
   } else if (L.tab === 'symbole') {
     body = '<section><h3>Symbole</h3><p>Auf dem Modul sind 4 Symbole. Genau <b>eine</b> der Spalten unten enthält alle vier. Drückt die Symbole in der Reihenfolge, in der sie in dieser Spalte <b>von oben nach unten</b> stehen.</p><div class="symcols">' +
       RU.symCols.map((col, i) => '<div><b>' + (i + 1) + '</b>' + col.map(s => sym(s)).join('') + '</div>').join('') + '</div><p class="muted">Tipp: Gebt den Symbolen gemeinsam Namen, z. B. „Auge“, „Blitz“, „Mond“.</p></section>';
@@ -382,7 +396,7 @@ function manualHTML(r, g) {
       '<ol><li>Findet das Labyrinth, dessen grüne Kreise an <b>denselben Stellen</b> sind. Zählt Zeile und Spalte (z. B. „Zeile 2, Spalte 5“).</li><li>Lotst den Entschärfer mit den Pfeilen zum Dreieck. <b>Läuft er gegen eine Wand, gibt es ein X.</b></li></ol><div class="mazes">' + (RU.mazes || []).map(svg).join('') + '</div></section>';
   } else if (L.tab === 'morse') {
     body = '<section><h3>Morse-Licht</h3><p>Ein Lämpchen blinkt immer wieder ein Wort: kurz = <b>Punkt</b>, lang = <b>Strich</b>. Nach jedem Buchstaben eine kleine Pause, nach dem Wort eine lange Pause.</p>' +
-      '<p>Übersetzt das Wort, sucht es in der Liste und sagt dem Entschärfer die <b>Frequenz</b>. Er stellt sie mit den Pfeilen ein und drückt „Senden“. Falsche Frequenz = X.</p>' +
+      '<p>Bevor das Wort von vorn beginnt, leuchtet das grüne <b>START</b>-Licht. Unter der Lampe zeigen kleine Striche, <b>welcher Buchstabe</b> gerade blinkt – so seht ihr genau, wo ein Buchstabe aufhört.</p><p>Übersetzt das Wort, sucht es in der Liste und sagt dem Entschärfer die <b>Frequenz</b>. Er stellt sie mit den Pfeilen ein und drückt „Senden“. Falsche Frequenz = X.</p>' +
       '<table><tr><th>Wort</th><th>Frequenz</th></tr>' + (RU.morse || []).map(x => '<tr><td><b>' + x.word + '</b></td><td>' + (x.freq / 1000).toFixed(3) + ' MHz</td></tr>').join('') + '</table>' +
       '<p><b>Morse-Alphabet</b></p><div class="morsetab">' + Object.entries(R.MORSE).map(([k, v]) => '<span>' + k + ' ' + v.replace(/\./g, '•').replace(/-/g, '–') + '</span>').join('') + '</div><p class="muted">Tipp: Der Entschärfer sagt „kurz, lang …“, ihr schreibt mit.</p></section>';
   } else if (L.tab === 'drehschalter') {
@@ -398,7 +412,7 @@ function manualHTML(r, g) {
       '<table class="salattab"><tr><th>Farbe</th>' + cols.map(c => '<th>' + c[2] + '</th>').join('') + '</tr>' + Object.entries(R.SALAT_COLORS).map(([c, n]) => '<tr><td style="text-align:left">' + n + '</td>' + cols.map(([star, led]) => '<td>' + ((RU.salat || {})[R.salatKey({ color: c, star, led })] || '') + '</td>').join('') + '</tr>').join('') + '</table>' +
       '<ul>' + Object.entries(R.SALAT_LETTERS).map(([k, x]) => '<li><b>' + k + ':</b> ' + x.t + '</li>').join('') + '</ul></section>';
   } else if (L.tab === 'ventil') {
-    body = '<section><h3>Druckventil</h3><p>Dieses Modul kann man <b>nicht lösen</b> – es läuft die ganze Zeit mit. Ab und zu pfeift es und zeigt ein <b>Codewort</b>. Dann bleiben 40 Sekunden: Der Entschärfer drückt das richtige Ventil (A, B oder C). Zu spät oder falsches Ventil = X.</p>' +
+    body = '<section><h3>Druckventil</h3><p>Dieses Modul kann man <b>nicht lösen</b> – es läuft die ganze Zeit mit. Ab und zu pfeift es und zeigt ein <b>Codewort</b>. Dann bleiben nur <b>10 Sekunden</b>: Der Entschärfer drückt das richtige Ventil (A, B oder C). Zu spät oder falsches Ventil = X.</p>' +
       '<table><tr><th>Codewort</th><th>Ventil</th></tr>' + (RU.vent || []).map(x => '<tr><td><b>' + x.code + '</b></td><td><b>' + x.valve + '</b></td></tr>').join('') + '</table><p class="muted">Tipp: Wer das Kapitel hat, sollte immer kurz bereit sein – auch mitten in einem anderen Rätsel.</p></section>';
   }
   return '<div class="manual"><h2>Handbuch</h2>' + tabs + body + '</div>';
@@ -436,12 +450,42 @@ function bbStats(r, api) {
   const b = (r.records || {}).bb;
   const best = b ? Object.entries(b.best || {}).sort((x, y) => (x[0] === 'frei') - (y[0] === 'frei') || parseInt(x[0].slice(1)) - parseInt(y[0].slice(1))).map(([k, v]) => '<span class="pill">' + (k === 'frei' ? 'Freies Spiel' : 'Level ' + k.slice(1)) + ': ' + fmt(v) + '</span>').join('') : '';
   const defs = b ? Object.entries(b.defusers || {}).filter(([pid]) => r.players.some(p => p.id === pid)).map(([pid, d]) => '<span class="pill">' + esc(api.pname(pid)) + ': ' + d.won + ' entschärft, ' + d.lost + ' Boom</span>').join('') : '';
-  return '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Entschärft!' : 'BOOM!') + '</span><span class="muted">' + (g.level ? 'Level ' + g.level + ' · ' : '') + 'Entschärfer: ' + esc(api.pname(g.defuser)) + '</span></div>' +
+  return finalEval(r, g) + '<div class="statshead"><span class="big-title" style="color:' + (won ? 'var(--ok)' : 'var(--danger)') + '">' + (won ? 'Entschärft!' : 'BOOM!') + '</span><span class="muted">' + (g.level ? 'Level ' + g.level + ' · ' : '') + 'Entschärfer: ' + esc(api.pname(g.defuser)) + '</span></div>' +
     '<div class="kpis">' + kpi(fmt(used), 'Zeit gebraucht') + kpi(won ? fmt(left) : '0:00', 'Restzeit') + kpi(solved + '/' + ms.length, 'Module gelöst') + kpi(g.strikes + '/' + g.maxStrikes, 'Fehler') + (g.modules.some(m => m.needy) ? kpi(g.vented || 0, 'mal Ventil abgelassen') : '') + '</div>' +
     (aw.length ? '<div class="label">Auszeichnungen</div><div class="awards">' + aw.join('') + '</div>' : '') +
     '<div class="label">Module der Reihe nach</div><div class="tablewrap"><table class="stattable"><thead><tr><th>Modul</th><th>gelöst bei</th><th>Dauer</th><th>Fehler</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     (b ? '<div class="label">An diesem Tisch</div><div class="records"><span class="pill">' + b.played + (b.played === 1 ? ' Bombe' : ' Bomben') + '</span><span class="pill">' + b.won + ' entschärft</span><span class="pill">' + b.boom + ' explodiert</span>' + (b.fastest ? '<span class="pill">schnellstes Modul: ' + R.MODULES[b.fastest.type] + ' nach ' + fmt(b.fastest.ms) + '</span>' : '') + '</div>' +
       (best ? '<div class="label">Bestzeiten</div><div class="records">' + best + '</div>' : '') + (defs ? '<div class="label">Entschärfer-Bilanz</div><div class="records">' + defs + '</div>' : '') : '');
+}
+// Endauswertung: alle 10 Level geschafft
+function campaign(r) {
+  const runs = ((r.records || {}).bb || {}).runs || [];
+  let i = runs.length - 1; while (i > 0 && !(runs[i].level === 1 && (runs[i - 1].level !== 1))) i--;
+  return runs.slice(Math.max(0, i));
+}
+function finalEval(r, g) {
+  if (!(g.level === g.levels && g.phase === 'won')) return '';
+  const runs = campaign(r), lv = Array.from({ length: g.levels }, (_, k) => k + 1);
+  const winOf = n => runs.filter(x => x.level === n && x.won).slice(-1)[0];
+  const tries = n => runs.filter(x => x.level === n).length;
+  const total = lv.reduce((a, n) => a + ((winOf(n) || {}).ms || 0), 0), booms = runs.filter(x => !x.won).length, strikes = runs.reduce((a, x) => a + (x.strikes || 0), 0);
+  const per = {}; for (const x of runs) { const p = per[x.name] = per[x.name] || { won: 0, boom: 0, ms: 0 }; if (x.won) { p.won++; p.ms += x.ms; } else p.boom++; }
+  const kpi = (v, t) => '<div class="kpi"><b>' + v + '</b><span>' + t + '</span></div>';
+  const best = Object.entries(per).sort((a, b) => b[1].won - a[1].won || a[1].ms - b[1].ms)[0];
+  const fastest = lv.map(n => ({ n, w: winOf(n) })).filter(x => x.w).sort((a, b) => a.w.ms / a.w.mods - b.w.ms / b.w.mods)[0];
+  const hardest = lv.map(n => ({ n, t: tries(n) })).sort((a, b) => b.t - a.t)[0];
+  const aw = [];
+  if (best) aw.push(api.award(AI.trophy, 'Meister-Entschärfer', esc(best[0]) + ' hat ' + best[1].won + ' Level entschärft.'));
+  if (fastest) aw.push(api.award(AI.bolt, 'Blitzsauber', 'Level ' + fastest.n + ' ging am schnellsten: ' + fmt(fastest.w.ms) + ' für ' + fastest.w.mods + ' Module (' + esc(fastest.w.name) + ').'));
+  if (hardest && hardest.t > 1) aw.push(api.award(AI.warn, 'Harte Nuss', 'Level ' + hardest.n + ' hat euch ' + hardest.t + ' Versuche gekostet.'));
+  if (!booms) aw.push(api.award(AI.calm, 'Ohne einen Knall', 'Ihr seid durch alle Level gekommen, ohne dass eine Bombe explodiert ist!'));
+  return '<div class="panel finaleval"><h2>Endauswertung</h2><p class="muted" style="margin:0">Alle ' + g.levels + ' Level geschafft – ihr seid ein eingespieltes Bombenkommando!</p>' +
+    '<div class="kpis">' + kpi(fmt(total), 'Gesamtzeit (nur die geschafften Bomben)') + kpi(runs.length, 'Bomben insgesamt') + kpi(booms, 'mal BOOM') + kpi(strikes, 'Fehler (X) insgesamt') + '</div>' +
+    (aw.length ? '<div class="awards">' + aw.join('') + '</div>' : '') +
+    '<div class="tablewrap"><table class="stattable"><thead><tr><th>Level</th><th>Versuche</th><th>Zeit</th><th>Fehler</th><th>Entschärfer</th></tr></thead><tbody>' +
+    lv.map(n => { const w = winOf(n); return '<tr><td>' + n + '</td><td>' + tries(n) + '</td><td>' + (w ? fmt(w.ms) : '–') + '</td><td>' + (w ? w.strikes : '–') + '</td><td>' + (w ? esc(w.name) : '–') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+    '<div class="tablewrap"><table class="stattable"><thead><tr><th>Spieler</th><th>als Entschärfer geschafft</th><th>BOOM</th></tr></thead><tbody>' +
+    Object.entries(per).sort((a, b) => b[1].won - a[1].won).map(([nm, p]) => '<tr><td>' + esc(nm) + '</td><td>' + p.won + '</td><td>' + p.boom + '</td></tr>').join('') + '</tbody></table></div></div>';
 }
 function endButtons(r, g, won) {
   if (!g.level || r.settings.mode === 'frei') return api.overButtons(r);
@@ -451,14 +495,14 @@ function endButtons(r, g, won) {
 }
 function renderGame(r, el) {
   const g = r.g; if (!g) { el.innerHTML = ''; return; }
-  L.off = g.now - Date.now();
+  if (L.offNow !== g.now) { L.offNow = g.now; L.off = g.now - Date.now(); }
   if (L.bombKey !== g.started) { L.bombKey = g.started; L.pw = {}; L.simonPause = {}; L.simonStart = {}; L.simonKey = {}; L.tab = null; }
   const over = r.status === 'over';
   let main = '';
   if (over) {
     const won = g.phase === 'won', left = g.deadline - g.ended;
     main = '<div class="panel result ' + (won ? 'won' : 'lost') + '"><h2>' + (won ? 'Entschärft!' : 'BOOM!') + '</h2><p class="muted" style="font-size:17px">' +
-      (won ? (g.level ? '<b>Level ' + g.level + '</b> geschafft – ' : 'Geschafft ') + 'mit ' + fmt(left) + ' auf der Uhr und ' + g.strikes + ' Fehler' + (g.strikes === 1 ? '' : 'n') + '.' + (g.level === g.levels ? '<br><b>Ihr habt alle ' + g.levels + ' Level geschafft – ihr seid Profis!</b>' : '') : (g.why === 'time' ? 'Die Zeit ist abgelaufen.' : g.maxStrikes + ' Fehler – das war einer zu viel.') + (g.level ? ' Level ' + g.level + ' nochmal?' : '')) + '</p>' + endButtons(r, g, won) + '</div>' + bombHTML(g, true);
+      (won ? (g.level ? '<b>Level ' + g.level + '</b> geschafft – ' : 'Geschafft ') + 'mit ' + fmt(left) + ' auf der Uhr und ' + g.strikes + ' Fehler' + (g.strikes === 1 ? '' : 'n') + '.' + (g.level === g.levels ? '<br><b>Ihr habt alle ' + g.levels + ' Level geschafft – ihr seid Profis!</b>' : '') : (g.why === 'time' ? 'Die Zeit ist abgelaufen.' : g.maxStrikes + ' Fehler – das war einer zu viel.') + (g.level ? ' Level ' + g.level + ' nochmal?' : '')) + '</p>' + endButtons(r, g, won) + '</div>' + finalEval(r, g) + bombHTML(g, true);
   } else if (g.role === 'defuser') main = bombHTML(g, false);
   else main = manualHTML(r, g);
   el.innerHTML = '<div style="display:flex;flex-direction:column;gap:16px">' + head(r, g) + main + '</div>';
@@ -471,9 +515,14 @@ setInterval(() => {
   document.querySelectorAll('[data-timer]').forEach(t => { t.textContent = fmt(left); t.classList.toggle('low', left < 30000); });
   const sec = Math.ceil(left / 1000);
   if (sec !== L.tick) { L.tick = sec; if (left < 30000 && left > 0) api.Snd.play('tick', 1); else if (sec % 1 === 0 && left > 0) api.Snd.play('tick', .25); }
+  document.querySelectorAll('[data-strip]').forEach(el => { const i = +el.dataset.strip, d = g.detail && g.detail[i]; const on = !!(d && d.strip && L.pressing === i && Date.now() - (L.pressT || 0) >= STRIP_MS); el.classList.toggle('on', on); if (d && d.strip) el.style.setProperty('--sc', SC[d.strip] || '#000'); });
   if (g.role === 'defuser' && g.detail) {
     g.modules.forEach((m, i) => {
-      if (m.type === 'morse' && !m.solved) { const lamp = document.querySelector('[data-morse="' + i + '"]'); if (lamp) lamp.classList.toggle('on', morseOn(g.detail[i].code, Date.now())); }
+      if (m.type === 'morse' && !m.solved) {
+        const st = morseState(g.detail[i].code, Date.now()), lamp = document.querySelector('[data-morse="' + i + '"]'), sl = document.querySelector('[data-mstart="' + i + '"]'), lt = document.querySelector('[data-mlet="' + i + '"]');
+        if (lamp) lamp.classList.toggle('on', st.on); if (sl) sl.classList.toggle('on', st.start);
+        if (lt) lt.querySelectorAll('i').forEach((x, k) => x.classList.toggle('on', k === st.li));
+      }
       if (m.type === 'ventil') { const v = document.querySelector('[data-vent="' + i + '"]'), d = g.detail[i]; if (v && d.active) v.textContent = 'Ablassen in ' + Math.max(0, Math.ceil((d.due - now()) / 1000)) + ' s'; }
     });
     g.modules.forEach((m, i) => {
@@ -490,16 +539,18 @@ setInterval(() => {
   }
 }, 80);
 
-// Morse: Punkt = 1 Einheit an, Strich = 3, Pause im Buchstaben 1, zwischen Buchstaben 3, am Ende 8
+// Morse: grünes START-Licht, dann Punkt = 1 Einheit an, Strich = 3, Pause im Buchstaben 1,
+// deutliche Pause zwischen Buchstaben (5), am Ende lange Pause (8). Die Striche darunter zeigen, welcher Buchstabe gerade dran ist.
 const MU = 260;
 function morseTimeline(code) {
-  const seg = []; code.split(' ').forEach((ltr, li, arr) => { [...ltr].forEach((c, k) => { seg.push([1, c === '.' ? 1 : 3]); if (k < ltr.length - 1) seg.push([0, 1]); }); seg.push([0, li < arr.length - 1 ? 3 : 8]); });
+  const seg = [[2, 3, -1], [0, 3, -1]];   // [Art, Einheiten, Buchstabe]: 2 = START-Licht
+  code.split(' ').forEach((ltr, li, arr) => { [...ltr].forEach((c, k) => { seg.push([1, c === '.' ? 1 : 3, li]); if (k < ltr.length - 1) seg.push([0, 1, li]); }); seg.push([0, li < arr.length - 1 ? 5 : 8, -1]); });
   return seg;
 }
 const MT = {};
-function morseOn(code, t) {
+function morseState(code, t) {
   const seg = MT[code] || (MT[code] = morseTimeline(code)), total = seg.reduce((a, x) => a + x[1], 0);
-  let u = Math.floor(t / MU) % total; for (const [on, n] of seg) { if (u < n) return !!on; u -= n; } return false;
+  let u = Math.floor(t / MU) % total; for (const [k, n, li] of seg) { if (u < n) return { on: k === 1, start: k === 2, li }; u -= n; } return { on: false, start: false, li: -1 };
 }
 function onState(prev, r) {
   const g = r.g;

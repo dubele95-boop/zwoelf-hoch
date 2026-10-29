@@ -97,36 +97,69 @@
   function wireAnswer(w, b, set) { for (const r of WIRE_SETS[set || 0][w.length]) { const x = r.f(w, b); if (x != null) return x; } return 0; }
 
   /* ---------- Knopf ---------- */
+  // Ergebnis: tap = kurz drücken, double = zweimal kurz drücken, hold = gedrückt halten
+  const T = { tap: '<b>kurz drücken</b>', double: '<b>zweimal kurz drücken</b>', hold: 'gedrückt <b>halten</b>' };
+  const KN = { rot: 'roter', blau: 'blauer', gelb: 'gelber', weiss: 'weißer', gruen: 'grüner', schwarz: 'schwarzer' };
+  const rule = (text, test, res) => ({ t: text + ': ' + T[res] + '.', f: (k, b) => test(k, b) ? res : null });
+  const anyInd = b => b.indicators.length > 0, anyLitB = b => b.indicators.some(i => i.lit);
   const BUTTON = [
-    { t: 'Ein <b>blauer</b> Knopf mit der Aufschrift <b>STOPP</b>: gedrückt <b>halten</b>.', f: (k) => k.color === 'blau' && k.label === 'STOPP' ? 'hold' : null },
-    { t: 'Die Bombe hat mindestens 2 Batterien und der Knopf heißt <b>ZÜNDEN</b>: <b>kurz drücken</b>.', f: (k, b) => b.batteries >= 2 && k.label === 'ZÜNDEN' ? 'tap' : null },
-    { t: 'Ein <b>weißer</b> Knopf und eine <b>leuchtende</b> Anzeige <b>TAU</b>: gedrückt <b>halten</b>.', f: (k, b) => k.color === 'weiss' && lit(b, 'TAU') ? 'hold' : null },
-    { t: 'Die Bombe hat mindestens 3 Batterien und eine <b>leuchtende</b> Anzeige <b>ROT</b>: <b>kurz drücken</b>.', f: (k, b) => b.batteries >= 3 && lit(b, 'ROT') ? 'tap' : null },
-    { t: 'Ein <b>gelber</b> Knopf: gedrückt <b>halten</b>.', f: (k) => k.color === 'gelb' ? 'hold' : null },
-    { t: 'Ein <b>roter</b> Knopf mit der Aufschrift <b>HALTEN</b>: <b>kurz drücken</b>.', f: (k) => k.color === 'rot' && k.label === 'HALTEN' ? 'tap' : null },
-    { t: 'In allen anderen Fällen: gedrückt <b>halten</b>.', f: () => 'hold' }
+    rule('Ein <b>blauer</b> Knopf mit der Aufschrift <b>STOPP</b>', k => k.color === 'blau' && k.label === 'STOPP', 'hold'),
+    rule('Der Knopf heißt <b>ZÜNDEN</b> und die Bombe hat mindestens 2 Batterien', (k, b) => k.label === 'ZÜNDEN' && b.batteries >= 2, 'tap'),
+    rule('Ein <b>weißer</b> Knopf und die Anzeige <b>TAU leuchtet</b>', (k, b) => k.color === 'weiss' && lit(b, 'TAU'), 'hold'),
+    rule('Ein <b>grüner</b> Knopf mit der Aufschrift <b>ACHTUNG</b>', k => k.color === 'gruen' && k.label === 'ACHTUNG', 'double'),
+    rule('Die Bombe hat mindestens 3 Batterien und die Anzeige <b>ROT leuchtet</b>', (k, b) => b.batteries >= 3 && lit(b, 'ROT'), 'tap'),
+    rule('Ein <b>gelber</b> Knopf', k => k.color === 'gelb', 'hold'),
+    rule('Ein <b>roter</b> Knopf mit der Aufschrift <b>HALTEN</b>', k => k.color === 'rot' && k.label === 'HALTEN', 'tap'),
+    rule('Ein <b>schwarzer</b> Knopf', k => k.color === 'schwarz', 'double'),
+    { t: 'Alles andere: gedrückt <b>halten</b>.', f: () => 'hold' }
   ];
   const BUTTON_B = [
-    { t: 'Ein <b>roter</b> Knopf mit der Aufschrift <b>ABBRUCH</b>: gedrückt <b>halten</b>.', f: (k) => k.color === 'rot' && k.label === 'ABBRUCH' ? 'hold' : null },
-    { t: 'Der Knopf heißt <b>LOS</b> und die Bombe hat <b>keine</b> Batterie: <b>kurz drücken</b>.', f: (k, b) => k.label === 'LOS' && b.batteries === 0 ? 'tap' : null },
-    { t: 'Ein <b>blauer</b> Knopf und eine <b>leuchtende</b> Anzeige <b>SOS</b>: <b>kurz drücken</b>.', f: (k, b) => k.color === 'blau' && lit(b, 'SOS') ? 'tap' : null },
-    { t: 'Ein <b>weißer</b> Knopf mit der Aufschrift <b>STOPP</b>: gedrückt <b>halten</b>.', f: (k) => k.color === 'weiss' && k.label === 'STOPP' ? 'hold' : null },
-    { t: 'Die Bombe hat mindestens 3 Batterien: <b>kurz drücken</b>.', f: (k, b) => b.batteries >= 3 ? 'tap' : null },
-    { t: 'Der Knopf heißt <b>DRÜCKEN</b>: gedrückt <b>halten</b>.', f: (k) => k.label === 'DRÜCKEN' ? 'hold' : null },
-    { t: 'In allen anderen Fällen: <b>kurz drücken</b>.', f: () => 'tap' }
+    rule('Ein <b>roter</b> Knopf mit der Aufschrift <b>ABBRUCH</b>', k => k.color === 'rot' && k.label === 'ABBRUCH', 'hold'),
+    rule('Der Knopf heißt <b>LOS</b> und die Bombe hat <b>keine</b> Batterie', (k, b) => k.label === 'LOS' && b.batteries === 0, 'tap'),
+    rule('Ein <b>blauer</b> Knopf und die Anzeige <b>SOS leuchtet</b>', (k, b) => k.color === 'blau' && lit(b, 'SOS'), 'tap'),
+    rule('Der Knopf heißt <b>START</b> und die Seriennummer enthält einen Vokal (A, E, U)', (k, b) => k.label === 'START' && hasVowel(b), 'double'),
+    rule('Ein <b>weißer</b> Knopf mit der Aufschrift <b>STOPP</b>', k => k.color === 'weiss' && k.label === 'STOPP', 'hold'),
+    rule('Die Bombe hat mindestens 3 Batterien', (k, b) => b.batteries >= 3, 'tap'),
+    rule('Der Knopf heißt <b>DRÜCKEN</b>', k => k.label === 'DRÜCKEN', 'hold'),
+    rule('Ein <b>grüner</b> Knopf', k => k.color === 'gruen', 'double'),
+    { t: 'Alles andere: <b>kurz drücken</b>.', f: () => 'tap' }
   ];
   const BUTTON_C = [
-    { t: 'Ein <b>gelber</b> Knopf mit der Aufschrift <b>DRÜCKEN</b>: <b>kurz drücken</b>.', f: (k) => k.color === 'gelb' && k.label === 'DRÜCKEN' ? 'tap' : null },
-    { t: 'Ein <b>blauer</b> Knopf und die Seriennummer endet mit einer <b>geraden</b> Ziffer: gedrückt <b>halten</b>.', f: (k, b) => k.color === 'blau' && !lastDigitOdd(b) ? 'hold' : null },
-    { t: 'Der Knopf heißt <b>HALTEN</b>: gedrückt <b>halten</b>.', f: (k) => k.label === 'HALTEN' ? 'hold' : null },
-    { t: 'Eine <b>leuchtende</b> Anzeige <b>NOT</b>: <b>kurz drücken</b>.', f: (k, b) => lit(b, 'NOT') ? 'tap' : null },
-    { t: 'Ein <b>roter</b> Knopf: gedrückt <b>halten</b>.', f: (k) => k.color === 'rot' ? 'hold' : null },
-    { t: 'Die Bombe hat mindestens 2 Batterien: <b>kurz drücken</b>.', f: (k, b) => b.batteries >= 2 ? 'tap' : null },
-    { t: 'In allen anderen Fällen: gedrückt <b>halten</b>.', f: () => 'hold' }
+    rule('Ein <b>gelber</b> Knopf mit der Aufschrift <b>DRÜCKEN</b>', k => k.color === 'gelb' && k.label === 'DRÜCKEN', 'tap'),
+    rule('Ein <b>blauer</b> Knopf und die Seriennummer endet mit einer <b>geraden</b> Ziffer', (k, b) => k.color === 'blau' && !lastDigitOdd(b), 'hold'),
+    rule('Der Knopf heißt <b>HALTEN</b>', k => k.label === 'HALTEN', 'hold'),
+    rule('Ein <b>schwarzer</b> Knopf und die Bombe hat mindestens 2 Batterien', (k, b) => k.color === 'schwarz' && b.batteries >= 2, 'double'),
+    rule('Die Anzeige <b>NOT leuchtet</b>', (k, b) => lit(b, 'NOT'), 'tap'),
+    rule('Ein <b>roter</b> Knopf', k => k.color === 'rot', 'hold'),
+    rule('Die Bombe hat mindestens 2 Batterien', (k, b) => b.batteries >= 2, 'tap'),
+    { t: 'Alles andere: gedrückt <b>halten</b>.', f: () => 'hold' }
   ];
-  const BUTTON_SETS = [BUTTON, BUTTON_B, BUTTON_C];
-  const BUTTON_LABELS = ['DRÜCKEN', 'HALTEN', 'STOPP', 'ZÜNDEN', 'ABBRUCH', 'LOS'];
-  const STRIP = { blau: 4, gelb: 5, rot: 3, weiss: 1 };
+  const BUTTON_D = [
+    rule('Ein <b>grüner</b> Knopf mit der Aufschrift <b>START</b>', k => k.color === 'gruen' && k.label === 'START', 'hold'),
+    rule('Der Knopf heißt <b>ACHTUNG</b> und mindestens eine Anzeige leuchtet', (k, b) => k.label === 'ACHTUNG' && anyLitB(b), 'double'),
+    rule('Ein <b>weißer</b> Knopf', k => k.color === 'weiss', 'tap'),
+    rule('Die Bombe hat genau 1 Batterie', (k, b) => b.batteries === 1, 'hold'),
+    rule('Ein <b>roter</b> Knopf mit der Aufschrift <b>ZÜNDEN</b>', k => k.color === 'rot' && k.label === 'ZÜNDEN', 'double'),
+    rule('Die Anzeige <b>KFZ leuchtet</b>', (k, b) => lit(b, 'KFZ'), 'tap'),
+    rule('Ein <b>blauer</b> Knopf', k => k.color === 'blau', 'hold'),
+    { t: 'Alles andere: <b>zweimal kurz drücken</b>.', f: () => 'double' }
+  ];
+  const BUTTON_E = [
+    rule('Ein <b>schwarzer</b> Knopf mit der Aufschrift <b>HALTEN</b>', k => k.color === 'schwarz' && k.label === 'HALTEN', 'tap'),
+    rule('Die Bombe hat mindestens 4 Batterien', (k, b) => b.batteries >= 4, 'hold'),
+    rule('Ein <b>gelber</b> Knopf und die Anzeige <b>BOX leuchtet</b>', (k, b) => k.color === 'gelb' && lit(b, 'BOX'), 'double'),
+    rule('Der Knopf heißt <b>ABBRUCH</b>', k => k.label === 'ABBRUCH', 'tap'),
+    rule('Ein <b>roter</b> Knopf und die Seriennummer endet mit einer <b>ungeraden</b> Ziffer', (k, b) => k.color === 'rot' && lastDigitOdd(b), 'hold'),
+    rule('Auf der Bombe gibt es <b>keine</b> Anzeigen', (k, b) => !anyInd(b), 'double'),
+    rule('Ein <b>weißer</b> Knopf mit der Aufschrift <b>DRÜCKEN</b>', k => k.color === 'weiss' && k.label === 'DRÜCKEN', 'hold'),
+    { t: 'Alles andere: <b>kurz drücken</b>.', f: () => 'tap' }
+  ];
+  const BUTTON_SETS = [BUTTON, BUTTON_B, BUTTON_C, BUTTON_D, BUTTON_E];
+  const BUTTON_COLORS = ['rot', 'blau', 'gelb', 'weiss', 'gruen', 'schwarz'];
+  const BUTTON_LABELS = ['DRÜCKEN', 'HALTEN', 'STOPP', 'ZÜNDEN', 'ABBRUCH', 'LOS', 'START', 'ACHTUNG'];
+  const STRIP = { blau: 4, gelb: 5, rot: 3, weiss: 1, gruen: 2, lila: 6 };
+  // Loslassen beim Halten: 'any' = Ziffer irgendwo im Timer, 'last' = nur die allerletzte Ziffer des Timers
+  const RELEASE = { any: 'sobald die Ziffer <b>an irgendeiner Stelle</b> im Timer steht (bei Ziffer 4 z. B. bei 4:12, 3:47 oder 2:04)', last: 'sobald die Ziffer <b>ganz rechts</b> im Timer steht – also die letzte Sekunden-Ziffer (bei Ziffer 4 z. B. bei 3:24 oder 2:54)' };
   function buttonAnswer(k, b, set) { for (const r of BUTTON_SETS[set || 0]) { const x = r.f(k, b); if (x) return x; } return 'hold'; }
 
   /* ---------- Symbole ---------- */
@@ -219,6 +252,6 @@
   /* ---------- Druckventil ---------- */
   const VENT_CODES = ['ALPHA', 'BRAVO', 'DELTA', 'ECHO', 'GOLF', 'KILO', 'LIMA', 'OSKAR', 'TANGO', 'ZULU', 'NORD', 'SIGMA'];
 
-  const R = { MAZE_N, WALL, DIRS, MORSE, morseOf, DIAL_PROPS, dialValue, dialText, memText, memAnswer, SALAT_COLORS, SALAT_LETTERS, salatKey, salatCut, VENT_CODES, COLORS, ORD, WIRES, WIRE_SETS, wireAnswer, BUTTON, BUTTON_SETS, BUTTON_LABELS, STRIP, buttonAnswer, SYM_COLS, SYM_COUNT, SIMON_COLORS, SIMON, simonMap, WORDS, WORD_POOL, LABELS, MODULES, hasVowel, lastDigitOdd };
+  const R = { MAZE_N, WALL, DIRS, MORSE, morseOf, DIAL_PROPS, dialValue, dialText, memText, memAnswer, SALAT_COLORS, SALAT_LETTERS, salatKey, salatCut, VENT_CODES, COLORS, ORD, WIRES, WIRE_SETS, wireAnswer, BUTTON, BUTTON_SETS, BUTTON_LABELS, BUTTON_COLORS, RELEASE, STRIP, buttonAnswer, SYM_COLS, SYM_COUNT, SIMON_COLORS, SIMON, simonMap, WORDS, WORD_POOL, LABELS, MODULES, hasVowel, lastDigitOdd };
   if (typeof module !== 'undefined' && module.exports) module.exports = R; else root.BombeRegeln = R;
 })(this);

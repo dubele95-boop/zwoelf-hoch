@@ -21,7 +21,7 @@ const LEVELS = [
   { mods: 7, secs: 450, wires: [5, 6], simon: 5, strikes: 2, types: SOLVABLE, needy: true },
   { mods: 8, secs: 480, wires: [5, 6], simon: 6, strikes: 2, types: SOLVABLE, needy: true }
 ];
-const VENT_MS = 40000;    // so lange hat man Zeit, wenn das Ventil pfeift
+const VENT_MS = 10000;    // so lange hat man Zeit, wenn das Ventil pfeift
 const HOLD_MS = 650;      // ab so langem Drücken gilt der Knopf als "gehalten"
 
 function defaults() { return { mode: 'level', level: 1, best: 0, diff: 'normal', minutes: 5, defuser: 'zufall', split: true }; }
@@ -44,7 +44,7 @@ function makeRules(ctx) {
   for (let c = 0; c < 6; c++) symCols.push(ctx.shuffle(pool.slice()).slice(0, 7));
   const perm = () => { const t = ctx.shuffle(R.SIMON_COLORS.slice()); return Object.fromEntries(R.SIMON_COLORS.map((c, i) => [c, t[i]])); };
   const simon = { vokal: [perm(), perm(), perm()], ohne: [perm(), perm(), perm()] };
-  const digits = ctx.shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 4);
+  const digits = ctx.shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, Object.keys(R.STRIP).length);
   const strip = Object.fromEntries(Object.keys(R.STRIP).map((c, i) => [c, digits[i]]));
   const words = ctx.shuffle(R.WORD_POOL.slice()).slice(0, 35).sort();
   // Labyrinthe: 6 Stück, jedes mit zwei eigenen Erkennungskreisen
@@ -68,7 +68,7 @@ function makeRules(ctx) {
   let li = 0; for (const c of Object.keys(R.SALAT_COLORS)) for (const star of [false, true]) for (const led of [false, true]) salat[R.salatKey({ color: c, star, led })] = lt[li++];
   // Druckventil: Codewort -> Ventil A/B/C
   const vent = ctx.shuffle(R.VENT_CODES.slice()).slice(0, 8).sort().map(code => ({ code, valve: pick(['A', 'B', 'C'], ctx) }));
-  return { ed: 100 + ctx.rand(900), wires: ctx.rand(R.WIRE_SETS.length), button: ctx.rand(R.BUTTON_SETS.length), strip, symCols, simon, words, mazes, morse, dials, memory, salat, vent };
+  return { ed: 100 + ctx.rand(900), wires: ctx.rand(R.WIRE_SETS.length), button: ctx.rand(R.BUTTON_SETS.length), release: pick(['any', 'last'], ctx), strip, symCols, simon, words, mazes, morse, dials, memory, salat, vent };
 }
 // Labyrinth (ohne Kreise): jede Zelle hat Bits für offene Seiten
 function makeMaze(ctx) {
@@ -89,7 +89,7 @@ function mazeDist(cells, a) {
   while (q.length) { const c = q.shift(); for (const [d, [dr, dc]] of Object.entries(R.DIRS)) if (cells[c] & R.WALL[d]) { const n = (Math.floor(c / N) + dr) * N + (c % N) + dc; if (dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } } }
   return dist;
 }
-const DEFAULT_RULES = { ed: 1, wires: 0, button: 0, strip: R.STRIP, symCols: R.SYM_COLS, simon: R.SIMON, words: R.WORDS };
+const DEFAULT_RULES = { ed: 1, wires: 0, button: 0, release: 'any', strip: R.STRIP, symCols: R.SYM_COLS, simon: R.SIMON, words: R.WORDS };
 const rulesOf = s => s.rules || DEFAULT_RULES;
 function makeBomb(ctx) {
   const L = 'ABCDEFGHJKLMNPQRSTUVWXZ', D = '0123456789';   // ohne I und O (Verwechslung mit 1 und 0)
@@ -106,7 +106,7 @@ function makeModule(type, bomb, cfg, ctx, rules) {
     return { type, wires, cut: [], answer: R.wireAnswer(wires, bomb, rules.wires) };
   }
   if (type === 'knopf') {
-    const k = { color: pick(['rot', 'blau', 'gelb', 'weiss'], ctx), label: pick(R.BUTTON_LABELS, ctx) };
+    const k = { color: pick(R.BUTTON_COLORS, ctx), label: pick(R.BUTTON_LABELS, ctx) };
     return { type, ...k, answer: R.buttonAnswer(k, bomb, rules.button), strip: null, pressAt: null };
   }
   if (type === 'symbole') {
@@ -193,7 +193,15 @@ function start(r, ctx) {
   const manual = {};
   for (const e of experts) manual[e] = [];
   if (st.split && experts.length > 1) {
-    for (let i = 0; i < Math.max(experts.length, chapters.length); i++) { const e = experts[i % experts.length], c = chapters[i % chapters.length]; if (!manual[e].includes(c)) manual[e].push(c); }
+    // gemischt verteilen: jeder bekommt möglichst Kapitel, die er bisher selten hatte
+    const hist = r.manualHist = r.manualHist || {};
+    const had = (e, c) => ((hist[e] || {})[c] || 0);
+    const pickExpert = (c, pool) => { const min = Math.min(...pool.map(e => manual[e].length)); let cand = pool.filter(e => manual[e].length === min);
+      const low = Math.min(...cand.map(e => had(e, c))); cand = cand.filter(e => had(e, c) === low); return cand[ctx.rand(cand.length)]; };
+    for (const c of chapters) { const e = pickExpert(c, experts); manual[e].push(c); }
+    // mehr Experten als Kapitel: wer noch nichts hat, bekommt ein Kapitel, das er selten hatte
+    for (const e of experts) if (!manual[e].length) { const low = Math.min(...chapters.map(c => had(e, c))); const opts = chapters.filter(c => had(e, c) === low); manual[e].push(opts[ctx.rand(opts.length)]); }
+    for (const e of experts) { hist[e] = hist[e] || {}; for (const c of manual[e]) hist[e][c] = (hist[e][c] || 0) + 1; }
   } else for (const e of experts) manual[e] = chapters.slice();
   const ms = cfg.secs * 1000;
   r.state = { bomb, modules, defuser, manual, rules, needyMs: VENT_MS, strikes: 0, maxStrikes: cfg.strikes || MAX_STRIKES, level: lv, levels: LEVELS.length,
@@ -259,9 +267,19 @@ function act(r, id, m, ctx) {
     const held = Date.now() - mod.pressAt, kind = held >= HOLD_MS ? 'hold' : 'tap';
     const digit = String(rulesOf(s).strip[mod.strip]);
     // kleine Toleranz für die Übertragung: zählt, wenn die Ziffer jetzt oder vor einem Moment zu sehen war
-    const left = s.deadline - Date.now();
-    const shows = [0, 350, 700].some(dt => timerText(left + dt).includes(digit));
+    const left = s.deadline - Date.now(), lastOnly = rulesOf(s).release === 'last';
+    const shows = [0, 350, 700].some(dt => { const t = timerText(left + dt); return lastOnly ? t[t.length - 1] === digit : t.includes(digit); });
     mod.pressAt = null;
+    if (mod.answer === 'double') {
+      // zweimal kurz: der zweite Druck muss innerhalb von 1,5 Sekunden kommen
+      if (kind === 'hold') { mod.tap1 = null; ctx.clearTimer(r, 'dbl' + mi); strike(r, mi, ctx, 'Gehalten statt zweimal kurz gedrückt'); mod.strip = null; }
+      else if (mod.tap1 && Date.now() - mod.tap1 <= 1500) { mod.tap1 = null; ctx.clearTimer(r, 'dbl' + mi); solved(r, mi, ctx); }
+      else {
+        mod.tap1 = Date.now(); mod.strip = null; event(s, { kind: 'ok', m: mi });
+        ctx.timer(r, 'dbl' + mi, 1600, () => { if (s.phase !== 'play' || mod.solved || !mod.tap1) return; mod.tap1 = null; strike(r, mi, ctx, 'Nur einmal gedrückt – es sollte zweimal sein'); ctx.broadcast(r); });
+      }
+      return;
+    }
     if (mod.answer === 'tap' && kind === 'tap') solved(r, mi, ctx);
     else if (mod.answer === 'hold' && kind === 'hold' && shows) solved(r, mi, ctx);
     else { strike(r, mi, ctx, mod.answer === 'tap' ? 'Zu lange gedrückt' : kind === 'tap' ? 'Nur kurz gedrückt' : 'Falscher Moment beim Loslassen'); mod.strip = null; }
@@ -377,6 +395,11 @@ function record(r, rec) {
     if (!b.best[key] || used < b.best[key]) b.best[key] = used;
   }
   for (const m of s.modules) if (!m.needy && m.solvedAt != null && (!b.fastest || m.solvedAt < b.fastest.ms)) b.fastest = { ms: m.solvedAt, type: m.type };
+  // Verlauf für die Endauswertung nach Level 10
+  if (s.level) {
+    const p = r.players.find(x => x.id === s.defuser);
+    b.runs = (b.runs || []).concat({ level: s.level, won: s.phase === 'won', ms: s.ended - s.started, strikes: s.strikes, defuser: s.defuser, name: p ? p.name : '?', mods: s.modules.filter(m => !m.needy).length, at: s.ended }).slice(-300);
+  }
 }
 const catalog = { LEVELS: LEVELS.map(l => ({ mods: l.mods, secs: l.secs, strikes: l.strikes, types: l.types, needy: !!l.needy })) };
 module.exports = { meta, catalog, record, defaults, setting, start, act, view, resume, removePlayer, timerText, HOLD_MS };
